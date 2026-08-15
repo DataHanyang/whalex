@@ -16,6 +16,8 @@ const INVOKE_CHANNELS = new Set([
   "session:abort",
   "permission:respond",
   "session:command",
+  "checkpoint:list",
+  "checkpoint:rewind",
   "commands:list",
   "files:search",
   "mcp:status",

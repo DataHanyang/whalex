@@ -15,16 +15,20 @@ export type SettingsTab =
 interface UiState {
   settingsOpen: boolean;
   settingsTab: SettingsTab;
+  rewindOpen: boolean;
   mcpStatus: McpStatus[];
   updateStatus: UpdateStatus;
   openSettings(tab?: SettingsTab): void;
   closeSettings(): void;
+  openRewind(): void;
+  closeRewind(): void;
   listen(): void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   settingsOpen: false,
   settingsTab: "general",
+  rewindOpen: false,
   mcpStatus: [],
   updateStatus: { state: "idle" },
 
@@ -33,6 +37,12 @@ export const useUiStore = create<UiState>((set) => ({
   },
   closeSettings() {
     set({ settingsOpen: false });
+  },
+  openRewind() {
+    set({ rewindOpen: true });
+  },
+  closeRewind() {
+    set({ rewindOpen: false });
   },
   listen() {
     whalex.on("mcp:status", (statuses) => set({ mcpStatus: statuses }));

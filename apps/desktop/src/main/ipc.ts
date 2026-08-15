@@ -85,6 +85,8 @@ export function registerIpc(deps: {
       host.respondPermission(req);
     },
     "session:command": (req) => host.command(req.sessionId, req.command, req.args),
+    "checkpoint:list": (req) => host.listCheckpoints(req.sessionId),
+    "checkpoint:rewind": (req) => host.rewind(req.sessionId, req.boundary),
     "commands:list": (req) => host.slashCommands(req.cwd),
     "files:search": (req) => searchFiles(req.cwd, req.query, req.limit),
     "mcp:status": () => host.mcp.statuses(),

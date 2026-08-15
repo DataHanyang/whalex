@@ -52,6 +52,7 @@ export type SessionRecord =
     }
   | { type: "workflow"; workflowId: string; name: string; ts: number }
   | { type: "compaction"; summary: string; upto: number; beforePct: number; afterPct: number; ts: number }
+  | { type: "rewind"; boundary: number; ts: number }
   | { type: "title"; title: string; ts: number };
 
 export function whalexHome(): string {
@@ -202,6 +203,28 @@ export class SessionStore {
   }
 
   /**
+   * The live record view after applying rewinds. A rewind record truncates
+   * the accumulated list to `boundary` entries; subsequent records continue
+   * on top, so continued conversation and repeated rewinds compose naturally.
+   */
+  effectiveRecords(): SessionRecord[] {
+    const eff: SessionRecord[] = [];
+    for (const rec of this.records) {
+      if (rec.type === "rewind") {
+        eff.length = Math.min(eff.length, rec.boundary);
+      } else {
+        eff.push(rec);
+      }
+    }
+    return eff;
+  }
+
+  /** Rewind the conversation to keep only the first `boundary` effective records. */
+  rewindTo(boundary: number): void {
+    this.append({ type: "rewind", boundary, ts: Date.now() });
+  }
+
+  /**
    * Records a compaction: everything up to now is replaced by `summary` when
    * building the next request. Append-only — the summarized records stay in
    * the file for the UI and for audit.
@@ -224,10 +247,11 @@ export class SessionStore {
    * the summary.
    */
   messages(): ChatMessage[] {
+    const records = this.effectiveRecords();
     const msgs: ChatMessage[] = [];
     let startIndex = 0;
     let lastCompaction: (SessionRecord & { type: "compaction" }) | null = null;
-    this.records.forEach((rec, i) => {
+    records.forEach((rec, i) => {
       if (rec.type === "compaction") {
         lastCompaction = rec;
         startIndex = i + 1;
@@ -239,7 +263,7 @@ export class SessionStore {
         content: `[Summary of the earlier conversation]\n\n${(lastCompaction as { summary: string }).summary}`,
       });
     }
-    for (const rec of this.records.slice(startIndex)) {
+    for (const rec of records.slice(startIndex)) {
       switch (rec.type) {
         case "user":
           msgs.push({ role: "user", content: rec.text });
@@ -275,7 +299,7 @@ export class SessionStore {
   /** Rebuilds the renderer transcript for session resume. */
   transcript(): TranscriptItem[] {
     const items: TranscriptItem[] = [];
-    for (const rec of this.records) {
+    for (const rec of this.effectiveRecords()) {
       switch (rec.type) {
         case "user":
           items.push({ kind: "user", id: rec.id, text: rec.text, ts: rec.ts });

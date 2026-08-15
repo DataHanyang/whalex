@@ -32,6 +32,24 @@ export const InstalledPluginSchema = z.object({
 });
 export type InstalledPlugin = z.infer<typeof InstalledPluginSchema>;
 
+export const HookEventSchema = z.enum([
+  "PreToolUse",
+  "PostToolUse",
+  "UserPromptSubmit",
+  "SessionStart",
+  "Stop",
+]);
+export type HookEvent = z.infer<typeof HookEventSchema>;
+
+export const HookConfigSchema = z.object({
+  event: HookEventSchema,
+  /** Tool-name glob to match (PreToolUse/PostToolUse). Absent = all. */
+  matcher: z.string().optional(),
+  /** Shell command; receives the hook payload as JSON on stdin. */
+  command: z.string(),
+});
+export type HookConfig = z.infer<typeof HookConfigSchema>;
+
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
   language: z.enum(["system", "ko", "en"]).default("system"),
@@ -71,6 +89,7 @@ export const SettingsSchema = z.object({
     .default({}),
   /** OS input control — experimental, needs vision, off by default. */
   computerUse: z.object({ enabled: z.boolean().default(false) }).default({}),
+  hooks: z.array(HookConfigSchema).default([]),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

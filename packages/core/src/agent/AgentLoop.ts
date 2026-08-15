@@ -9,6 +9,7 @@ import { ContextManager } from "./ContextManager.js";
 import { ToolCallAssembler } from "./ToolCallAssembler.js";
 import { buildSystemPrompt } from "./SystemPrompt.js";
 import { compactSession } from "./Compactor.js";
+import { NOOP_HOOKS, type HookRunner } from "./Hooks.js";
 
 const MAX_ROUNDS = 60;
 export const ARTIFACT_MARKER = "WHALEX_ARTIFACT:";
@@ -24,6 +25,8 @@ export interface AgentLoopOptions {
   extraSystemPrompt?: string;
   /** Live extra tools (MCP servers), fetched each turn so reconnects appear. */
   extraTools?: () => import("../tools/Tool.js").ToolDef<never>[];
+  /** User lifecycle hooks (PreToolUse can block). Defaults to no-op. */
+  hooks?: HookRunner;
 }
 
 interface CallOutcome {
@@ -103,6 +106,12 @@ export class AgentLoop {
       }
       session.append({ type: "user", id: randomUUID(), text: userText, ts: Date.now() });
       this.context.addPending(userText);
+      await this.hooks().run({
+        event: "UserPromptSubmit",
+        sessionId: session.sessionId,
+        cwd: session.cwd,
+        userText,
+      });
       yield { type: "status", state: "thinking" };
 
       for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -301,6 +310,9 @@ export class AgentLoop {
     } finally {
       this.running = false;
       this.controller = null;
+      await this.hooks()
+        .run({ event: "Stop", sessionId: session.sessionId, cwd: session.cwd })
+        .catch(() => {});
     }
   }
 
@@ -340,6 +352,33 @@ export class AgentLoop {
     return { call, rawArgs, parseError };
   }
 
+  private hooks(): HookRunner {
+    return this.opts.hooks ?? NOOP_HOOKS;
+  }
+
+  /** PreToolUse gate. Returns a block reason, or null to proceed. */
+  private async preToolBlock(toolName: string, args: unknown): Promise<string | null> {
+    const out = await this.hooks().run({
+      event: "PreToolUse",
+      sessionId: this.opts.session.sessionId,
+      cwd: this.opts.session.cwd,
+      toolName,
+      args,
+    });
+    return out.block ? (out.message ?? "Blocked by a PreToolUse hook.") : null;
+  }
+
+  private async postToolHook(toolName: string, args: unknown, result: ToolResult): Promise<void> {
+    await this.hooks().run({
+      event: "PostToolUse",
+      sessionId: this.opts.session.sessionId,
+      cwd: this.opts.session.cwd,
+      toolName,
+      args,
+      result: { ok: result.ok, output: result.output },
+    });
+  }
+
   private makeCtx(signal: AbortSignal, todosRef: { current: Todo[] | null }): ToolContext {
     return {
       cwd: this.opts.session.cwd,
@@ -377,6 +416,15 @@ export class AgentLoop {
         denied: false,
       };
     }
+    const blocked = await this.preToolBlock(call.name, parsed.data);
+    if (blocked) {
+      return {
+        result: { ok: false, output: blocked },
+        parsedArgs: parsed.data,
+        durationMs: Date.now() - started,
+        denied: true,
+      };
+    }
     const todosRef: { current: Todo[] | null } = { current: null };
     let result: ToolResult;
     try {
@@ -384,6 +432,7 @@ export class AgentLoop {
     } catch (err) {
       result = { ok: false, output: `Tool failed: ${err instanceof Error ? err.message : String(err)}` };
     }
+    await this.postToolHook(call.name, parsed.data, result);
     return {
       result,
       parsedArgs: parsed.data,
@@ -462,6 +511,9 @@ export class AgentLoop {
       }
     }
 
+    const blocked = await this.preToolBlock(call.name, parsed.data);
+    if (blocked) return fail(blocked, true);
+
     let result: ToolResult;
     try {
       result = await tool.execute(parsed.data as never, ctx);
@@ -471,6 +523,7 @@ export class AgentLoop {
         output: `Tool failed: ${err instanceof Error ? err.message : String(err)}`,
       };
     }
+    await this.postToolHook(call.name, parsed.data, result);
     if (todosRef.current) {
       yield { type: "todo-update", todos: todosRef.current };
       session.append({ type: "todos", todos: todosRef.current, ts: Date.now() });

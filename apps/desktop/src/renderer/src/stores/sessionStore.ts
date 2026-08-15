@@ -39,6 +39,7 @@ interface SessionState {
   closeBrowser(): void;
   refreshSessions(): Promise<void>;
   deleteSession(sessionId: string, cwd: string): Promise<void>;
+  rewind(boundary: number): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
@@ -89,6 +90,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const cwd = get().cwd;
     const sessions = await whalex.invoke("session:list", { cwd: cwd ?? undefined });
     set({ sessions });
+  },
+
+  async rewind(boundary) {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const res = await whalex.invoke("checkpoint:rewind", { sessionId: id, boundary });
+    set({ transcript: res.transcript });
   },
 
   async deleteSession(sessionId, cwd) {
