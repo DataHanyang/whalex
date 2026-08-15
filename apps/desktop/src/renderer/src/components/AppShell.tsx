@@ -5,6 +5,7 @@ import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { StatusBar } from "./StatusBar";
 import { ArtifactPanel } from "./ArtifactPanel";
+import { BrowserPanel } from "./BrowserPanel";
 import { SettingsModal } from "./SettingsModal";
 import { UpdateToast } from "./UpdateToast";
 
@@ -13,6 +14,7 @@ export function AppShell() {
   const abort = useSessionStore((s) => s.abort);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
   const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
+  const browserActive = useSessionStore((s) => s.browser.active);
 
   // Esc aborts a running turn (unless a permission card owns the key).
   useEffect(() => {
@@ -36,7 +38,12 @@ export function AppShell() {
           <Transcript />
           <Composer />
         </main>
-        {activeArtifactId && (
+        {browserActive && (
+          <div className="w-[46%] min-w-[360px] max-w-[720px] shrink-0">
+            <BrowserPanel />
+          </div>
+        )}
+        {!browserActive && activeArtifactId && (
           <div className="w-[46%] min-w-[360px] max-w-[720px] shrink-0">
             <ArtifactPanel />
           </div>

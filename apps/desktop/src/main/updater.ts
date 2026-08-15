@@ -1,6 +1,7 @@
 import type { BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import type { UpdateStatus } from "@whalex/shared";
+import { isCloud, CLOUD_CONFIG } from "./edition.js";
 
 const { autoUpdater } = electronUpdater;
 
@@ -15,6 +16,11 @@ export class Updater {
   constructor(private getWindow: () => BrowserWindow | null) {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
+    // Cloud edition ships from our own bucket; OSS uses the GitHub feed
+    // baked into electron-builder config.
+    if (isCloud) {
+      autoUpdater.setFeedURL({ provider: "generic", url: CLOUD_CONFIG.updateFeedUrl });
+    }
 
     autoUpdater.on("checking-for-update", () => this.set({ state: "checking" }));
     autoUpdater.on("update-available", (info) =>

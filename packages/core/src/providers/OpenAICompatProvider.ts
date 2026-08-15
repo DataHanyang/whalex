@@ -32,22 +32,34 @@ export class OpenAICompatProvider implements ProviderClient {
   }
 
   async *streamChat(req: ChatRequest): AsyncIterable<ProviderDelta> {
+    // Retry the initial request on transient rate limits before streaming
+    // begins. Once bytes are flowing a mid-stream failure is surfaced as-is.
     let stream;
-    try {
-      stream = await this.client.chat.completions.create(
-        {
-          model: req.model,
-          messages: req.messages as never,
-          tools: req.tools && req.tools.length > 0 ? (req.tools as never) : undefined,
-          temperature: req.temperature,
-          max_tokens: req.maxTokens,
-          stream: true,
-          stream_options: { include_usage: true },
-        },
-        { signal: req.signal },
-      );
-    } catch (err) {
-      throw classifyError(err);
+    const maxAttempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        stream = await this.client.chat.completions.create(
+          {
+            model: req.model,
+            messages: req.messages as never,
+            tools: req.tools && req.tools.length > 0 ? (req.tools as never) : undefined,
+            temperature: req.temperature,
+            max_tokens: req.maxTokens,
+            stream: true,
+            stream_options: { include_usage: true },
+          },
+          { signal: req.signal },
+        );
+        break;
+      } catch (err) {
+        const pe = classifyError(err);
+        if (pe.code === "rate_limit" && attempt < maxAttempts && !req.signal.aborted) {
+          const delay = pe.retryAfterMs ?? Math.min(8000, 500 * 2 ** attempt);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw pe;
+      }
     }
 
     let finishReason: "stop" | "tool_calls" | "length" = "stop";

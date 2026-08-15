@@ -91,6 +91,11 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     afterPct: z.number(),
   }),
   z.object({
+    type: z.literal("browser-navigated"),
+    url: z.string(),
+    title: z.string(),
+  }),
+  z.object({
     type: z.literal("workflow-update"),
     workflow: z.lazy(() => WorkflowStateSchema),
   }),

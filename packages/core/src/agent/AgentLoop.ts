@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { jsonrepair } from "jsonrepair";
 import type { AgentEvent, ModelInfo, Todo } from "@whalex/shared";
 import { ProviderError, type ProviderClient } from "../providers/Provider.js";
-import type { ToolContext, ToolRegistry, ToolResult } from "../tools/Tool.js";
+import type { ToolContext, ToolDef, ToolRegistry, ToolResult } from "../tools/Tool.js";
 import type { PermissionEngine } from "../permissions/PermissionEngine.js";
 import type { SessionStore } from "../session/SessionStore.js";
 import { ContextManager } from "./ContextManager.js";
@@ -31,6 +31,13 @@ interface CallOutcome {
   parsedArgs: unknown;
   durationMs: number;
   denied: boolean;
+  todos?: Todo[] | null;
+}
+
+interface ParsedCall {
+  call: { id: string; name: string; argsJson: string };
+  rawArgs: unknown;
+  parseError: string | null;
 }
 
 /**
@@ -180,8 +187,42 @@ export class AgentLoop {
         }
 
         yield { type: "status", state: "tool" };
-        for (const call of turn.toolCalls) {
-          const outcome = yield* this.executeCall(call, signal);
+
+        // Parse args + show every tool card up front, then run read-only tools
+        // (read/glob/grep/skill/present) concurrently — they need no approval
+        // and don't mutate, so a batch of file reads no longer serializes.
+        // Mutating tools still run in order, each with its permission gate.
+        const parsedCalls = turn.toolCalls.map((call) => this.parseCallArgs(call));
+        for (const pc of parsedCalls) {
+          yield {
+            type: "tool-start",
+            toolCallId: pc.call.id,
+            toolName: pc.call.name,
+            args: pc.rawArgs,
+          };
+        }
+        const inflight = new Map<string, Promise<CallOutcome>>();
+        for (const pc of parsedCalls) {
+          const tool = this.lookupTool(pc.call.name);
+          if (tool && tool.readOnly && !pc.parseError) {
+            inflight.set(pc.call.id, this.runReadOnlyBody(pc.call, tool, pc.rawArgs, signal));
+          }
+        }
+
+        for (const pc of parsedCalls) {
+          const call = pc.call;
+          let outcome: CallOutcome;
+          const pre = inflight.get(call.id);
+          if (pre) {
+            outcome = await pre;
+            if (outcome.todos) {
+              yield { type: "todo-update", todos: outcome.todos };
+              session.append({ type: "todos", todos: outcome.todos, ts: Date.now() });
+            }
+          } else {
+            outcome = yield* this.finishCall(pc, signal);
+          }
+
           const artifact = extractArtifact(outcome.result.output);
           // The marker is an internal transport; the model just needs "shown".
           const modelOutput = artifact
@@ -283,14 +324,7 @@ export class AgentLoop {
     return this.opts.registry.get(name) ?? this.opts.extraTools?.().find((t) => t.name === name);
   }
 
-  private async *executeCall(
-    call: { id: string; name: string; argsJson: string },
-    signal: AbortSignal,
-  ): AsyncGenerator<AgentEvent, CallOutcome> {
-    const started = Date.now();
-    const session = this.opts.session;
-    const tool = this.lookupTool(call.name);
-
+  private parseCallArgs(call: { id: string; name: string; argsJson: string }): ParsedCall {
     let rawArgs: unknown = {};
     let parseError: string | null = null;
     const argsJson = call.argsJson.trim() || "{}";
@@ -303,8 +337,71 @@ export class AgentLoop {
         parseError = `Could not parse tool arguments as JSON: ${argsJson.slice(0, 200)}`;
       }
     }
+    return { call, rawArgs, parseError };
+  }
 
-    yield { type: "tool-start", toolCallId: call.id, toolName: call.name, args: rawArgs };
+  private makeCtx(signal: AbortSignal, todosRef: { current: Todo[] | null }): ToolContext {
+    return {
+      cwd: this.opts.session.cwd,
+      sessionId: this.opts.session.sessionId,
+      signal,
+      setTodos: (todos) => {
+        todosRef.current = todos;
+      },
+    };
+  }
+
+  /**
+   * Fast path for read-only tools: no permission gate, no diff prepare. Runs
+   * concurrently with sibling read-only calls in the same batch.
+   */
+  private async runReadOnlyBody(
+    call: { id: string; name: string; argsJson: string },
+    tool: ToolDef<never>,
+    rawArgs: unknown,
+    signal: AbortSignal,
+  ): Promise<CallOutcome> {
+    const started = Date.now();
+    const parsed = tool.schema.safeParse(rawArgs);
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+        .join("; ");
+      return {
+        result: {
+          ok: false,
+          output: `Invalid arguments for ${call.name}: ${issues}. Fix the arguments and call the tool again.`,
+        },
+        parsedArgs: rawArgs,
+        durationMs: Date.now() - started,
+        denied: false,
+      };
+    }
+    const todosRef: { current: Todo[] | null } = { current: null };
+    let result: ToolResult;
+    try {
+      result = await tool.execute(parsed.data as never, this.makeCtx(signal, todosRef));
+    } catch (err) {
+      result = { ok: false, output: `Tool failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+    return {
+      result,
+      parsedArgs: parsed.data,
+      durationMs: Date.now() - started,
+      denied: false,
+      todos: todosRef.current,
+    };
+  }
+
+  /**
+   * Full path for mutating tools: validate → diff prepare → permission gate →
+   * execute. tool-start is emitted by the caller before this runs.
+   */
+  private async *finishCall(pc: ParsedCall, signal: AbortSignal): AsyncGenerator<AgentEvent, CallOutcome> {
+    const started = Date.now();
+    const session = this.opts.session;
+    const { call, rawArgs, parseError } = pc;
+    const tool = this.lookupTool(call.name);
 
     const fail = (output: string, denied = false): CallOutcome => ({
       result: { ok: false, output },
@@ -325,17 +422,9 @@ export class AgentLoop {
         `Invalid arguments for ${call.name}: ${issues}. Fix the arguments and call the tool again.`,
       );
     }
-    rawArgs = parsed.data;
 
     const todosRef: { current: Todo[] | null } = { current: null };
-    const ctx: ToolContext = {
-      cwd: session.cwd,
-      sessionId: session.sessionId,
-      signal,
-      setTodos: (todos) => {
-        todosRef.current = todos;
-      },
-    };
+    const ctx = this.makeCtx(signal, todosRef);
 
     let diff: ToolResult["diff"];
     if (tool.prepare) {
@@ -354,9 +443,7 @@ export class AgentLoop {
       call.id,
       diff,
     );
-    if (decision.behavior === "deny") {
-      return fail(decision.reason, true);
-    }
+    if (decision.behavior === "deny") return fail(decision.reason, true);
     if (decision.behavior === "ask") {
       yield { type: "permission-request", request: decision.request };
       const response = await decision.response;

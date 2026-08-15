@@ -161,6 +161,18 @@ export const IPC_INVOKE = {
     req: z.void(),
     res: z.void(),
   },
+  "browser:setBounds": {
+    req: z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() }),
+    res: z.void(),
+  },
+  "browser:hide": {
+    req: z.void(),
+    res: z.void(),
+  },
+  "vision:test": {
+    req: z.object({ baseUrl: z.string(), model: z.string(), apiKey: z.string().optional() }),
+    res: z.object({ ok: z.boolean(), error: z.string().optional() }),
+  },
   "dialog:pickFolder": {
     req: z.void(),
     res: z.object({ path: z.string().nullable() }),

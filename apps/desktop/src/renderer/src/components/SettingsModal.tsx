@@ -160,6 +160,27 @@ function ModelsTab() {
           className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         />
       </Row>
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">비전 (선택)</div>
+      <div className="mb-2 text-[11.5px] text-faint">
+        DeepSeek는 이미지를 볼 수 없습니다. 이미지 이해가 필요하면 OpenAI 호환 비전 모델을
+        연결하세요 (예: 로컬 Ollama <code>http://localhost:11434/v1</code> + <code>llava</code>).
+      </div>
+      <Row label="비전 baseUrl">
+        <input
+          value={settings.vision.baseUrl}
+          onChange={(e) => void update({ vision: { ...settings.vision, baseUrl: e.target.value } })}
+          placeholder="http://localhost:11434/v1"
+          className="w-56 rounded-md border border-border bg-surface px-2 py-1 text-[12px]"
+        />
+      </Row>
+      <Row label="비전 모델">
+        <input
+          value={settings.vision.model}
+          onChange={(e) => void update({ vision: { ...settings.vision, model: e.target.value } })}
+          placeholder="llava / qwen-vl / gpt-4o-mini"
+          className="w-56 rounded-md border border-border bg-surface px-2 py-1 text-[12px]"
+        />
+      </Row>
     </div>
   );
 }
