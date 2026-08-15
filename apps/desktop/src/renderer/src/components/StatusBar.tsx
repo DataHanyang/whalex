@@ -1,5 +1,47 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Clock } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
+
+function formatDuration(ms: number): string {
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const m = Math.floor(s / 60);
+  return `${m}m ${Math.floor(s % 60)}s`;
+}
+
+/** Live elapsed timer while a turn runs; final duration once it completes. */
+function ElapsedTime() {
+  const status = useSessionStore((s) => s.status);
+  const turnStartedAt = useSessionStore((s) => s.turnStartedAt);
+  const lastTurnMs = useSessionStore((s) => s.lastTurnMs);
+  const [now, setNow] = useState(Date.now());
+
+  const running = status !== "idle" && turnStartedAt !== null;
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, [running]);
+
+  if (running && turnStartedAt) {
+    return (
+      <span className="flex items-center gap-1 text-accent">
+        <Clock size={11} />
+        {formatDuration(now - turnStartedAt)}
+      </span>
+    );
+  }
+  if (lastTurnMs !== null) {
+    return (
+      <span className="flex items-center gap-1" title="마지막 응답 소요 시간">
+        <Clock size={11} />
+        {formatDuration(lastTurnMs)}
+      </span>
+    );
+  }
+  return null;
+}
 
 export function StatusBar() {
   const { t } = useTranslation();
@@ -26,6 +68,7 @@ export function StatusBar() {
         </span>
       )}
       <div className="flex-1" />
+      <ElapsedTime />
       {usage && (
         <>
           <span>

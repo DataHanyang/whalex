@@ -31,6 +31,10 @@ interface SessionState {
   subagents: Record<string, { agentType: string; label: string; state: string; toolCount: number; tokens: number; lastActivity: string }>;
   workflow: WorkflowState | null;
   browser: { active: boolean; url: string; title: string };
+  /** Wall-clock start of the running turn, or null when idle. */
+  turnStartedAt: number | null;
+  /** Total duration of the last completed turn (ms). */
+  lastTurnMs: number | null;
 
   setModel(model: string): void;
   setSuperCode(on: boolean): void;
@@ -66,6 +70,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   subagents: {},
   workflow: null,
   browser: { active: false, url: "", title: "" },
+  turnStartedAt: null,
+  lastTurnMs: null,
 
   setModel(model) {
     set({ model });
@@ -141,6 +147,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         { kind: "user", id: `local-${Date.now()}`, text, ts: Date.now() },
       ],
       status: "thinking",
+      turnStartedAt: Date.now(),
+      lastTurnMs: null,
     }));
     await whalex.invoke("session:send", { sessionId: activeSessionId, text, model });
   },
@@ -370,6 +378,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set((s) => ({
           status: "idle",
           pendingPermission: null,
+          turnStartedAt: null,
+          lastTurnMs: s.turnStartedAt ? Date.now() - s.turnStartedAt : s.lastTurnMs,
           transcript: s.transcript.map((item) =>
             item.kind === "assistant" && item.streaming
               ? { ...item, streaming: false, interrupted: ev.stopReason === "aborted" }
