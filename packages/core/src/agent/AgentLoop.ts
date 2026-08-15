@@ -8,8 +8,10 @@ import type { SessionStore } from "../session/SessionStore.js";
 import { ContextManager } from "./ContextManager.js";
 import { ToolCallAssembler } from "./ToolCallAssembler.js";
 import { buildSystemPrompt } from "./SystemPrompt.js";
+import { compactSession } from "./Compactor.js";
 
 const MAX_ROUNDS = 60;
+export const ARTIFACT_MARKER = "WHALEX_ARTIFACT:";
 
 export interface AgentLoopOptions {
   provider: ProviderClient;
@@ -18,6 +20,10 @@ export interface AgentLoopOptions {
   session: SessionStore;
   modelInfo: ModelInfo;
   temperature: number;
+  /** Optional extra system-prompt text (subagent role, skills catalog). */
+  extraSystemPrompt?: string;
+  /** Live extra tools (MCP servers), fetched each turn so reconnects appear. */
+  extraTools?: () => import("../tools/Tool.js").ToolDef<never>[];
 }
 
 interface CallOutcome {
@@ -60,6 +66,20 @@ export class AgentLoop {
     this.opts.permissions.abortPending();
   }
 
+  /** Manual /compact — summarize and shrink the context on demand. */
+  async manualCompact(): Promise<{ ok: boolean; beforePct: number; afterPct: number; error?: string }> {
+    const before = this.context.contextPct();
+    const controller = new AbortController();
+    const res = await compactSession(
+      this.opts.provider,
+      this.opts.session,
+      this.opts.modelInfo.id,
+      controller.signal,
+    );
+    if (res.ok) this.context.reset();
+    return { ok: res.ok, beforePct: before, afterPct: this.context.contextPct(), error: res.error };
+  }
+
   async *run(userText: string): AsyncGenerator<AgentEvent> {
     if (this.running) throw new Error("Agent is already running for this session.");
     this.running = true;
@@ -68,7 +88,12 @@ export class AgentLoop {
     const session = this.opts.session;
 
     try {
-      this.systemPrompt ??= await buildSystemPrompt(session.cwd);
+      if (this.systemPrompt === null) {
+        const base = await buildSystemPrompt(session.cwd);
+        this.systemPrompt = this.opts.extraSystemPrompt
+          ? `${base}\n\n${this.opts.extraSystemPrompt}`
+          : base;
+      }
       session.append({ type: "user", id: randomUUID(), text: userText, ts: Date.now() });
       this.context.addPending(userText);
       yield { type: "status", state: "thinking" };
@@ -86,7 +111,7 @@ export class AgentLoop {
               { role: "system", content: this.systemPrompt },
               ...session.messages(),
             ],
-            tools: this.opts.modelInfo.supportsTools ? this.opts.registry.specs() : undefined,
+            tools: this.opts.modelInfo.supportsTools ? this.toolSpecs() : undefined,
             temperature: this.opts.temperature,
             maxTokens: this.opts.modelInfo.maxOutput,
             signal,
@@ -157,6 +182,11 @@ export class AgentLoop {
         yield { type: "status", state: "tool" };
         for (const call of turn.toolCalls) {
           const outcome = yield* this.executeCall(call, signal);
+          const artifact = extractArtifact(outcome.result.output);
+          // The marker is an internal transport; the model just needs "shown".
+          const modelOutput = artifact
+            ? `Displayed "${artifact.title}" in the preview panel.`
+            : outcome.result.output;
           session.append({
             type: "tool_result",
             toolCallId: call.id,
@@ -164,25 +194,58 @@ export class AgentLoop {
             args: outcome.parsedArgs,
             ok: outcome.result.ok,
             denied: outcome.denied,
-            output: outcome.result.output,
+            output: modelOutput,
             durationMs: outcome.durationMs,
             diff: outcome.result.diff,
             ts: Date.now(),
           });
-          this.context.addPending(outcome.result.output);
+          this.context.addPending(modelOutput);
           yield {
             type: "tool-result",
             toolCallId: call.id,
             ok: outcome.result.ok,
-            output: outcome.result.output,
+            output: modelOutput,
             durationMs: outcome.durationMs,
           };
           if (outcome.result.diff) {
             yield { type: "file-edit", toolCallId: call.id, ...outcome.result.diff };
           }
+          if (artifact) {
+            session.append({
+              type: "artifact",
+              artifactId: artifact.artifactId,
+              title: artifact.title,
+              artifactKind: artifact.kind,
+              ts: Date.now(),
+            });
+            yield {
+              type: "artifact",
+              artifactId: artifact.artifactId,
+              title: artifact.title,
+              kind: artifact.kind,
+              path: artifact.path,
+              content: artifact.content,
+              language: artifact.language,
+            };
+          }
           if (signal.aborted) {
             yield { type: "done", stopReason: "aborted" };
             return;
+          }
+        }
+
+        if (this.context.needsCompaction()) {
+          const before = this.context.contextPct();
+          yield { type: "status", state: "thinking" };
+          const res = await compactSession(
+            this.opts.provider,
+            session,
+            this.opts.modelInfo.id,
+            signal,
+          );
+          if (res.ok) {
+            this.context.reset();
+            yield { type: "compaction", beforePct: before, afterPct: this.context.contextPct() };
           }
         }
         yield { type: "status", state: "thinking" };
@@ -200,13 +263,33 @@ export class AgentLoop {
     }
   }
 
+  private toolSpecs() {
+    const specs = this.opts.registry.specs();
+    const extra = this.opts.extraTools?.() ?? [];
+    for (const t of extra) {
+      specs.push({
+        type: "function",
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.rawParameters ?? { type: "object", properties: {} },
+        },
+      });
+    }
+    return specs;
+  }
+
+  private lookupTool(name: string) {
+    return this.opts.registry.get(name) ?? this.opts.extraTools?.().find((t) => t.name === name);
+  }
+
   private async *executeCall(
     call: { id: string; name: string; argsJson: string },
     signal: AbortSignal,
   ): AsyncGenerator<AgentEvent, CallOutcome> {
     const started = Date.now();
     const session = this.opts.session;
-    const tool = this.opts.registry.get(call.name);
+    const tool = this.lookupTool(call.name);
 
     let rawArgs: unknown = {};
     let parseError: string | null = null;
@@ -311,5 +394,23 @@ export class AgentLoop {
       durationMs: Date.now() - started,
       denied: false,
     };
+  }
+}
+
+interface ExtractedArtifact {
+  artifactId: string;
+  title: string;
+  kind: "html" | "markdown" | "svg" | "mermaid" | "image" | "code" | "url";
+  path?: string;
+  content?: string;
+  language?: string;
+}
+
+function extractArtifact(output: string): ExtractedArtifact | null {
+  if (!output.startsWith(ARTIFACT_MARKER)) return null;
+  try {
+    return JSON.parse(output.slice(ARTIFACT_MARKER.length)) as ExtractedArtifact;
+  } catch {
+    return null;
   }
 }

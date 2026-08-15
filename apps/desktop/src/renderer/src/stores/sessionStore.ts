@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import type {
   AgentEventEnvelope,
+  Artifact,
   PermissionRequest,
   PermissionResponse,
   SessionMeta,
   Todo,
   TranscriptItem,
   UsageInfo,
+  WorkflowState,
 } from "@whalex/shared";
 import { whalex } from "../lib/ipc";
 
@@ -23,8 +25,16 @@ interface SessionState {
   pendingPermission: PermissionRequest | null;
   lastError: { code: string; message: string } | null;
   model: string;
+  superCode: boolean;
+  artifacts: Artifact[];
+  activeArtifactId: string | null;
+  subagents: Record<string, { agentType: string; label: string; state: string; toolCount: number; tokens: number; lastActivity: string }>;
+  workflow: WorkflowState | null;
 
   setModel(model: string): void;
+  setSuperCode(on: boolean): void;
+  openArtifact(id: string): void;
+  closeArtifact(): void;
   refreshSessions(): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
@@ -46,9 +56,25 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   pendingPermission: null,
   lastError: null,
   model: "deepseek-v4-flash",
+  superCode: false,
+  artifacts: [],
+  activeArtifactId: null,
+  subagents: {},
+  workflow: null,
 
   setModel(model) {
     set({ model });
+  },
+  setSuperCode(on) {
+    set({ superCode: on });
+    const id = get().activeSessionId;
+    if (id) void whalex.invoke("session:command", { sessionId: id, command: on ? "supercode-on" : "supercode-off" });
+  },
+  openArtifact(id) {
+    set({ activeArtifactId: id });
+  },
+  closeArtifact() {
+    set({ activeArtifactId: null });
   },
 
   async refreshSessions() {
@@ -69,6 +95,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       todos: [],
       pendingPermission: null,
       lastError: null,
+      artifacts: [],
+      activeArtifactId: null,
+      subagents: {},
+      workflow: null,
     });
     await get().refreshSessions();
   },
@@ -176,6 +206,105 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         break;
       case "todo-update":
         set({ todos: ev.todos });
+        break;
+      case "artifact":
+        set((s) => ({
+          artifacts: [
+            ...s.artifacts.filter((a) => a.artifactId !== ev.artifactId),
+            {
+              artifactId: ev.artifactId,
+              title: ev.title,
+              kind: ev.kind,
+              path: ev.path,
+              url: ev.url,
+              content: ev.content,
+              language: ev.language,
+            },
+          ],
+          activeArtifactId: ev.artifactId,
+          transcript: [
+            ...s.transcript,
+            {
+              kind: "artifact",
+              id: ev.artifactId,
+              artifactId: ev.artifactId,
+              title: ev.title,
+              artifactKind: ev.kind,
+              ts: Date.now(),
+            },
+          ],
+        }));
+        break;
+      case "subagent-start":
+        set((s) => ({
+          subagents: {
+            ...s.subagents,
+            [ev.agentRunId]: {
+              agentType: ev.agentType,
+              label: ev.label,
+              state: "running",
+              toolCount: 0,
+              tokens: 0,
+              lastActivity: "",
+            },
+          },
+        }));
+        break;
+      case "subagent-update":
+        set((s) => {
+          const prev = s.subagents[ev.agentRunId] ?? {
+            agentType: "general",
+            label: "",
+            state: "running",
+            toolCount: 0,
+            tokens: 0,
+            lastActivity: "",
+          };
+          return {
+            subagents: {
+              ...s.subagents,
+              [ev.agentRunId]: {
+                ...prev,
+                state: ev.state,
+                toolCount: ev.toolCount,
+                tokens: ev.tokens,
+                lastActivity: ev.lastActivity,
+              },
+            },
+          };
+        });
+        break;
+      case "workflow-update":
+        set((s) => ({
+          workflow: ev.workflow,
+          transcript:
+            s.transcript.some((t) => t.kind === "workflow" && t.workflowId === ev.workflow.workflowId)
+              ? s.transcript
+              : [
+                  ...s.transcript,
+                  {
+                    kind: "workflow",
+                    id: ev.workflow.workflowId,
+                    workflowId: ev.workflow.workflowId,
+                    name: ev.workflow.name,
+                    ts: Date.now(),
+                  },
+                ],
+        }));
+        break;
+      case "compaction":
+        set((s) => ({
+          transcript: [
+            ...s.transcript,
+            {
+              kind: "compaction",
+              id: `compaction-${Date.now()}`,
+              beforePct: ev.beforePct,
+              afterPct: ev.afterPct,
+              ts: Date.now(),
+            },
+          ],
+        }));
         break;
       case "permission-request":
         set({ pendingPermission: ev.request });

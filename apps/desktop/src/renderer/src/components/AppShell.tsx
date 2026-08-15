@@ -4,11 +4,15 @@ import { Sidebar } from "./Sidebar";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { StatusBar } from "./StatusBar";
+import { ArtifactPanel } from "./ArtifactPanel";
+import { SettingsModal } from "./SettingsModal";
+import { UpdateToast } from "./UpdateToast";
 
 export function AppShell() {
   const status = useSessionStore((s) => s.status);
   const abort = useSessionStore((s) => s.abort);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
+  const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
 
   // Esc aborts a running turn (unless a permission card owns the key).
   useEffect(() => {
@@ -32,8 +36,15 @@ export function AppShell() {
           <Transcript />
           <Composer />
         </main>
+        {activeArtifactId && (
+          <div className="w-[46%] min-w-[360px] max-w-[720px] shrink-0">
+            <ArtifactPanel />
+          </div>
+        )}
       </div>
       <StatusBar />
+      <SettingsModal />
+      <UpdateToast />
     </div>
   );
 }

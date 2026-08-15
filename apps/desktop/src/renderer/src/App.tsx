@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "./stores/appStore";
 import { useSessionStore } from "./stores/sessionStore";
+import { useUiStore } from "./stores/uiStore";
 import { Onboarding } from "./components/Onboarding";
 import { AppShell } from "./components/AppShell";
 
@@ -16,6 +17,7 @@ export function App() {
     if (!booted.current) {
       booted.current = true;
       void init();
+      useUiStore.getState().listen();
     }
   }, [init]);
 

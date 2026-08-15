@@ -47,6 +47,13 @@ export class ContextManager {
     this.totalCachedInput += usage.cachedPromptTokens;
   }
 
+  /** After a compaction the window is small again; the next response corrects it. */
+  reset(): void {
+    this.lastPromptTokens = 0;
+    this.lastCompletionTokens = 0;
+    this.pendingEstimate = 0;
+  }
+
   contextTokens(): number {
     return this.lastPromptTokens + this.lastCompletionTokens + this.pendingEstimate;
   }

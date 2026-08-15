@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { FolderOpen, MessageSquare, Plus } from "lucide-react";
+import { FolderOpen, MessageSquare, Plus, Settings } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
 import { useAppStore } from "../stores/appStore";
+import { useUiStore } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
 
 function timeAgo(ts: number, lang: string): string {
@@ -21,6 +22,7 @@ export function Sidebar() {
   const cwd = useSessionStore((s) => s.cwd);
   const startSession = useSessionStore((s) => s.startSession);
   const updateSettings = useAppStore((s) => s.updateSettings);
+  const openSettings = useUiStore((s) => s.openSettings);
 
   const newSession = () => {
     if (cwd) void startSession(cwd);
@@ -80,6 +82,13 @@ export function Sidebar() {
           </button>
         ))}
       </div>
+      <button
+        onClick={() => openSettings("general")}
+        className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-[12.5px] text-muted hover:bg-surface-2"
+      >
+        <Settings size={14} />
+        설정
+      </button>
     </aside>
   );
 }

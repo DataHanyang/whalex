@@ -1,5 +1,5 @@
 import { app, dialog, ipcMain, shell, type BrowserWindow } from "electron";
-import { OpenAICompatProvider, SessionStore } from "@whalex/core";
+import { OpenAICompatProvider, SessionStore, searchFiles } from "@whalex/core";
 import {
   IPC_INVOKE,
   type IpcInvokeChannel,
@@ -9,6 +9,9 @@ import {
 import type { AgentHost } from "./AgentHost.js";
 import type { SettingsManager } from "./settings.js";
 import type { SecretVault } from "./secrets.js";
+import type { Updater } from "./updater.js";
+import type { PreviewManager } from "./PreviewManager.js";
+import type { PluginManager } from "./PluginManager.js";
 
 type Handlers = {
   [C in IpcInvokeChannel]: (req: IpcRequest<C>) => Promise<IpcResponse<C>> | IpcResponse<C>;
@@ -19,8 +22,11 @@ export function registerIpc(deps: {
   host: AgentHost;
   settings: SettingsManager;
   vault: SecretVault;
+  updater: Updater;
+  preview: PreviewManager;
+  plugins: PluginManager;
 }): void {
-  const { getWindow, host, settings, vault } = deps;
+  const { getWindow, host, settings, vault, updater, preview, plugins } = deps;
 
   const makeProvider = (providerId: string, apiKeyOverride?: string) => {
     const p = settings.get().providers.find((x) => x.id === providerId);
@@ -41,15 +47,10 @@ export function registerIpc(deps: {
     },
     "provider:test": async (req) => {
       try {
-        const provider = makeProvider(req.providerId, req.apiKey);
-        const models = await provider.listModels();
+        const models = await makeProvider(req.providerId, req.apiKey).listModels();
         return { ok: true, models };
       } catch (err) {
-        return {
-          ok: false,
-          models: [],
-          error: err instanceof Error ? err.message : String(err),
-        };
+        return { ok: false, models: [], error: err instanceof Error ? err.message : String(err) };
       }
     },
     "models:list": async (req) => makeProvider(req.providerId).listModels(),
@@ -64,6 +65,26 @@ export function registerIpc(deps: {
     "permission:respond": (req) => {
       host.respondPermission(req);
     },
+    "session:command": (req) => host.command(req.sessionId, req.command, req.args),
+    "commands:list": (req) => host.slashCommands(req.cwd),
+    "files:search": (req) => searchFiles(req.cwd, req.query, req.limit),
+    "mcp:status": () => host.mcp.statuses(),
+    "mcp:restart": (req) => host.restartMcp(req.name),
+    "skills:list": async (req) => {
+      if (req.cwd) await host.skills.scan(req.cwd);
+      return host.skills.list();
+    },
+    "plugins:install": (req) => plugins.install(req.source, req.location),
+    "plugins:remove": (req) => plugins.remove(req.name),
+    "artifact:read": (req) => host.getArtifact(req.artifactId),
+    "preview:start": (req) =>
+      preview.start(req.sessionId, req.command, req.port, req.cwd ?? process.cwd()),
+    "preview:stop": (req) => preview.stop(req.sessionId),
+    "update:check": () => updater.check(),
+    "update:download": () => updater.download(),
+    "update:install": () => {
+      updater.install();
+    },
     "dialog:pickFolder": async () => {
       const win = getWindow();
       if (!win) return { path: null };
@@ -77,8 +98,7 @@ export function registerIpc(deps: {
 
   for (const channel of Object.keys(IPC_INVOKE) as IpcInvokeChannel[]) {
     ipcMain.handle(channel, async (_event, raw: unknown) => {
-      const schema = IPC_INVOKE[channel].req;
-      const req = schema.parse(raw);
+      const req = IPC_INVOKE[channel].req.parse(raw);
       return handlers[channel](req as never);
     });
   }

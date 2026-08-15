@@ -7,6 +7,9 @@ import { AgentHost } from "./AgentHost.js";
 import { SettingsManager } from "./settings.js";
 import { SecretVault } from "./secrets.js";
 import { registerIpc } from "./ipc.js";
+import { Updater } from "./updater.js";
+import { PreviewManager } from "./PreviewManager.js";
+import { PluginManager } from "./PluginManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -96,16 +99,26 @@ void app.whenReady().then(() => {
   const settings = new SettingsManager();
   const vault = new SecretVault();
   const host = new AgentHost(() => mainWindow, settings, vault);
+  const updater = new Updater(() => mainWindow);
+  const preview = new PreviewManager();
+  const plugins = new PluginManager(settings);
 
-  registerIpc({ getWindow: () => mainWindow, host, settings, vault });
+  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins });
   createWindow();
   logLine("window created");
+
+  // MCP servers connect in the background; the UI shows their status live.
+  void host.init().catch((err) => logLine(`mcp init: ${String(err)}`));
+  if (app.isPackaged) updater.start();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 
-  app.on("before-quit", () => host.disposeAll());
+  app.on("before-quit", () => {
+    host.disposeAll();
+    preview.stopAll();
+  });
 });
 
 app.on("window-all-closed", () => {

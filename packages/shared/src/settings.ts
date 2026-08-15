@@ -17,6 +17,21 @@ export const McpServerConfigSchema = z.union([
 ]);
 export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
 
+export const McpServerEntrySchema = z.object({
+  config: McpServerConfigSchema,
+  enabled: z.boolean().default(true),
+});
+export type McpServerEntry = z.infer<typeof McpServerEntrySchema>;
+
+export const InstalledPluginSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  source: z.enum(["local", "git", "npm"]),
+  path: z.string(),
+  enabled: z.boolean().default(true),
+});
+export type InstalledPlugin = z.infer<typeof InstalledPluginSchema>;
+
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
   language: z.enum(["system", "ko", "en"]).default("system"),
@@ -35,7 +50,17 @@ export const SettingsSchema = z.object({
   defaultModel: z.string().default("deepseek-v4-flash"),
   temperature: z.number().min(0).max(2).default(0.2),
   permissions: PermissionRulesSchema.default({}),
-  mcpServers: z.record(McpServerConfigSchema).default({}),
+  /** name → server entry. Superset of the project-level .mcp.json. */
+  mcpServers: z.record(McpServerEntrySchema).default({}),
+  plugins: z.array(InstalledPluginSchema).default([]),
+  superCode: z
+    .object({
+      maxAgents: z.number().int().min(1).max(200).default(50),
+      tokenBudget: z.number().int().min(0).default(0),
+      confirmBeforeRun: z.boolean().default(true),
+    })
+    .default({}),
+  updateChannel: z.enum(["stable", "beta"]).default("stable"),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
