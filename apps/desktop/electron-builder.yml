@@ -46,8 +46,9 @@ nsis:
   perMachine: false
   shortcutName: Whalex
   deleteAppDataOnUninstall: false
-# 자동 업데이트 피드 (OSS 에디션). 저장소 공개 시 owner/repo 채우고 주석 해제.
-# publish:
-#   provider: github
-#   owner: <github-owner>
-#   repo: whalex
+# 자동 업데이트 피드 (OSS 에디션, GitHub Releases).
+# 계정 이름을 바꾸면 owner를 새 이름으로 갱신하세요 (빌드 시점에 고정됨).
+publish:
+  provider: github
+  owner: DataHanyang
+  repo: whalex
