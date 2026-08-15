@@ -26,8 +26,9 @@ win:
   #   certificateProfileName: "<profile>"
   signAndEditExecutable: false
 mac:
+  # zip is the reliable unsigned CI artifact; add dmg once a signing identity
+  # (Apple Developer cert) is available, otherwise it fails on the runner.
   target:
-    - dmg
     - zip
   category: public.app-category.developer-tools
   hardenedRuntime: true
@@ -35,9 +36,10 @@ mac:
   # APPLE_TEAM_ID env가 있으면 electron-builder가 자동 공증.
   # notarize: true
 linux:
+  # AppImage is the universal single-file build; add deb when fpm metadata
+  # and tooling are set up on the runner.
   target:
     - AppImage
-    - deb
   category: Development
   icon: build/icon.png
   maintainer: Whalex
