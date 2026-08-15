@@ -1,0 +1,21 @@
+{
+  "name": "@whalex/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "whalex": "./dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@whalex/core": "workspace:*",
+    "@whalex/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/node": "^20.17.10"
+  }
+}
