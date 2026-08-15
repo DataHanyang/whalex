@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --border: #e2e2e6;
+  --border-strong: #cfcfd6;
+  --text: #1b1b1f;
+  --muted: #6b6b76;
+  --faint: #9a9aa3;
+  --accent: #4d6bfe;
+  --accent-hover: #3d58e0;
+  --accent-soft: rgba(77, 107, 254, 0.1);
+  --danger: #d64545;
+  --danger-soft: rgba(214, 69, 69, 0.1);
+  --ok: #2f9e63;
+  --warn: #c98a1b;
+  --warn-soft: rgba(201, 138, 27, 0.12);
+  --diff-add-bg: rgba(47, 158, 99, 0.14);
+  --diff-del-bg: rgba(214, 69, 69, 0.12);
+  --code-bg: #f4f4f6;
+  --scrollbar: #cfcfd6;
+}
+
+[data-theme="dark"] {
+  --bg: #111113;
+  --surface: #1a1a1e;
+  --surface-2: #202026;
+  --border: #2a2a31;
+  --border-strong: #3a3a44;
+  --text: #e8e8ea;
+  --muted: #9a9aa3;
+  --faint: #6b6b76;
+  --accent: #6c86ff;
+  --accent-hover: #8199ff;
+  --accent-soft: rgba(108, 134, 255, 0.14);
+  --danger: #e06c6c;
+  --danger-soft: rgba(224, 108, 108, 0.12);
+  --ok: #4cc38a;
+  --warn: #e0a83f;
+  --warn-soft: rgba(224, 168, 63, 0.14);
+  --diff-add-bg: rgba(76, 195, 138, 0.13);
+  --diff-del-bg: rgba(224, 108, 108, 0.12);
+  --code-bg: #16161a;
+  --scrollbar: #3a3a44;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-code-bg: var(--code-bg);
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI",
+    "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --font-mono: "JetBrains Mono", "D2Coding", "Cascadia Code", Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+.titlebar-nodrag {
+  -webkit-app-region: no-drag;
+}
+
+/* Long transcripts: skip offscreen rendering work. */
+.transcript-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
+/* Markdown body */
+.md {
+  overflow-wrap: break-word;
+}
+.md > *:first-child {
+  margin-top: 0;
+}
+.md > *:last-child {
+  margin-bottom: 0;
+}
+.md p {
+  margin: 0.5em 0;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  margin: 1em 0 0.4em;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.md h1 {
+  font-size: 1.35em;
+}
+.md h2 {
+  font-size: 1.2em;
+}
+.md h3 {
+  font-size: 1.08em;
+}
+.md ul,
+.md ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+.md li {
+  margin: 0.15em 0;
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+}
+.md pre {
+  margin: 0;
+}
+.md pre code {
+  display: block;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.md blockquote {
+  margin: 0.6em 0;
+  padding: 0.1em 1em;
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+.md table {
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.md th,
+.md td {
+  border: 1px solid var(--border);
+  padding: 0.3em 0.7em;
+  text-align: left;
+}
+.md th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.md a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.md a:hover {
+  text-decoration: underline;
+}
+.md hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+.shiki-block pre {
+  background: transparent !important;
+  margin: 0;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.thinking-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.thinking-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
