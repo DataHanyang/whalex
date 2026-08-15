@@ -52,7 +52,7 @@ export type HookConfig = z.infer<typeof HookConfigSchema>;
 
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
-  language: z.enum(["system", "ko", "en"]).default("system"),
+  language: z.enum(["system", "ko", "en"]).default("en"),
   theme: z.enum(["system", "light", "dark"]).default("system"),
   defaultCwd: z.string().optional(),
   recentCwds: z.array(z.string()).default([]),

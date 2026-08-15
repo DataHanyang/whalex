@@ -160,11 +160,11 @@ export function Composer() {
       });
       setDescribing(false);
       if (!res.configured) {
-        finalText = `${value}\n\n[이미지를 첨부했지만 비전 모델이 설정되지 않았습니다. 설정 → 모델 → 비전에서 연결하세요.]`;
+        finalText = `${value}\n\n[An image was attached but no vision model is configured. Connect one in Settings → Models → Vision.]`;
       } else if (res.ok && res.description) {
-        finalText = `${value ? value + "\n\n" : ""}[첨부 이미지 설명]\n${res.description}`;
+        finalText = `${value ? value + "\n\n" : ""}[Attached image description]\n${res.description}`;
       } else {
-        finalText = `${value}\n\n[이미지 분석 실패: ${res.error ?? "unknown"}]`;
+        finalText = `${value}\n\n[Image analysis failed: ${res.error ?? "unknown"}]`;
       }
       setImage(null);
     }
@@ -215,10 +215,10 @@ export function Composer() {
 
   const MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;
   const MODE_LABEL: Record<string, string> = {
-    default: "확인",
-    acceptEdits: "편집 자동",
-    plan: "플랜",
-    bypassPermissions: "자동",
+    default: t("mode.default"),
+    acceptEdits: t("mode.acceptEdits"),
+    plan: t("mode.plan"),
+    bypassPermissions: t("mode.bypassPermissions"),
   };
   const cycleMode = () => {
     const i = MODES.indexOf(permissionMode as (typeof MODES)[number]);
@@ -288,7 +288,7 @@ export function Composer() {
               </button>
             </div>
             <span className="flex items-center gap-1 text-[11.5px] text-faint">
-              <ImageIcon size={12} /> 이미지 (비전 모델로 분석)
+              <ImageIcon size={12} /> {t("composer.image")}
             </span>
           </div>
         )}
@@ -351,7 +351,7 @@ export function Composer() {
                   ? "border-accent bg-accent-soft text-accent"
                   : "border-border text-muted hover:bg-surface-2"
             }`}
-            title="권한 모드 (Shift+Tab): 확인 → 편집 자동 → 플랜 → 자동"
+            title={t("composer.permTip")}
           >
             <Shield size={12} />
             {MODE_LABEL[permissionMode]}
@@ -359,15 +359,15 @@ export function Composer() {
           <button
             onClick={() => setGoalMode(!goalMode)}
             className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${goalMode ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"}`}
-            title="목표 모드: 목표를 주면 완료까지 자율 반복"
+            title={t("composer.goalTip")}
           >
             <Target size={12} />
-            목표
+            {t("composer.goal")}
           </button>
           <button
             onClick={() => setSuperCode(!superCode)}
             className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${superCode ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"}`}
-            title="SuperCode 멀티에이전트 모드"
+            title={t("composer.superCodeTip")}
           >
             <Sparkles size={12} />
             SuperCode

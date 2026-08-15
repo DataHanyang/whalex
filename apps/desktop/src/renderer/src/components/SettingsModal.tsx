@@ -16,15 +16,15 @@ import { useAppStore } from "../stores/appStore";
 import { useUiStore, type SettingsTab } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
 
-const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Settings2 }> = [
-  { id: "general", label: "일반", icon: Settings2 },
-  { id: "apikey", label: "API 키", icon: KeyRound },
-  { id: "models", label: "모델", icon: Cpu },
-  { id: "mcp", label: "MCP", icon: Plug },
-  { id: "skills", label: "Skills", icon: Sparkles },
-  { id: "plugins", label: "플러그인", icon: Blocks },
-  { id: "appearance", label: "테마", icon: Palette },
-  { id: "updates", label: "업데이트", icon: RefreshCw },
+const TABS: Array<{ id: SettingsTab; labelKey: string; icon: typeof Settings2 }> = [
+  { id: "general", labelKey: "settings.tab.general", icon: Settings2 },
+  { id: "apikey", labelKey: "settings.tab.apikey", icon: KeyRound },
+  { id: "models", labelKey: "settings.tab.models", icon: Cpu },
+  { id: "mcp", labelKey: "settings.tab.mcp", icon: Plug },
+  { id: "skills", labelKey: "settings.tab.skills", icon: Sparkles },
+  { id: "plugins", labelKey: "settings.tab.plugins", icon: Blocks },
+  { id: "appearance", labelKey: "settings.tab.appearance", icon: Palette },
+  { id: "updates", labelKey: "settings.tab.updates", icon: RefreshCw },
 ];
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -37,22 +37,23 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 function GeneralTab() {
+  const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
   return (
     <div>
-      <Row label="언어">
+      <Row label={t("settings.language")}>
         <select
           value={settings.language}
           onChange={(e) => void update({ language: e.target.value as "system" | "ko" | "en" })}
           className="rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         >
-          <option value="system">시스템</option>
-          <option value="ko">한국어</option>
           <option value="en">English</option>
+          <option value="ko">한국어</option>
+          <option value="system">{t("settings.language.system")}</option>
         </select>
       </Row>
-      <Row label="기본 권한 모드">
+      <Row label={t("settings.defaultMode")}>
         <select
           value={settings.permissions.mode}
           onChange={(e) =>
@@ -60,22 +61,22 @@ function GeneralTab() {
           }
           className="rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         >
-          <option value="default">기본 (쓰기/실행 확인)</option>
-          <option value="acceptEdits">편집 자동 승인</option>
-          <option value="bypassPermissions">전체 자동 (주의)</option>
-          <option value="plan">계획 모드 (읽기 전용)</option>
+          <option value="default">{t("settings.mode.default")}</option>
+          <option value="acceptEdits">{t("settings.mode.acceptEdits")}</option>
+          <option value="bypassPermissions">{t("settings.mode.bypass")}</option>
+          <option value="plan">{t("settings.mode.plan")}</option>
         </select>
       </Row>
-      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">기능 켜고 끄기</div>
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">{t("settings.features")}</div>
       {(
         [
-          ["subagents", "서브에이전트 (agent 도구)"],
-          ["superCode", "슈퍼코드 (멀티 에이전트)"],
-          ["browserUse", "브라우저 유즈"],
-          ["webFetch", "웹 가져오기 (web_fetch)"],
+          ["subagents", "settings.feature.subagents"],
+          ["superCode", "settings.feature.superCode"],
+          ["browserUse", "settings.feature.browserUse"],
+          ["webFetch", "settings.feature.webFetch"],
         ] as const
-      ).map(([key, label]) => (
-        <Row key={key} label={label}>
+      ).map(([key, labelKey]) => (
+        <Row key={key} label={t(labelKey)}>
           <input
             type="checkbox"
             checked={settings.features[key]}
@@ -88,6 +89,7 @@ function GeneralTab() {
 }
 
 function ApiKeyTab() {
+  const { t } = useTranslation();
   const secrets = useAppStore((s) => s.secrets);
   const refreshModels = useAppStore((s) => s.refreshModels);
   const [key, setKey] = useState("");
@@ -100,7 +102,7 @@ function ApiKeyTab() {
     if (res.ok) {
       await whalex.invoke("secrets:set", { ref: "deepseek-api-key", value: key.trim() });
       setKey("");
-      setState({ s: "ok", msg: `${res.models.length}개 모델` });
+      setState({ s: "ok", msg: t("settings.apikey.connected", { count: res.models.length }) });
       await refreshModels();
     } else {
       setState({ s: "err", msg: res.error });
@@ -109,8 +111,8 @@ function ApiKeyTab() {
 
   return (
     <div>
-      <Row label="DeepSeek API 키">
-        <span className="font-mono text-[12px] text-muted">{tail ?? "미설정"}</span>
+      <Row label={t("settings.apikey.label")}>
+        <span className="font-mono text-[12px] text-muted">{tail ?? t("settings.apikey.unset")}</span>
       </Row>
       <div className="mt-4">
         <input
@@ -126,9 +128,9 @@ function ApiKeyTab() {
             disabled={key.trim().length < 8 || state.s === "testing"}
             className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            {state.s === "testing" ? "확인 중..." : "저장 및 연결 확인"}
+            {state.s === "testing" ? t("settings.apikey.testing") : t("settings.apikey.save")}
           </button>
-          {state.s === "ok" && <span className="text-[12px] text-ok">연결됨 · {state.msg}</span>}
+          {state.s === "ok" && <span className="text-[12px] text-ok">{state.msg}</span>}
           {state.s === "err" && <span className="text-[12px] text-danger">{state.msg}</span>}
         </div>
       </div>
@@ -137,12 +139,13 @@ function ApiKeyTab() {
 }
 
 function ModelsTab() {
+  const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
   const models = useAppStore((s) => s.models);
   return (
     <div>
-      <Row label="기본 모델">
+      <Row label={t("settings.defaultModel")}>
         <select
           value={settings.defaultModel}
           onChange={(e) => void update({ defaultModel: e.target.value })}
@@ -155,7 +158,7 @@ function ModelsTab() {
           ))}
         </select>
       </Row>
-      <Row label={`Temperature (${settings.temperature})`}>
+      <Row label={t("settings.temperature", { value: settings.temperature })}>
         <input
           type="range"
           min={0}
@@ -165,7 +168,7 @@ function ModelsTab() {
           onChange={(e) => void update({ temperature: Number(e.target.value) })}
         />
       </Row>
-      <Row label="SuperCode 최대 에이전트 수">
+      <Row label={t("settings.maxAgents")}>
         <input
           type="number"
           min={1}
@@ -177,12 +180,9 @@ function ModelsTab() {
           className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         />
       </Row>
-      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">비전 (선택)</div>
-      <div className="mb-2 text-[11.5px] text-faint">
-        DeepSeek는 이미지를 볼 수 없습니다. 이미지 이해가 필요하면 OpenAI 호환 비전 모델을
-        연결하세요 (예: 로컬 Ollama <code>http://localhost:11434/v1</code> + <code>llava</code>).
-      </div>
-      <Row label="비전 baseUrl">
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">{t("settings.vision.title")}</div>
+      <div className="mb-2 text-[11.5px] text-faint">{t("settings.vision.desc")}</div>
+      <Row label={t("settings.vision.baseUrl")}>
         <input
           value={settings.vision.baseUrl}
           onChange={(e) => void update({ vision: { ...settings.vision, baseUrl: e.target.value } })}
@@ -190,7 +190,7 @@ function ModelsTab() {
           className="w-56 rounded-md border border-border bg-surface px-2 py-1 text-[12px]"
         />
       </Row>
-      <Row label="비전 모델">
+      <Row label={t("settings.vision.model")}>
         <input
           value={settings.vision.model}
           onChange={(e) => void update({ vision: { ...settings.vision, model: e.target.value } })}
@@ -198,7 +198,7 @@ function ModelsTab() {
           className="w-56 rounded-md border border-border bg-surface px-2 py-1 text-[12px]"
         />
       </Row>
-      <Row label="컴퓨터 유즈 (실험적)">
+      <Row label={t("settings.computerUse")}>
         <label className="flex items-center gap-2 text-[11.5px] text-faint">
           <input
             type="checkbox"
@@ -206,7 +206,7 @@ function ModelsTab() {
             disabled={!settings.vision.baseUrl || !settings.vision.model}
             onChange={(e) => void update({ computerUse: { enabled: e.target.checked } })}
           />
-          화면 제어 허용 (비전 필요)
+          {t("settings.computerUse.allow")}
         </label>
       </Row>
     </div>
@@ -214,6 +214,7 @@ function ModelsTab() {
 }
 
 function McpTab() {
+  const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
   const init = useAppStore((s) => s.init);
@@ -260,7 +261,9 @@ function McpTab() {
 
   return (
     <div>
-      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">추천 서버</div>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">
+        {t("settings.mcp.recommended")}
+      </div>
       <div className="mb-3 grid grid-cols-1 gap-1.5">
         {MCP_PRESETS.filter((p) => !installedNames.has(p.name)).map((p) => (
           <div key={p.name} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
@@ -268,7 +271,7 @@ function McpTab() {
               <div className="flex items-center gap-1.5 text-[12.5px]">
                 <span className="font-medium">{p.name}</span>
                 <span className="rounded bg-surface-2 px-1 py-0.5 text-[9.5px] text-faint">{p.category}</span>
-                {p.requiresSetup && <span className="text-[10px] text-warn">토큰 필요</span>}
+                {p.requiresSetup && <span className="text-[10px] text-warn">{t("settings.mcp.needsToken")}</span>}
               </div>
               <div className="truncate text-[11px] text-muted">{p.description}</div>
             </div>
@@ -276,15 +279,15 @@ function McpTab() {
               onClick={() => void enablePreset(p.name)}
               className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-accent-hover"
             >
-              추가
+              {t("settings.mcp.add")}
             </button>
           </div>
         ))}
       </div>
-      <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-faint">설치됨</div>
-      <div className="mb-3 text-[12px] text-muted">
-        직접 추가하려면 <code>mcpServers</code> JSON을 아래에 붙여넣으세요.
+      <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-faint">
+        {t("settings.mcp.installed")}
       </div>
+      <div className="mb-3 text-[12px] text-muted">{t("settings.mcp.importHint")}</div>
       {Object.entries(settings.mcpServers).map(([name, entry]) => {
         const status = statuses.find((s) => s.name === name);
         return (
@@ -303,7 +306,7 @@ function McpTab() {
             />
             <span className="text-[13px]">{name}</span>
             <span className="text-[11px] text-faint">
-              {entry.config.type} · {status?.toolCount ?? 0} tools
+              {entry.config.type} · {t("settings.mcp.tools", { count: status?.toolCount ?? 0 })}
             </span>
             <div className="flex-1" />
             <input
@@ -312,7 +315,7 @@ function McpTab() {
               onChange={(e) => void toggle(name, e.target.checked)}
             />
             <button onClick={() => void remove(name)} className="text-[11px] text-danger hover:underline">
-              삭제
+              {t("settings.mcp.delete")}
             </button>
           </div>
         );
@@ -330,13 +333,14 @@ function McpTab() {
         disabled={!json.trim()}
         className="mt-2 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
       >
-        JSON 가져오기
+        {t("settings.mcp.import")}
       </button>
     </div>
   );
 }
 
 function SkillsTab() {
+  const { t } = useTranslation();
   const cwd = useAppStore((s) => s.settings)?.defaultCwd;
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   useEffect(() => {
@@ -344,10 +348,10 @@ function SkillsTab() {
   }, [cwd]);
   return (
     <div>
-      <div className="mb-3 text-[12px] text-muted">
-        <code>~/.whalex/skills/&lt;name&gt;/SKILL.md</code> 또는 프로젝트 <code>.whalex/skills/</code>에 스킬을 추가하세요.
-      </div>
-      {skills.length === 0 && <div className="py-4 text-[12.5px] text-faint">설치된 스킬이 없습니다.</div>}
+      <div className="mb-3 text-[12px] text-muted">{t("settings.skills.hint")}</div>
+      {skills.length === 0 && (
+        <div className="py-4 text-[12.5px] text-faint">{t("settings.skills.empty")}</div>
+      )}
       {skills.map((s) => (
         <div key={s.name} className="border-b border-border py-2.5">
           <div className="flex items-center gap-2">
@@ -362,6 +366,7 @@ function SkillsTab() {
 }
 
 function PluginsTab() {
+  const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings)!;
   const init = useAppStore((s) => s.init);
   const [loc, setLoc] = useState("");
@@ -376,10 +381,10 @@ function PluginsTab() {
     setBusy(false);
     if (res.ok) {
       setLoc("");
-      setMsg(`설치됨: ${res.name}`);
+      setMsg(`${res.name}`);
       await init();
     } else {
-      setMsg(`실패: ${res.error}`);
+      setMsg(res.error ?? "");
     }
   };
   const remove = async (name: string) => {
@@ -395,7 +400,7 @@ function PluginsTab() {
           <span className="text-[11px] text-faint">{p.version} · {p.source}</span>
           <div className="flex-1" />
           <button onClick={() => void remove(p.name)} className="text-[11px] text-danger hover:underline">
-            제거
+            {t("settings.plugins.remove")}
           </button>
         </div>
       ))}
@@ -405,8 +410,8 @@ function PluginsTab() {
           onChange={(e) => setSrc(e.target.value as "local" | "git")}
           className="rounded-md border border-border bg-surface px-2 py-1 text-[12px]"
         >
-          <option value="git">Git URL</option>
-          <option value="local">로컬 폴더</option>
+          <option value="git">{t("settings.plugins.gitUrl")}</option>
+          <option value="local">{t("settings.plugins.localFolder")}</option>
         </select>
         <input
           value={loc}
@@ -419,7 +424,7 @@ function PluginsTab() {
           disabled={!loc.trim() || busy}
           className="rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
         >
-          {busy ? "설치 중..." : "설치"}
+          {busy ? t("settings.plugins.installing") : t("settings.plugins.install")}
         </button>
       </div>
       {msg && <div className="mt-2 text-[12px] text-muted">{msg}</div>}
@@ -428,59 +433,61 @@ function PluginsTab() {
 }
 
 function AppearanceTab() {
+  const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
   return (
-    <Row label="테마">
+    <Row label={t("settings.theme")}>
       <select
         value={settings.theme}
         onChange={(e) => void update({ theme: e.target.value as "system" | "light" | "dark" })}
         className="rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
       >
-        <option value="system">시스템</option>
-        <option value="light">라이트</option>
-        <option value="dark">다크</option>
+        <option value="system">{t("settings.language.system")}</option>
+        <option value="light">{t("settings.theme.light")}</option>
+        <option value="dark">{t("settings.theme.dark")}</option>
       </select>
     </Row>
   );
 }
 
 function UpdatesTab() {
+  const { t } = useTranslation();
   const version = useAppStore((s) => s.version);
   const status = useUiStore((s) => s.updateStatus);
+  const statusText =
+    status.state === "current"
+      ? t("settings.update.current")
+      : status.state === "available"
+        ? t("settings.update.available", { version: status.version })
+        : status.state === "downloading"
+          ? t("settings.update.downloading", { percent: status.percent })
+          : status.state === "downloaded"
+            ? t("settings.update.ready")
+            : status.state === "error"
+              ? t("settings.update.error", { error: status.error })
+              : status.state;
   return (
     <div>
-      <Row label="현재 버전">
+      <Row label={t("settings.update.version")}>
         <span className="text-[12.5px] text-muted">{version}</span>
       </Row>
-      <Row label="상태">
-        <span className="text-[12.5px] text-muted">
-          {status.state === "current"
-            ? "최신 버전입니다"
-            : status.state === "available"
-              ? `업데이트 가능: ${status.version}`
-              : status.state === "downloading"
-                ? `다운로드 중 ${status.percent}%`
-                : status.state === "downloaded"
-                  ? "재시작 시 적용"
-                  : status.state === "error"
-                    ? `오류: ${status.error}`
-                    : status.state}
-        </span>
+      <Row label={t("settings.update.status")}>
+        <span className="text-[12.5px] text-muted">{statusText}</span>
       </Row>
       <div className="mt-3 flex gap-2">
         <button
           onClick={() => void whalex.invoke("update:check", undefined)}
           className="rounded-md border border-border px-3 py-1.5 text-[12.5px] hover:bg-surface-2"
         >
-          업데이트 확인
+          {t("settings.update.check")}
         </button>
         {status.state === "available" && (
           <button
             onClick={() => void whalex.invoke("update:download", undefined)}
             className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover"
           >
-            다운로드
+            {t("settings.update.download")}
           </button>
         )}
         {status.state === "downloaded" && (
@@ -488,7 +495,7 @@ function UpdatesTab() {
             onClick={() => void whalex.invoke("update:install", undefined)}
             className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover"
           >
-            재시작하여 업데이트
+            {t("settings.update.restart")}
           </button>
         )}
       </div>
@@ -497,11 +504,11 @@ function UpdatesTab() {
 }
 
 export function SettingsModal() {
+  const { t } = useTranslation();
   const open = useUiStore((s) => s.settingsOpen);
   const tab = useUiStore((s) => s.settingsTab);
-  const setTab = (t: SettingsTab) => useUiStore.setState({ settingsTab: t });
+  const setTab = (id: SettingsTab) => useUiStore.setState({ settingsTab: id });
   const close = useUiStore((s) => s.closeSettings);
-  useTranslation();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -514,10 +521,7 @@ export function SettingsModal() {
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={close}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={close}>
       <div
         className="flex h-[560px] w-[720px] max-w-[92vw] overflow-hidden rounded-xl border border-border bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -532,14 +536,16 @@ export function SettingsModal() {
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-[12.5px] ${tab === tt.id ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface"}`}
               >
                 <Icon size={14} />
-                {tt.label}
+                {t(tt.labelKey)}
               </button>
             );
           })}
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-border px-5 py-3">
-            <span className="text-[14px] font-semibold">{TABS.find((t) => t.id === tab)?.label}</span>
+            <span className="text-[14px] font-semibold">
+              {t(TABS.find((x) => x.id === tab)?.labelKey ?? "settings.tab.general")}
+            </span>
             <button onClick={close} className="rounded p-1 text-faint hover:text-text">
               <X size={16} />
             </button>

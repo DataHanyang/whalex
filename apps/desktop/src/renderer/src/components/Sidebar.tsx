@@ -98,7 +98,7 @@ export function Sidebar() {
         className="flex items-center gap-2 border-t border-border px-4 py-2.5 text-[12.5px] text-muted hover:bg-surface-2"
       >
         <Settings size={14} />
-        설정
+        {t("sidebar.settings")}
       </button>
     </aside>
   );
