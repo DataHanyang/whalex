@@ -77,7 +77,7 @@ function Item({ item }: { item: TranscriptItem }) {
           <FileCode2 size={15} className="text-accent" />
           <span className="font-medium">{item.title}</span>
           <span className="text-[11px] text-faint">{item.artifactKind}</span>
-          <span className="ml-auto text-[11px] text-accent">미리보기 열기 →</span>
+          <span className="ml-auto text-[11px] text-accent">{t("transcript.openPreview")}</span>
         </button>
       );
     }
@@ -107,7 +107,7 @@ function Item({ item }: { item: TranscriptItem }) {
         <div className="transcript-item my-2 flex items-center gap-2 text-[11.5px] text-faint">
           <div className="h-px flex-1 bg-border" />
           <Minimize2 size={12} />
-          컨텍스트 압축됨 {item.beforePct}% → {item.afterPct}%
+          {t("transcript.compacted", { before: item.beforePct, after: item.afterPct })}
           <div className="h-px flex-1 bg-border" />
         </div>
       );

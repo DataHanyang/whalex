@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, Loader2, Sparkles } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
 
@@ -11,6 +12,7 @@ const STATE_DOT: Record<string, string> = {
 
 /** Live SuperCode progress tree: phases → agents, with token/cost counters. */
 export function WorkflowPanel({ workflowId }: { workflowId: string }) {
+  const { t } = useTranslation();
   const workflow = useSessionStore((s) => s.workflow);
   const [open, setOpen] = useState(true);
   if (!workflow || workflow.workflowId !== workflowId) return null;
@@ -32,8 +34,8 @@ export function WorkflowPanel({ workflowId }: { workflowId: string }) {
         <Sparkles size={14} className="text-accent" />
         <span className="font-medium">SuperCode: {workflow.name}</span>
         <span className="text-[11.5px] text-muted">
-          {done}/{workflow.agents.length} 완료
-          {running > 0 && ` · ${running} 실행 중`}
+          {t("workflow.done", { done, total: workflow.agents.length })}
+          {running > 0 && t("workflow.running", { count: running })}
         </span>
         <div className="flex-1" />
         {(workflow.state === "running" || workflow.state === "planning") && (

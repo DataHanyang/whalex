@@ -12,6 +12,7 @@ function formatDuration(ms: number): string {
 
 /** Live elapsed timer while a turn runs; final duration once it completes. */
 function ElapsedTime() {
+  const { t } = useTranslation();
   const status = useSessionStore((s) => s.status);
   const turnStartedAt = useSessionStore((s) => s.turnStartedAt);
   const lastTurnMs = useSessionStore((s) => s.lastTurnMs);
@@ -34,7 +35,7 @@ function ElapsedTime() {
   }
   if (lastTurnMs !== null) {
     return (
-      <span className="flex items-center gap-1" title="마지막 응답 소요 시간">
+      <span className="flex items-center gap-1" title={t("statusbar.lastDuration")}>
         <Clock size={11} />
         {formatDuration(lastTurnMs)}
       </span>
@@ -60,7 +61,9 @@ export function StatusBar() {
       </span>
       <span className="font-mono">{model}</span>
       {superCode && <span className="text-accent">SuperCode</span>}
-      {runningAgents > 0 && <span className="text-accent">에이전트 {runningAgents}개 실행 중</span>}
+      {runningAgents > 0 && (
+        <span className="text-accent">{t("statusbar.agentsRunning", { count: runningAgents })}</span>
+      )}
       {status !== "idle" && (
         <span className="flex items-center gap-1.5 text-accent">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />

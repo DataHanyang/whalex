@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import i18n from "i18next";
 import type {
   AgentEventEnvelope,
   Artifact,
@@ -370,8 +371,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               id: `goal-${Date.now()}`,
               code: ev.done ? "goal-done" : "goal-continue",
               message: ev.done
-                ? `목표 달성 (${ev.iteration}/${ev.maxIterations} 반복)`
-                : `목표 진행 중 (${ev.iteration}/${ev.maxIterations}) — 남은 것: ${ev.remaining}`,
+                ? i18n.t("transcript.goalDone", { i: ev.iteration, max: ev.maxIterations })
+                : i18n.t("transcript.goalContinue", {
+                    i: ev.iteration,
+                    max: ev.maxIterations,
+                    remaining: ev.remaining,
+                  }),
               ts: Date.now(),
             },
           ],

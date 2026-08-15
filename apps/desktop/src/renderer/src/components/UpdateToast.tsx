@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Download, RefreshCw, X } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
 
 /** Bottom-right update notification. Dismissable; snoozes the current version. */
 export function UpdateToast() {
+  const { t } = useTranslation();
   const status = useUiStore((s) => s.updateStatus);
   const [dismissed, setDismissed] = useState<string | null>(null);
 
@@ -21,26 +23,28 @@ export function UpdateToast() {
         <div className="min-w-0 flex-1">
           {status.state === "available" && (
             <>
-              <div className="text-[13px] font-medium">업데이트 {status.version} 사용 가능</div>
+              <div className="text-[13px] font-medium">
+                {t("update.available", { version: status.version })}
+              </div>
               <div className="mt-2 flex gap-2">
                 <button
                   onClick={() => void whalex.invoke("update:download", undefined)}
                   className="flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:bg-accent-hover"
                 >
-                  <Download size={12} /> 다운로드
+                  <Download size={12} /> {t("update.download")}
                 </button>
                 <button
                   onClick={() => setDismissed(status.version ?? null)}
                   className="rounded-md px-2 py-1 text-[12px] text-muted hover:bg-surface-2"
                 >
-                  나중에
+                  {t("update.later")}
                 </button>
               </div>
             </>
           )}
           {status.state === "downloading" && (
             <>
-              <div className="text-[13px] font-medium">다운로드 중… {status.percent}%</div>
+              <div className="text-[13px] font-medium">{t("update.downloading", { percent: status.percent })}</div>
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2">
                 <div className="h-full rounded-full bg-accent" style={{ width: `${status.percent ?? 0}%` }} />
               </div>
@@ -48,12 +52,12 @@ export function UpdateToast() {
           )}
           {status.state === "downloaded" && (
             <>
-              <div className="text-[13px] font-medium">업데이트 준비 완료</div>
+              <div className="text-[13px] font-medium">{t("update.ready")}</div>
               <button
                 onClick={() => void whalex.invoke("update:install", undefined)}
                 className="mt-2 rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:bg-accent-hover"
               >
-                재시작하여 적용
+                {t("update.restart")}
               </button>
             </>
           )}
