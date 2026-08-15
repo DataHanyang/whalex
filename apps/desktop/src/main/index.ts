@@ -10,6 +10,7 @@ import { registerIpc } from "./ipc.js";
 import { Updater } from "./updater.js";
 import { PreviewManager } from "./PreviewManager.js";
 import { PluginManager } from "./PluginManager.js";
+import { BrowserManager } from "./BrowserManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -102,8 +103,11 @@ void app.whenReady().then(() => {
   const updater = new Updater(() => mainWindow);
   const preview = new PreviewManager();
   const plugins = new PluginManager(settings);
+  const browser = new BrowserManager(() => mainWindow);
+  browser.setActivityListener((url, title) => host.notifyBrowserNavigated(url, title));
+  host.setBrowser(browser);
 
-  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins });
+  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser });
   createWindow();
   logLine("window created");
 

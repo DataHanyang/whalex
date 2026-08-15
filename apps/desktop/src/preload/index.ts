@@ -26,6 +26,9 @@ const INVOKE_CHANNELS = new Set([
   "update:check",
   "update:download",
   "update:install",
+  "browser:setBounds",
+  "browser:hide",
+  "vision:test",
   "dialog:pickFolder",
   "shell:openExternal",
 ]);

@@ -9,8 +9,10 @@ import {
   SkillRegistry,
   WorkflowRunner,
   createAgentTool,
+  createBrowserTools,
   createBuiltinRegistry,
   createWorkflowTool,
+  type BrowserController,
   type ToolDef,
 } from "@whalex/core";
 import {
@@ -54,12 +56,25 @@ export class AgentHost {
     return this.artifacts.get(id) ?? null;
   }
 
+  private browser: BrowserController | null = null;
+  private activeSessionForBrowser: string | null = null;
+
   constructor(
     private getWindow: () => BrowserWindow | null,
     private settings: SettingsManager,
     private vault: SecretVault,
   ) {
     this.mcp.setStatusListener((statuses) => this.emitMcpStatus(statuses));
+  }
+
+  setBrowser(controller: BrowserController): void {
+    this.browser = controller;
+  }
+
+  notifyBrowserNavigated(url: string, title: string): void {
+    if (this.activeSessionForBrowser) {
+      this.emitDirect(this.activeSessionForBrowser, { type: "browser-navigated", url, title });
+    }
   }
 
   async init(): Promise<void> {
@@ -85,6 +100,12 @@ export class AgentHost {
     const registry = createBuiltinRegistry();
     registry.register(this.skills.tool() as ToolDef<never>);
     const sessionId = store.sessionId;
+    this.activeSessionForBrowser = sessionId;
+
+    // Browser-use tools (DOM-based, shared WebContentsView).
+    if (this.browser) {
+      for (const tool of createBrowserTools(this.browser)) registry.register(tool);
+    }
 
     // Subagent tool — nested loops share the provider, permissions, and MCP tools.
     registry.register(

@@ -61,6 +61,14 @@ export const SettingsSchema = z.object({
     })
     .default({}),
   updateChannel: z.enum(["stable", "beta"]).default("stable"),
+  /** Optional vision sidecar — DeepSeek is text-only. Empty = disabled. */
+  vision: z
+    .object({
+      baseUrl: z.string().default(""),
+      model: z.string().default(""),
+      apiKeyRef: z.string().default("vision-api-key"),
+    })
+    .default({}),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

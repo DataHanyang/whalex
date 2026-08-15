@@ -1,5 +1,5 @@
 import { app, dialog, ipcMain, shell, type BrowserWindow } from "electron";
-import { OpenAICompatProvider, SessionStore, searchFiles } from "@whalex/core";
+import { OpenAICompatProvider, SessionStore, VisionBridge, searchFiles } from "@whalex/core";
 import {
   IPC_INVOKE,
   type IpcInvokeChannel,
@@ -25,8 +25,9 @@ export function registerIpc(deps: {
   updater: Updater;
   preview: PreviewManager;
   plugins: PluginManager;
+  browser: import("./BrowserManager.js").BrowserManager;
 }): void {
-  const { getWindow, host, settings, vault, updater, preview, plugins } = deps;
+  const { getWindow, host, settings, vault, updater, preview, plugins, browser } = deps;
 
   const makeProvider = (providerId: string, apiKeyOverride?: string) => {
     const p = settings.get().providers.find((x) => x.id === providerId);
@@ -84,6 +85,17 @@ export function registerIpc(deps: {
     "update:download": () => updater.download(),
     "update:install": () => {
       updater.install();
+    },
+    "browser:setBounds": (req) => {
+      browser.setBounds(req);
+    },
+    "browser:hide": () => {
+      browser.hide();
+    },
+    "vision:test": async (req) => {
+      const apiKey = req.apiKey ?? vault.get("vision-api-key");
+      const bridge = new VisionBridge({ baseUrl: req.baseUrl, model: req.model, apiKey });
+      return bridge.test();
     },
     "dialog:pickFolder": async () => {
       const win = getWindow();

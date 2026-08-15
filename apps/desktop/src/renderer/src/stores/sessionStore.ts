@@ -30,11 +30,13 @@ interface SessionState {
   activeArtifactId: string | null;
   subagents: Record<string, { agentType: string; label: string; state: string; toolCount: number; tokens: number; lastActivity: string }>;
   workflow: WorkflowState | null;
+  browser: { active: boolean; url: string; title: string };
 
   setModel(model: string): void;
   setSuperCode(on: boolean): void;
   openArtifact(id: string): void;
   closeArtifact(): void;
+  closeBrowser(): void;
   refreshSessions(): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
@@ -61,6 +63,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   activeArtifactId: null,
   subagents: {},
   workflow: null,
+  browser: { active: false, url: "", title: "" },
 
   setModel(model) {
     set({ model });
@@ -75,6 +78,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
   closeArtifact() {
     set({ activeArtifactId: null });
+  },
+  closeBrowser() {
+    set((s) => ({ browser: { ...s.browser, active: false } }));
+    void whalex.invoke("browser:hide", undefined);
   },
 
   async refreshSessions() {
@@ -99,7 +106,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       activeArtifactId: null,
       subagents: {},
       workflow: null,
+      browser: { active: false, url: "", title: "" },
     });
+    void whalex.invoke("browser:hide", undefined);
     await get().refreshSessions();
   },
 
@@ -305,6 +314,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             },
           ],
         }));
+        break;
+      case "browser-navigated":
+        set({ browser: { active: true, url: ev.url, title: ev.title } });
         break;
       case "permission-request":
         set({ pendingPermission: ev.request });
