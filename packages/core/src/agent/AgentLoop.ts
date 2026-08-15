@@ -12,6 +12,8 @@ import { compactSession } from "./Compactor.js";
 import { NOOP_HOOKS, type HookRunner } from "./Hooks.js";
 
 const MAX_ROUNDS = 60;
+/** Retries granted when a turn is cut off by the output cap mid-tool-call. */
+const MAX_TRUNCATION_RETRIES = 3;
 export const ARTIFACT_MARKER = "WHALEX_ARTIFACT:";
 
 export interface AgentLoopOptions {
@@ -191,6 +193,7 @@ export class AgentLoop {
       });
       yield { type: "status", state: "thinking" };
 
+      let truncationRetries = 0;
       for (let round = 0; round < MAX_ROUNDS; round++) {
         const messageId = randomUUID();
         yield { type: "message-start", messageId };
@@ -265,6 +268,27 @@ export class AgentLoop {
         yield { type: "usage", usage: this.context.snapshot() };
 
         if (turn.toolCalls.length === 0) {
+          // Hitting the output cap mid-tool-call leaves the arguments JSON
+          // truncated, so the assembler yields no usable calls and the turn
+          // would otherwise end silently with nothing written. Tell the model
+          // what happened and let it retry with smaller writes.
+          if (turn.finishReason === "length" && truncationRetries < MAX_TRUNCATION_RETRIES) {
+            truncationRetries += 1;
+            session.append({
+              type: "user",
+              id: randomUUID(),
+              text:
+                "[system] Your previous response was cut off because it hit the " +
+                "output token limit before completing a tool call, so nothing was " +
+                "written. Do not repeat the whole thing in one shot. Instead write " +
+                "the file in several smaller steps: create it with write_file " +
+                "containing the first portion, then append the remaining portions " +
+                "with additional edit_file calls.",
+              ts: Date.now(),
+            });
+            yield { type: "status", state: "thinking" };
+            continue;
+          }
           yield {
             type: "done",
             stopReason: turn.finishReason === "length" ? "length" : "stop",

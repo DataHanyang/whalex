@@ -30,18 +30,21 @@ export type ProviderSettings = z.infer<typeof ProviderSettingsSchema>;
  * Unknown models fall back to DEFAULT_MODEL_META.
  */
 export const KNOWN_MODELS: Record<string, Omit<ModelInfo, "id">> = {
+  // V4 ships a 1M-token context and a 384K max output on the official API.
+  // Cap max output well below that: a single response is streamed and buffered,
+  // and huge single writes are worse than several incremental ones.
   "deepseek-v4-pro": {
     label: "DeepSeek V4 Pro",
-    contextWindow: 128_000,
-    maxOutput: 16_384,
+    contextWindow: 1_000_000,
+    maxOutput: 65_536,
     supportsTools: true,
     supportsReasoning: true,
     supportsVision: false,
   },
   "deepseek-v4-flash": {
     label: "DeepSeek V4 Flash",
-    contextWindow: 128_000,
-    maxOutput: 16_384,
+    contextWindow: 1_000_000,
+    maxOutput: 65_536,
     supportsTools: true,
     supportsReasoning: false,
     supportsVision: false,

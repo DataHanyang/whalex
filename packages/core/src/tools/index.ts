@@ -5,16 +5,20 @@ import { globTool, grepTool } from "./search.js";
 import { todoWriteTool } from "./todo.js";
 import { presentFileTool } from "./present.js";
 import { webFetchTool } from "./web.js";
+import { verifyPageTool } from "./verify.js";
 
 export * from "./Tool.js";
 export { presentFileTool } from "./present.js";
 export { webFetchTool } from "./web.js";
+export { verifyPageTool } from "./verify.js";
 
 export interface BuiltinToolOptions {
   /** Read-only agents (e.g. the "explore" subagent type) get a reduced set. */
   readOnlyOnly?: boolean;
   includeWebFetch?: boolean;
   includePresent?: boolean;
+  /** Renders a produced HTML page to check it actually draws (needs Electron). */
+  includeVerifyPage?: boolean;
 }
 
 /** Registration order is the API tool order — keep it stable (context caching). */
@@ -30,6 +34,7 @@ export function createBuiltinRegistry(opts: BuiltinToolOptions = {}): ToolRegist
     todoWriteTool,
     ...(opts.includePresent !== false ? [presentFileTool] : []),
     ...(opts.includeWebFetch !== false ? [webFetchTool] : []),
+    ...(opts.includeVerifyPage ? [verifyPageTool] : []),
   ] as ToolDef<never>[];
   const tools = opts.readOnlyOnly ? all.filter((t) => t.readOnly) : all;
   for (const t of tools) registry.register(t);
