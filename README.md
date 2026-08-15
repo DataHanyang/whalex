@@ -54,6 +54,10 @@ DEEPSEEK_API_KEY=sk-... pnpm --filter @whalex/cli start "C:\내\프로젝트"
 - `oss` (기본) — BYOK, GitHub Releases 자동 업데이트
 - `cloud` — 로그인 + 호스팅 API 프록시, 자체 업데이트 피드
 
+## 설치 시 주의 (미서명 빌드)
+
+현재 Windows 설치본은 코드 서명이 없어, 처음 실행 시 SmartScreen "Windows가 PC를 보호했습니다" 경고가 뜰 수 있습니다. **추가 정보 → 실행**을 눌러 실행하세요. 1.0 전 Azure Trusted Signing 도입 시 이 경고가 사라집니다.
+
 ## 배포 / 코드 서명
 
 `.github/workflows/release.yml` — 태그(`v*`) 푸시 시 3개 OS 설치본을 빌드해 **draft** 릴리스로 발행합니다. 코드 서명은 시크릿이 있으면 자동 적용:
