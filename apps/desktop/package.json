@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Whalex — DeepSeek-powered coding agent desktop app",
   "author": "Whalex",
+  "homepage": "https://github.com/DataHanyang/whalex",
   "type": "module",
   "main": "./out/main/index.js",
   "scripts": {
