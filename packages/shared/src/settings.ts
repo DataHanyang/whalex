@@ -90,6 +90,17 @@ export const SettingsSchema = z.object({
   /** OS input control — experimental, needs vision, off by default. */
   computerUse: z.object({ enabled: z.boolean().default(false) }).default({}),
   hooks: z.array(HookConfigSchema).default([]),
+  /** Feature toggles — turn agent capabilities on/off. */
+  features: z
+    .object({
+      subagents: z.boolean().default(true),
+      superCode: z.boolean().default(true),
+      browserUse: z.boolean().default(true),
+      webFetch: z.boolean().default(true),
+    })
+    .default({}),
+  /** Which subagent types the agent may spawn. */
+  disabledAgentTypes: z.array(z.string()).default([]),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

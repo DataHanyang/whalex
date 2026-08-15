@@ -109,6 +109,21 @@ export const IPC_INVOKE = {
     req: z.object({ sessionId: z.string() }),
     res: z.void(),
   },
+  "session:setMode": {
+    req: z.object({
+      sessionId: z.string(),
+      mode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan"]),
+    }),
+    res: z.void(),
+  },
+  "session:setGoalMode": {
+    req: z.object({ sessionId: z.string(), on: z.boolean() }),
+    res: z.void(),
+  },
+  "mcp:enablePreset": {
+    req: z.object({ name: z.string(), cwd: z.string() }),
+    res: z.void(),
+  },
   "permission:respond": {
     req: PermissionResponseSchema,
     res: z.void(),

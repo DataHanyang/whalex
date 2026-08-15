@@ -11,7 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import type { McpServerConfig, SkillInfo } from "@whalex/shared";
+import { MCP_PRESETS, type McpServerConfig, type SkillInfo } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore, type SettingsTab } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
@@ -66,6 +66,23 @@ function GeneralTab() {
           <option value="plan">계획 모드 (읽기 전용)</option>
         </select>
       </Row>
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">기능 켜고 끄기</div>
+      {(
+        [
+          ["subagents", "서브에이전트 (agent 도구)"],
+          ["superCode", "슈퍼코드 (멀티 에이전트)"],
+          ["browserUse", "브라우저 유즈"],
+          ["webFetch", "웹 가져오기 (web_fetch)"],
+        ] as const
+      ).map(([key, label]) => (
+        <Row key={key} label={label}>
+          <input
+            type="checkbox"
+            checked={settings.features[key]}
+            onChange={(e) => void update({ features: { ...settings.features, [key]: e.target.checked } })}
+          />
+        </Row>
+      ))}
     </div>
   );
 }
@@ -199,6 +216,7 @@ function ModelsTab() {
 function McpTab() {
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
+  const init = useAppStore((s) => s.init);
   const statuses = useUiStore((s) => s.mcpStatus);
   const [json, setJson] = useState("");
   const [err, setErr] = useState("");
@@ -232,10 +250,40 @@ function McpTab() {
     await update({ mcpServers: next });
   };
 
+  const enablePreset = async (name: string) => {
+    const cwd = settings.defaultCwd ?? ".";
+    await whalex.invoke("mcp:enablePreset", { name, cwd });
+    await init();
+  };
+
+  const installedNames = new Set(Object.keys(settings.mcpServers));
+
   return (
     <div>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">추천 서버</div>
+      <div className="mb-3 grid grid-cols-1 gap-1.5">
+        {MCP_PRESETS.filter((p) => !installedNames.has(p.name)).map((p) => (
+          <div key={p.name} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-[12.5px]">
+                <span className="font-medium">{p.name}</span>
+                <span className="rounded bg-surface-2 px-1 py-0.5 text-[9.5px] text-faint">{p.category}</span>
+                {p.requiresSetup && <span className="text-[10px] text-warn">토큰 필요</span>}
+              </div>
+              <div className="truncate text-[11px] text-muted">{p.description}</div>
+            </div>
+            <button
+              onClick={() => void enablePreset(p.name)}
+              className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-accent-hover"
+            >
+              추가
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-faint">설치됨</div>
       <div className="mb-3 text-[12px] text-muted">
-        MCP 서버를 연결해 도구를 확장합니다. 아래에 <code>mcpServers</code> JSON을 붙여넣어 추가하세요.
+        직접 추가하려면 <code>mcpServers</code> JSON을 아래에 붙여넣으세요.
       </div>
       {Object.entries(settings.mcpServers).map(([name, entry]) => {
         const status = statuses.find((s) => s.name === name);

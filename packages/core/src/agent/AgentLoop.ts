@@ -57,6 +57,7 @@ export class AgentLoop {
   private controller: AbortController | null = null;
   private systemPrompt: string | null = null;
   private running = false;
+  private goalStop = false;
 
   constructor(private opts: AgentLoopOptions) {
     this.context = new ContextManager(opts.modelInfo);
@@ -72,6 +73,7 @@ export class AgentLoop {
   }
 
   abort(): void {
+    this.goalStop = true;
     this.controller?.abort();
     this.opts.permissions.abortPending();
   }
@@ -88,6 +90,81 @@ export class AgentLoop {
     );
     if (res.ok) this.context.reset();
     return { ok: res.ok, beforePct: before, afterPct: this.context.contextPct(), error: res.error };
+  }
+
+  /**
+   * Goal mode (Codex-style): run toward a goal autonomously, self-evaluating
+   * completion after each turn and continuing until done, a max iteration
+   * count, or an abort. Each iteration is a full agent turn on the same
+   * session, so context and files carry over.
+   */
+  async *runGoal(goal: string, maxIterations = 12): AsyncGenerator<AgentEvent> {
+    this.goalStop = false;
+    let prompt =
+      `다음 목표를 스스로 달성해줘. 완료될 때까지 필요한 모든 단계를 수행하고, ` +
+      `각 단계 결과를 확인해가며 진행해.\n\n목표: ${goal}`;
+    for (let i = 0; i < maxIterations; i++) {
+      yield* this.run(prompt);
+      if (this.goalStop) return;
+
+      const check = await this.evaluateGoal(goal);
+      yield {
+        type: "goal-update",
+        iteration: i + 1,
+        maxIterations,
+        done: check.done,
+        remaining: check.remaining,
+      };
+      if (check.done) return;
+      prompt =
+        `아직 목표가 완료되지 않았어. 남은 작업을 이어서 진행해줘.\n\n목표: ${goal}\n남은 것: ${check.remaining}`;
+    }
+  }
+
+  /** Asks the model to judge goal completion. Returns {done, remaining}. */
+  private async evaluateGoal(goal: string): Promise<{ done: boolean; remaining: string }> {
+    const controller = new AbortController();
+    let text = "";
+    try {
+      for await (const delta of this.opts.provider.streamChat({
+        model: this.opts.modelInfo.id,
+        messages: [
+          { role: "system", content: "You judge whether a coding goal is fully complete." },
+          {
+            role: "user",
+            content:
+              `목표: ${goal}\n\n지금까지의 작업 요약:\n${this.recentWork()}\n\n` +
+              `이 목표가 완전히 달성되었는지 판단해줘. JSON만 출력: {"done": true/false, "remaining": "남은 작업 한 줄"}`,
+          },
+        ],
+        temperature: 0,
+        maxTokens: 300,
+        signal: controller.signal,
+      })) {
+        if (delta.type === "text") text += delta.text;
+      }
+    } catch {
+      return { done: false, remaining: "평가 실패" };
+    }
+    try {
+      const m = /\{[\s\S]*\}/.exec(text);
+      const parsed = JSON.parse(m ? m[0] : text) as { done?: boolean; remaining?: string };
+      return { done: !!parsed.done, remaining: parsed.remaining ?? "" };
+    } catch {
+      return { done: /done|완료|끝/i.test(text), remaining: text.slice(0, 200) };
+    }
+  }
+
+  private recentWork(): string {
+    const recs = this.opts.session.effectiveRecords().slice(-16);
+    return recs
+      .map((r) => {
+        if (r.type === "assistant" && r.text) return `A: ${r.text.slice(0, 300)}`;
+        if (r.type === "tool_result") return `T(${r.toolName}): ${r.ok ? "ok" : "fail"} ${r.output.slice(0, 120)}`;
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
   }
 
   async *run(userText: string): AsyncGenerator<AgentEvent> {

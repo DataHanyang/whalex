@@ -96,6 +96,13 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     title: z.string(),
   }),
   z.object({
+    type: z.literal("goal-update"),
+    iteration: z.number(),
+    maxIterations: z.number(),
+    done: z.boolean(),
+    remaining: z.string(),
+  }),
+  z.object({
     type: z.literal("workflow-update"),
     workflow: z.lazy(() => WorkflowStateSchema),
   }),

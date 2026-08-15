@@ -39,6 +39,8 @@ interface HostedSession {
   engine: PermissionEngine;
   seq: number;
   superCode: boolean;
+  goalMode: boolean;
+  modeOverride: import("@whalex/shared").PermissionMode | null;
 }
 
 const CPU = os.cpus().length;
@@ -109,13 +111,14 @@ export class AgentHost {
     const provider = await this.createProvider();
     const modelInfo = resolveModelInfo(s.defaultModel);
 
-    const registry = createBuiltinRegistry();
+    const features = s.features;
+    const registry = createBuiltinRegistry({ includeWebFetch: features.webFetch });
     registry.register(this.skills.tool() as ToolDef<never>);
     const sessionId = store.sessionId;
     this.activeSessionForBrowser = sessionId;
 
-    // Browser-use tools (DOM-based, shared WebContentsView).
-    if (this.browser) {
+    // Browser-use tools (DOM-based, shared WebContentsView) — gated by feature.
+    if (this.browser && features.browserUse) {
       for (const tool of createBrowserTools(this.browser)) registry.register(tool);
     }
     // Computer-use tools — experimental, only when opted in + vision connected.
@@ -124,33 +127,38 @@ export class AgentHost {
     }
 
     // Subagent tool — nested loops share the provider, permissions, and MCP tools.
-    registry.register(
-      createAgentTool({
-        provider,
-        permissions: engine,
-        modelInfo,
-        temperature: s.temperature,
-        cwd,
-        extraTools: () => this.mcp.toolDefs(),
-        onProgress: (u) => {
-          this.emitDirect(sessionId, {
-            type: "subagent-update",
-            agentRunId: u.agentRunId,
-            state: u.state,
-            toolCount: u.toolCount,
-            lastActivity: u.lastActivity,
-            tokens: u.tokens,
-            durationMs: 0,
-          });
-        },
-      }) as ToolDef<never>,
-    );
+    if (features.subagents) {
+      registry.register(
+        createAgentTool({
+          provider,
+          permissions: engine,
+          modelInfo,
+          temperature: s.temperature,
+          cwd,
+          disabledTypes: s.disabledAgentTypes,
+          extraTools: () => this.mcp.toolDefs(),
+          onProgress: (u) => {
+            this.emitDirect(sessionId, {
+              type: "subagent-update",
+              agentRunId: u.agentRunId,
+              state: u.state,
+              toolCount: u.toolCount,
+              lastActivity: u.lastActivity,
+              tokens: u.tokens,
+              durationMs: 0,
+            });
+          },
+        }) as ToolDef<never>,
+      );
+    }
 
     const hosted: HostedSession = {
       store,
       engine,
       seq: 0,
       superCode: false,
+      goalMode: false,
+      modeOverride: null,
       loop: new AgentLoop({
         provider,
         registry,
@@ -180,18 +188,48 @@ export class AgentHost {
     if (hosted) hosted.superCode = on;
   }
 
+  setGoalMode(sessionId: string, on: boolean): void {
+    const hosted = this.sessions.get(sessionId);
+    if (hosted) hosted.goalMode = on;
+  }
+
+  setMode(sessionId: string, mode: import("@whalex/shared").PermissionMode): void {
+    const hosted = this.sessions.get(sessionId);
+    if (hosted) {
+      hosted.modeOverride = mode;
+      hosted.engine.setRules({ ...this.settings.get().permissions, mode });
+    }
+  }
+
+  async enablePreset(name: string, cwd: string): Promise<void> {
+    const { MCP_PRESETS, materializePreset } = await import("@whalex/shared");
+    const preset = MCP_PRESETS.find((p) => p.name === name);
+    if (!preset) return;
+    const config = materializePreset(preset, cwd);
+    const settings = this.settings.get();
+    this.settings.update({
+      mcpServers: { ...settings.mcpServers, [name]: { config, enabled: true } },
+    });
+    await this.mcp.connect(name, config);
+  }
+
   send(sessionId: string, text: string, model: string): void {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) throw new Error(`Unknown session: ${sessionId}`);
     if (hosted.loop.isRunning) throw new Error("Session is already running.");
-    hosted.engine.setRules(this.settings.get().permissions);
+    const perms = this.settings.get().permissions;
+    hosted.engine.setRules(hosted.modeOverride ? { ...perms, mode: hosted.modeOverride } : perms);
     hosted.loop.setModel(resolveModelInfo(model));
 
     // SuperCode: keyword trigger or session toggle adds the workflow tool.
-    const wantWorkflow = hosted.superCode || /슈퍼코드|supercode/i.test(text);
-    if (wantWorkflow) this.enableWorkflow(sessionId, hosted, model);
+    if (this.settings.get().features.superCode) {
+      const wantWorkflow = hosted.superCode || /슈퍼코드|supercode/i.test(text);
+      if (wantWorkflow) this.enableWorkflow(sessionId, hosted, model);
+    }
 
-    void this.pump(sessionId, hosted, hosted.loop.run(text));
+    // Goal mode: run autonomously toward the goal, self-evaluating completion.
+    const stream = hosted.goalMode ? hosted.loop.runGoal(text) : hosted.loop.run(text);
+    void this.pump(sessionId, hosted, stream);
   }
 
   private enableWorkflow(sessionId: string, hosted: HostedSession, model: string): void {
