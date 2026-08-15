@@ -1,15 +1,45 @@
 # 🐋 Whalex
 
-DeepSeek 모델로 구동되는 로컬 코딩 에이전트 데스크톱 앱. Claude Code / Codex처럼 내 컴퓨터에서 파일을 읽고·고치고·명령을 실행하지만, DeepSeek API를 사용합니다. BYOK(Bring Your Own Key) — 사용자가 자신의 DeepSeek API 키를 직접 연결해서 씁니다.
+> **DeepSeek로 구동되는 로컬 코딩 에이전트 데스크톱 앱.** Claude Code / Codex처럼 내 컴퓨터에서 파일을 읽고·고치고·명령을 실행하고, 만든 걸 바로 미리보기로 확인합니다. BYOK — 내 DeepSeek API 키를 직접 연결해서 씁니다.
 
-## 주요 기능 (M1)
+<p align="center">
+  <img src="docs/screenshots/pomodoro-preview.png" alt="Whalex가 뽀모도로 타이머를 만들고 미리보기 패널에 띄운 화면" width="800">
+</p>
 
-- **에이전트 루프**: DeepSeek OpenAI 호환 API에 대한 스트리밍 + 도구 호출 루프
-- **내장 도구 7종**: `read_file`, `write_file`, `edit_file`, `execute`(PowerShell), `glob`, `grep`(ripgrep), `todo_write`
-- **권한 시스템**: `default` / `acceptEdits` / `bypassPermissions` / `plan` 모드, allow/deny 규칙, 인라인 승인 카드
-- **세션**: 프로젝트별 JSONL 저장 + 재개
-- **UI/UX**: 스트리밍 마크다운(shiki 하이라이트), 도구 카드, Diff 뷰어, 온보딩 위저드, 다크/라이트 테마, 한/영 i18n
-- **모델 선택**: `GET /models` 동적 조회 (deepseek-v4-flash / deepseek-v4-pro)
+<p align="center">
+  <em>"뽀모도로 타이머 만들고 미리보기로 띄워줘" → 파일 생성 · 브라우저로 자가 검증 · 미리보기 표출까지 한 번에</em>
+</p>
+
+## ✨ 무엇을 하나
+
+- 🛠 **로컬 제어** — 파일 읽기/쓰기/편집, PowerShell 실행, glob/grep(ripgrep), 웹 가져오기
+- 🔒 **권한 시스템** — 확인 / 편집 자동 / 플랜 / 전체 자동 모드(Shift+Tab 순환), allow·deny 규칙, 인라인 승인 카드
+- 🎨 **아티팩트 미리보기** — 만든 HTML/SVG/Mermaid/마크다운을 앱 안 패널에서 바로 렌더
+- 🌐 **브라우저 유즈** — DOM 기반으로 웹앱을 열고·읽고·조작 (DeepSeek 텍스트 전용 제약을 우회)
+- 🤖 **서브에이전트 & 슈퍼코드** — 하위 에이전트 위임 + 대규모 멀티 에이전트 오케스트레이션
+- 🎯 **목표 모드(Goal Loop)** — 목표를 주면 완료까지 자율 반복 (Codex 스타일)
+- 🔌 **MCP · Skills · 플러그인** — 추천 MCP 서버 원클릭, SKILL.md, git/로컬 플러그인
+- ⏪ **체크포인트/되돌리기** — 파일·대화를 이전 지점으로 복원 (`/rewind`)
+- 🪝 **Hooks** — PreToolUse/PostToolUse 등 이벤트에 셸 커맨드 연결
+- 🖼 **비전 브리지** — 이미지 붙여넣기 → 비전 모델로 설명 → 컨텍스트 주입
+- ⚡ **성능** — 읽기 전용 도구 병렬 실행(≈2.75x), rate-limit 자동 재시도
+- 🔄 **자동 업데이트** — 재설치 없이 알림 → 클릭 → 재시작으로 갱신
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/supercode.png" alt="슈퍼코드 멀티 에이전트 진행 트리"><br><sub><b>슈퍼코드</b> — 여러 에이전트가 병렬로 팬아웃, 진행 트리와 토큰·비용 실시간 표시</sub></td>
+    <td width="50%"><img src="docs/screenshots/browser-use.png" alt="브라우저 유즈로 계산기 페이지를 읽는 화면"><br><sub><b>브라우저 유즈</b> — 만든 웹앱을 열어 DOM을 읽고 직접 검증</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/rewind.png" alt="되돌리기 다이얼로그"><br><sub><b>되돌리기</b> — 체크포인트에서 파일·대화를 이전 상태로 복원</sub></td>
+    <td width="50%"><img src="docs/screenshots/home.png" alt="Whalex 홈 화면"><br><sub><b>홈</b> — 클릭 가능한 예시로 바로 시작, 다크/라이트·한영 지원</sub></td>
+  </tr>
+</table>
+
+## 기본 도구 7종 + 확장
+
+내장: `read_file` · `write_file` · `edit_file` · `execute`(PowerShell) · `glob` · `grep`(ripgrep) · `todo_write`
+확장: `web_fetch` · `present_file`(아티팩트) · `browser_*` · `computer_*`(실험) · `agent`(서브에이전트) · `workflow`(슈퍼코드) · MCP 도구 · Skills
 - **자동 업데이트 기반**: electron-updater + blockmap (GitHub Releases 연결 시 활성화)
 
 로드맵(M2 권한·MCP·아티팩트 패널, M3 Skills·플러그인·서브에이전트, M4 슈퍼코드 멀티에이전트, M5 브라우저 유즈·비전 브리지)은 `~/.claude/plans/`의 설계 문서를 참고.
