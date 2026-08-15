@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, ImageIcon, ListTodo, Loader2, Sparkles, Square, X } from "lucide-react";
+import { ArrowUp, AtSign, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -65,6 +65,10 @@ export function Composer() {
   const setModel = useSessionStore((s) => s.setModel);
   const superCode = useSessionStore((s) => s.superCode);
   const setSuperCode = useSessionStore((s) => s.setSuperCode);
+  const permissionMode = useSessionStore((s) => s.permissionMode);
+  const setPermissionMode = useSessionStore((s) => s.setPermissionMode);
+  const goalMode = useSessionStore((s) => s.goalMode);
+  const setGoalMode = useSessionStore((s) => s.setGoalMode);
   const cwd = useSessionStore((s) => s.cwd);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const models = useAppStore((s) => s.models);
@@ -209,7 +213,25 @@ export function Composer() {
     });
   };
 
+  const MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;
+  const MODE_LABEL: Record<string, string> = {
+    default: "확인",
+    acceptEdits: "편집 자동",
+    plan: "플랜",
+    bypassPermissions: "자동",
+  };
+  const cycleMode = () => {
+    const i = MODES.indexOf(permissionMode as (typeof MODES)[number]);
+    setPermissionMode(MODES[(i + 1) % MODES.length] ?? "default");
+  };
+
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Shift+Tab cycles the permission mode (Claude Code parity).
+    if (e.key === "Tab" && e.shiftKey && !ac) {
+      e.preventDefault();
+      cycleMode();
+      return;
+    }
     if (ac) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -320,6 +342,28 @@ export function Composer() {
               </option>
             ))}
           </select>
+          <button
+            onClick={cycleMode}
+            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${
+              permissionMode === "bypassPermissions"
+                ? "border-warn bg-warn-soft text-warn"
+                : permissionMode === "plan"
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-border text-muted hover:bg-surface-2"
+            }`}
+            title="권한 모드 (Shift+Tab): 확인 → 편집 자동 → 플랜 → 자동"
+          >
+            <Shield size={12} />
+            {MODE_LABEL[permissionMode]}
+          </button>
+          <button
+            onClick={() => setGoalMode(!goalMode)}
+            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${goalMode ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"}`}
+            title="목표 모드: 목표를 주면 완료까지 자율 반복"
+          >
+            <Target size={12} />
+            목표
+          </button>
           <button
             onClick={() => setSuperCode(!superCode)}
             className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${superCode ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"}`}

@@ -37,7 +37,10 @@ mac:
 linux:
   target:
     - AppImage
+    - deb
   category: Development
+  icon: build/icon.png
+  maintainer: Whalex
 nsis:
   oneClick: true
   perMachine: false

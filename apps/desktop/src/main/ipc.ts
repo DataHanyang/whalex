@@ -81,6 +81,13 @@ export function registerIpc(deps: {
     "session:abort": (req) => {
       host.abort(req.sessionId);
     },
+    "session:setMode": (req) => {
+      host.setMode(req.sessionId, req.mode);
+    },
+    "session:setGoalMode": (req) => {
+      host.setGoalMode(req.sessionId, req.on);
+    },
+    "mcp:enablePreset": (req) => host.enablePreset(req.name, req.cwd),
     "permission:respond": (req) => {
       host.respondPermission(req);
     },

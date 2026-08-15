@@ -30,6 +30,8 @@ export interface SubagentDeps {
   modelInfo: ModelInfo;
   temperature: number;
   cwd: string;
+  /** Agent types the user disabled — the tool won't offer them. */
+  disabledTypes?: string[];
   /** MCP tools, shared with the parent so subagents can use them too. */
   extraTools?: () => ToolDef<never>[];
   /** Streams subagent progress up to the parent UI. */
@@ -52,8 +54,10 @@ export function createAgentTool(deps: SubagentDeps): ToolDef<{
   description: string;
   prompt: string;
 }> {
-  const typeList = Object.entries(AGENT_TYPES)
-    .map(([k, v]) => `"${k}" (${v.description})`)
+  const disabled = new Set(deps.disabledTypes ?? []);
+  const enabledTypes = (Object.keys(AGENT_TYPES) as AgentType[]).filter((k) => !disabled.has(k));
+  const typeList = enabledTypes
+    .map((k) => `"${k}" (${AGENT_TYPES[k].description})`)
     .join(", ");
   return {
     name: "agent",
@@ -71,6 +75,9 @@ export function createAgentTool(deps: SubagentDeps): ToolDef<{
     kind: "other",
     summarize: (i) => `Subagent (${i.agent_type}): ${i.description}`,
     async execute(input, ctx) {
+      if (disabled.has(input.agent_type)) {
+        return { ok: false, output: `Agent type "${input.agent_type}" is disabled. Available: ${typeList}` };
+      }
       const typeInfo = AGENT_TYPES[input.agent_type];
       const registry = createBuiltinRegistry({
         readOnlyOnly: typeInfo.readOnlyOnly,

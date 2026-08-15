@@ -35,9 +35,13 @@ interface SessionState {
   turnStartedAt: number | null;
   /** Total duration of the last completed turn (ms). */
   lastTurnMs: number | null;
+  permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan";
+  goalMode: boolean;
 
   setModel(model: string): void;
   setSuperCode(on: boolean): void;
+  setPermissionMode(mode: "default" | "acceptEdits" | "bypassPermissions" | "plan"): void;
+  setGoalMode(on: boolean): void;
   openArtifact(id: string): void;
   closeArtifact(): void;
   closeBrowser(): void;
@@ -72,6 +76,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   browser: { active: false, url: "", title: "" },
   turnStartedAt: null,
   lastTurnMs: null,
+  permissionMode: "default",
+  goalMode: false,
 
   setModel(model) {
     set({ model });
@@ -80,6 +86,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ superCode: on });
     const id = get().activeSessionId;
     if (id) void whalex.invoke("session:command", { sessionId: id, command: on ? "supercode-on" : "supercode-off" });
+  },
+  setPermissionMode(mode) {
+    set({ permissionMode: mode });
+    const id = get().activeSessionId;
+    if (id) void whalex.invoke("session:setMode", { sessionId: id, mode });
+  },
+  setGoalMode(on) {
+    set({ goalMode: on });
+    const id = get().activeSessionId;
+    if (id) void whalex.invoke("session:setGoalMode", { sessionId: id, on });
   },
   openArtifact(id) {
     set({ activeArtifactId: id });
@@ -344,6 +360,22 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         break;
       case "browser-navigated":
         set({ browser: { active: true, url: ev.url, title: ev.title } });
+        break;
+      case "goal-update":
+        set((s) => ({
+          transcript: [
+            ...s.transcript,
+            {
+              kind: "error",
+              id: `goal-${Date.now()}`,
+              code: ev.done ? "goal-done" : "goal-continue",
+              message: ev.done
+                ? `목표 달성 (${ev.iteration}/${ev.maxIterations} 반복)`
+                : `목표 진행 중 (${ev.iteration}/${ev.maxIterations}) — 남은 것: ${ev.remaining}`,
+              ts: Date.now(),
+            },
+          ],
+        }));
         break;
       case "permission-request":
         set({ pendingPermission: ev.request });

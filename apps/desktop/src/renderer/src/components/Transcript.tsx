@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, Minimize2 } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, Minimize2, Target } from "lucide-react";
 import type { TranscriptItem } from "@whalex/shared";
 import { useSessionStore } from "../stores/sessionStore";
 import { StreamingMarkdown } from "./StreamingMarkdown";
@@ -114,6 +114,17 @@ function Item({ item }: { item: TranscriptItem }) {
     case "todos":
       return null; // shown in the status area, not inline
     case "error":
+      // Goal-loop progress reuses the error item shape but reads as info.
+      if (item.code.startsWith("goal-")) {
+        return (
+          <div className="transcript-item my-2 flex items-center gap-2 text-[11.5px] text-accent">
+            <div className="h-px flex-1 bg-accent/30" />
+            <Target size={12} />
+            {item.message}
+            <div className="h-px flex-1 bg-accent/30" />
+          </div>
+        );
+      }
       return (
         <div className="transcript-item my-1.5 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px]">
           <CircleAlert size={15} className="mt-0.5 shrink-0 text-danger" />
