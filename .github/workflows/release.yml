@@ -19,13 +19,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # pnpm 버전은 package.json의 packageManager 필드에서 자동 감지
+      # (version 입력을 함께 주면 "Multiple versions of pnpm" 충돌).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
