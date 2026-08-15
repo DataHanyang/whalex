@@ -1,0 +1,51 @@
+name: Release
+
+# Tag a version (e.g. v0.2.0) to build installers for all platforms and
+# publish them as a DRAFT GitHub Release. Review + smoke test, then publish.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --filter "./packages/*" build
+      - run: pnpm -r typecheck
+      - run: pnpm --filter @whalex/core test
+
+      # Build + publish installers to a draft release.
+      # Signing secrets are read automatically by electron-builder when present:
+      #   Windows: WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD (or Azure Trusted Signing)
+      #   macOS:   APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID + CSC_LINK
+      - name: Build & publish
+        working-directory: apps/desktop
+        run: pnpm dist --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

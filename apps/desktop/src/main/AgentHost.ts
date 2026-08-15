@@ -11,8 +11,10 @@ import {
   createAgentTool,
   createBrowserTools,
   createBuiltinRegistry,
+  createComputerTools,
   createWorkflowTool,
   type BrowserController,
+  type ComputerController,
   type ToolDef,
 } from "@whalex/core";
 import {
@@ -57,6 +59,7 @@ export class AgentHost {
   }
 
   private browser: BrowserController | null = null;
+  private computer: (ComputerController & { isAvailable(): boolean }) | null = null;
   private activeSessionForBrowser: string | null = null;
 
   constructor(
@@ -69,6 +72,10 @@ export class AgentHost {
 
   setBrowser(controller: BrowserController): void {
     this.browser = controller;
+  }
+
+  setComputer(controller: ComputerController & { isAvailable(): boolean }): void {
+    this.computer = controller;
   }
 
   notifyBrowserNavigated(url: string, title: string): void {
@@ -105,6 +112,10 @@ export class AgentHost {
     // Browser-use tools (DOM-based, shared WebContentsView).
     if (this.browser) {
       for (const tool of createBrowserTools(this.browser)) registry.register(tool);
+    }
+    // Computer-use tools — experimental, only when opted in + vision connected.
+    if (this.computer?.isAvailable()) {
+      for (const tool of createComputerTools(this.computer)) registry.register(tool);
     }
 
     // Subagent tool — nested loops share the provider, permissions, and MCP tools.

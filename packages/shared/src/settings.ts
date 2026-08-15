@@ -69,6 +69,8 @@ export const SettingsSchema = z.object({
       apiKeyRef: z.string().default("vision-api-key"),
     })
     .default({}),
+  /** OS input control — experimental, needs vision, off by default. */
+  computerUse: z.object({ enabled: z.boolean().default(false) }).default({}),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

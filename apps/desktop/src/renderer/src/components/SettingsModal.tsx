@@ -181,6 +181,17 @@ function ModelsTab() {
           className="w-56 rounded-md border border-border bg-surface px-2 py-1 text-[12px]"
         />
       </Row>
+      <Row label="컴퓨터 유즈 (실험적)">
+        <label className="flex items-center gap-2 text-[11.5px] text-faint">
+          <input
+            type="checkbox"
+            checked={settings.computerUse.enabled}
+            disabled={!settings.vision.baseUrl || !settings.vision.model}
+            onChange={(e) => void update({ computerUse: { enabled: e.target.checked } })}
+          />
+          화면 제어 허용 (비전 필요)
+        </label>
+      </Row>
     </div>
   );
 }

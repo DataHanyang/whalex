@@ -12,6 +12,8 @@ import type { SecretVault } from "./secrets.js";
 import type { Updater } from "./updater.js";
 import type { PreviewManager } from "./PreviewManager.js";
 import type { PluginManager } from "./PluginManager.js";
+import type { AuthManager } from "./auth.js";
+import { EDITION, isCloud, CLOUD_CONFIG } from "./edition.js";
 
 type Handlers = {
   [C in IpcInvokeChannel]: (req: IpcRequest<C>) => Promise<IpcResponse<C>> | IpcResponse<C>;
@@ -26,10 +28,15 @@ export function registerIpc(deps: {
   preview: PreviewManager;
   plugins: PluginManager;
   browser: import("./BrowserManager.js").BrowserManager;
+  auth: AuthManager;
 }): void {
-  const { getWindow, host, settings, vault, updater, preview, plugins, browser } = deps;
+  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth } = deps;
 
   const makeProvider = (providerId: string, apiKeyOverride?: string) => {
+    // Cloud edition routes through the hosted proxy with the session token.
+    if (isCloud) {
+      return new OpenAICompatProvider({ baseUrl: CLOUD_CONFIG.apiBaseUrl, apiKey: auth.token() });
+    }
     const p = settings.get().providers.find((x) => x.id === providerId);
     if (!p) throw new Error(`Unknown provider: ${providerId}`);
     const apiKey = apiKeyOverride ?? (p.apiKeyRef ? vault.get(p.apiKeyRef) : null);
@@ -40,7 +47,17 @@ export function registerIpc(deps: {
     "app:getState": () => {
       const s = settings.get();
       const refs = s.providers.flatMap((p) => (p.apiKeyRef ? [p.apiKeyRef] : []));
-      return { version: app.getVersion(), settings: s, secrets: vault.maskedAll(refs) };
+      return {
+        version: app.getVersion(),
+        settings: s,
+        secrets: vault.maskedAll(refs),
+        edition: EDITION,
+        signedIn: auth.isSignedIn(),
+      };
+    },
+    "auth:signIn": () => auth.signIn(),
+    "auth:signOut": () => {
+      auth.signOut();
     },
     "settings:update": (req) => settings.update(req),
     "secrets:set": (req) => {
@@ -56,6 +73,7 @@ export function registerIpc(deps: {
     },
     "models:list": async (req) => makeProvider(req.providerId).listModels(),
     "session:list": (req) => SessionStore.list(req.cwd),
+    "session:delete": (req) => SessionStore.delete(req.cwd, req.sessionId),
     "session:start": (req) => host.start(req.cwd, req.resumeSessionId),
     "session:send": (req) => {
       host.send(req.sessionId, req.text, req.model);
@@ -96,6 +114,21 @@ export function registerIpc(deps: {
       const apiKey = req.apiKey ?? vault.get("vision-api-key");
       const bridge = new VisionBridge({ baseUrl: req.baseUrl, model: req.model, apiKey });
       return bridge.test();
+    },
+    "vision:describe": async (req) => {
+      const v = settings.get().vision;
+      if (!v.baseUrl || !v.model) return { ok: false, configured: false };
+      try {
+        const bridge = new VisionBridge({
+          baseUrl: v.baseUrl,
+          model: v.model,
+          apiKey: vault.get(v.apiKeyRef),
+        });
+        const description = await bridge.describe(req.imageDataUrl, req.question);
+        return { ok: true, description, configured: true };
+      } catch (err) {
+        return { ok: false, configured: true, error: err instanceof Error ? err.message : String(err) };
+      }
     },
     "dialog:pickFolder": async () => {
       const win = getWindow();

@@ -23,13 +23,23 @@ packages/cli      헤드리스 하네스 (코어 테스트/CI)
 apps/desktop      Electron 앱 (electron-vite + React 19 + Tailwind v4)
 ```
 
+## 전체 기능 (M1~M5)
+
+- **M1** 에이전트 루프·도구 7종·권한·세션·온보딩
+- **M2** MCP 서버, 아티팩트/프리뷰 패널, 슬래시 커맨드, @-파일 멘션, 설정 모달, 컴팩션, 자동 업데이트
+- **M3** 서브에이전트(`agent`), Skills, 플러그인
+- **M4** 슈퍼코드 — 멀티 에이전트 워크플로 오케스트레이션
+- **M5** 브라우저 유즈(DOM 기반), 비전 브리지(이미지→텍스트 사이드카), 컴퓨터 유즈(실험적)
+- 성능: 읽기 전용 도구 병렬 실행, rate-limit 자동 재시도
+
 ## 개발
 
 ```bash
 pnpm install
 pnpm build          # 코어 패키지 빌드
-pnpm dev            # 데스크톱 앱 개발 실행
-pnpm --filter @whalex/desktop dist   # NSIS 설치본 생성 (release/)
+pnpm dev            # 데스크톱 앱 개발 실행 (반드시 repo 루트에서)
+pnpm test           # 코어 단위 테스트 (vitest)
+pnpm --filter @whalex/desktop dist   # 설치본 생성 (apps/desktop/release/)
 ```
 
 ### CLI로 코어 테스트
@@ -38,10 +48,23 @@ pnpm --filter @whalex/desktop dist   # NSIS 설치본 생성 (release/)
 DEEPSEEK_API_KEY=sk-... pnpm --filter @whalex/cli start "C:\내\프로젝트"
 ```
 
+## 에디션
+
+빌드 시 `WHALEX_EDITION` 환경변수로 두 버전을 만듭니다:
+- `oss` (기본) — BYOK, GitHub Releases 자동 업데이트
+- `cloud` — 로그인 + 호스팅 API 프록시, 자체 업데이트 피드
+
+## 배포 / 코드 서명
+
+`.github/workflows/release.yml` — 태그(`v*`) 푸시 시 3개 OS 설치본을 빌드해 **draft** 릴리스로 발행합니다. 코드 서명은 시크릿이 있으면 자동 적용:
+- **Windows**: `WIN_CSC_LINK`/`WIN_CSC_KEY_PASSWORD` (또는 electron-builder.yml의 Azure Trusted Signing 설정). 미서명 시 SmartScreen 경고 발생 → 1.0/구독 버전 전 Azure Trusted Signing(~$10/월) 도입 권장
+- **macOS**: `APPLE_ID`/`APPLE_APP_SPECIFIC_PASSWORD`/`APPLE_TEAM_ID` + `CSC_LINK` (Apple Developer $99/yr)
+
 ## 요구 사항
 
 - Node.js ≥ 20, pnpm 9
 - DeepSeek API 키 ([platform.deepseek.com](https://platform.deepseek.com/api_keys))
+- (선택) 비전 모델 — 이미지/컴퓨터 유즈용. 로컬 Ollama LLaVA 무료
 
 ## 라이선스
 

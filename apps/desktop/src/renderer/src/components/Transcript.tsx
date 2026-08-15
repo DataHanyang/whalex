@@ -35,15 +35,15 @@ function Item({ item }: { item: TranscriptItem }) {
   switch (item.kind) {
     case "user":
       return (
-        <div className="transcript-item flex justify-end py-1.5">
-          <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-4 py-2 text-[13.5px]">
+        <div className="transcript-item flex justify-end py-2.5">
+          <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-[13.5px] leading-relaxed">
             {item.text}
           </div>
         </div>
       );
     case "assistant":
       return (
-        <div className="transcript-item py-1.5 text-[13.5px]">
+        <div className="transcript-item py-2 text-[13.5px]">
           <Reasoning text={item.reasoning} />
           {item.text ? (
             <StreamingMarkdown text={item.text} streaming={item.streaming} />
@@ -128,6 +128,36 @@ function Item({ item }: { item: TranscriptItem }) {
   }
 }
 
+function EmptyState() {
+  const { t } = useTranslation();
+  const send = useSessionStore((s) => s.send);
+  const status = useSessionStore((s) => s.status);
+  const examples = [
+    t("transcript.example1"),
+    t("transcript.example2"),
+    t("transcript.example3"),
+  ];
+  return (
+    <div className="flex h-[62vh] flex-col items-center justify-center text-center">
+      <div className="mb-1 text-3xl">🐋</div>
+      <div className="text-lg font-semibold">{t("transcript.empty.title")}</div>
+      <div className="mt-2 max-w-md text-[13px] text-muted">{t("transcript.empty.subtitle")}</div>
+      <div className="mt-5 flex w-full max-w-md flex-col gap-2">
+        {examples.map((ex) => (
+          <button
+            key={ex}
+            disabled={status !== "idle"}
+            onClick={() => void send(ex)}
+            className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-left text-[13px] text-muted transition-colors hover:border-accent hover:text-text disabled:opacity-50"
+          >
+            {ex}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Transcript() {
   const { t } = useTranslation();
   const transcript = useSessionStore((s) => s.transcript);
@@ -163,14 +193,9 @@ export function Transcript() {
   return (
     <div className="relative min-h-0 flex-1">
       <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-5 pb-4 pt-3">
+        <div className="mx-auto max-w-3xl px-6 pb-6 pt-6">
           {transcript.length === 0 ? (
-            <div className="flex h-[60vh] flex-col items-center justify-center text-center">
-              <div className="text-lg font-semibold">{t("transcript.empty.title")}</div>
-              <div className="mt-2 max-w-md text-[13px] text-muted">
-                {t("transcript.empty.subtitle")}
-              </div>
-            </div>
+            <EmptyState />
           ) : (
             transcript.map((item) => <Item key={item.id} item={item} />)
           )}

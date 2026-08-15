@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, ListTodo, Sparkles, Square } from "lucide-react";
+import { ArrowUp, AtSign, ImageIcon, ListTodo, Loader2, Sparkles, Square, X } from "lucide-react";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -54,6 +54,8 @@ export function Composer() {
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [ac, setAc] = useState<Autocomplete | null>(null);
+  const [image, setImage] = useState<string | null>(null);
+  const [describing, setDescribing] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const status = useSessionStore((s) => s.status);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
@@ -70,7 +72,28 @@ export function Composer() {
   const newSession = useSessionStore((s) => s.startSession);
 
   const running = status !== "idle";
-  const canSend = text.trim().length > 0 && !running && !pendingPermission;
+  const canSend = (text.trim().length > 0 || !!image) && !running && !pendingPermission && !describing;
+
+  const readImageFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => setImage(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+  const onPaste = (e: React.ClipboardEvent) => {
+    const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+    const file = item?.getAsFile();
+    if (file) {
+      e.preventDefault();
+      readImageFile(file);
+    }
+  };
+  const onDrop = (e: React.DragEvent) => {
+    const file = [...e.dataTransfer.files].find((f) => f.type.startsWith("image/"));
+    if (file) {
+      e.preventDefault();
+      readImageFile(file);
+    }
+  };
 
   const commandsRef = useRef<SlashCommand[]>([]);
   useEffect(() => {
@@ -108,7 +131,7 @@ export function Composer() {
     const value = text.trim();
     // A lone slash command runs directly instead of being sent as a message.
     const slashMatch = /^\/(\w[\w-]*)\s*$/.exec(value);
-    if (slashMatch) {
+    if (slashMatch && !image) {
       const name = slashMatch[1]!;
       const cmd = commandsRef.current.find((c) => c.name === name);
       if (cmd?.source === "builtin") {
@@ -117,10 +140,31 @@ export function Composer() {
         return;
       }
     }
+
+    let finalText = value;
+    if (image) {
+      // DeepSeek is text-only: describe the image via the vision sidecar and
+      // inject the description. No bridge configured → tell the user.
+      setDescribing(true);
+      const res = await whalex.invoke("vision:describe", {
+        imageDataUrl: image,
+        question: value || undefined,
+      });
+      setDescribing(false);
+      if (!res.configured) {
+        finalText = `${value}\n\n[이미지를 첨부했지만 비전 모델이 설정되지 않았습니다. 설정 → 모델 → 비전에서 연결하세요.]`;
+      } else if (res.ok && res.description) {
+        finalText = `${value ? value + "\n\n" : ""}[첨부 이미지 설명]\n${res.description}`;
+      } else {
+        finalText = `${value}\n\n[이미지 분석 실패: ${res.error ?? "unknown"}]`;
+      }
+      setImage(null);
+    }
+
     setText("");
     setAc(null);
     if (taRef.current) taRef.current.style.height = "auto";
-    void send(value);
+    void send(finalText);
   };
 
   const updateAutocomplete = async (value: string, caret: number) => {
@@ -200,8 +244,28 @@ export function Composer() {
   const modelOptions = models.length > 0 ? models.map((m) => m.id) : [model];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-5 pb-4">
-      <div className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong">
+    <div className="mx-auto w-full max-w-3xl px-6 pb-5 pt-1">
+      <div
+        className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong"
+        onDrop={onDrop}
+        onDragOver={(e) => e.preventDefault()}
+      >
+        {image && (
+          <div className="flex items-center gap-2 px-4 pt-3">
+            <div className="relative">
+              <img src={image} alt="attachment" className="h-14 w-14 rounded-md border border-border object-cover" />
+              <button
+                onClick={() => setImage(null)}
+                className="absolute -right-1.5 -top-1.5 rounded-full bg-surface-2 p-0.5 text-faint hover:text-danger"
+              >
+                <X size={12} />
+              </button>
+            </div>
+            <span className="flex items-center gap-1 text-[11.5px] text-faint">
+              <ImageIcon size={12} /> 이미지 (비전 모델로 분석)
+            </span>
+          </div>
+        )}
         {ac && (
           <div className="absolute bottom-full left-2 z-20 mb-1 max-h-64 w-96 overflow-auto rounded-lg border border-border bg-surface py-1 shadow-lg">
             {ac.items.map((item, i) => (
@@ -233,6 +297,7 @@ export function Composer() {
             void updateAutocomplete(e.target.value, e.target.selectionStart);
           }}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           placeholder={t("composer.placeholder")}
           rows={1}
           disabled={!!pendingPermission}
@@ -276,7 +341,7 @@ export function Composer() {
               className="rounded-lg bg-accent p-2 text-white transition-colors hover:bg-accent-hover disabled:opacity-30"
               aria-label={t("composer.send")}
             >
-              <ArrowUp size={15} />
+              {describing ? <Loader2 size={15} className="animate-spin" /> : <ArrowUp size={15} />}
             </button>
           )}
         </div>

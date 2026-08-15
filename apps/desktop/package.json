@@ -13,12 +13,14 @@
     "dist": "electron-vite build && electron-builder"
   },
   "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "@vscode/ripgrep": "^1.15.9",
     "electron-updater": "^6.3.9",
     "execa": "^9.5.2",
     "jsonrepair": "^3.11.2",
     "mermaid": "^11.16.1",
     "openai": "^4.77.0",
+    "pngjs": "^7.0.0",
     "tinyglobby": "^0.2.10",
     "zod": "^3.24.1",
     "zod-to-json-schema": "^3.24.1"
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
     "@types/diff": "^6.0.0",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",

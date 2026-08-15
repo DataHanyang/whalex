@@ -11,6 +11,8 @@ import { Updater } from "./updater.js";
 import { PreviewManager } from "./PreviewManager.js";
 import { PluginManager } from "./PluginManager.js";
 import { BrowserManager } from "./BrowserManager.js";
+import { ComputerManager } from "./ComputerManager.js";
+import { AuthManager } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,6 +35,13 @@ process.on("unhandledRejection", (reason) => logLine(`unhandledRejection: ${Stri
 if (process.env.WHALEX_CDP_PORT) {
   app.commandLine.appendSwitch("remote-debugging-port", process.env.WHALEX_CDP_PORT);
 }
+
+// Single-instance lock so protocol deep links (auth callback) route to the
+// running window instead of spawning a second process.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+}
+AuthManager.registerProtocol();
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -106,8 +115,11 @@ void app.whenReady().then(() => {
   const browser = new BrowserManager(() => mainWindow);
   browser.setActivityListener((url, title) => host.notifyBrowserNavigated(url, title));
   host.setBrowser(browser);
+  host.setComputer(new ComputerManager(settings, vault));
+  const auth = new AuthManager(vault);
+  auth.wire(() => mainWindow);
 
-  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser });
+  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth });
   createWindow();
   logLine("window created");
 

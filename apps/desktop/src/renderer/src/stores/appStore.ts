@@ -10,7 +10,10 @@ interface AppState {
   /** providerId secret ref → masked tail or null. */
   secrets: Record<string, string | null>;
   models: ModelInfo[];
+  edition: "oss" | "cloud";
+  signedIn: boolean;
   init(): Promise<void>;
+  refreshState(): Promise<void>;
   updateSettings(partial: Partial<Settings>): Promise<void>;
   refreshModels(): Promise<void>;
   applyTheme(theme: Settings["theme"]): void;
@@ -22,6 +25,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   settings: null,
   secrets: {},
   models: [],
+  edition: "oss",
+  signedIn: false,
 
   async init() {
     const state = await whalex.invoke("app:getState", undefined);
@@ -32,10 +37,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       version: state.version,
       settings: state.settings,
       secrets: state.secrets,
+      edition: state.edition,
+      signedIn: state.signedIn,
     });
     if (state.settings.onboardingComplete) {
       void get().refreshModels();
     }
+  },
+
+  async refreshState() {
+    const state = await whalex.invoke("app:getState", undefined);
+    set({ settings: state.settings, secrets: state.secrets, signedIn: state.signedIn });
   },
 
   async updateSettings(partial) {
