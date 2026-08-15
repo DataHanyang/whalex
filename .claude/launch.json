@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bench-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "http-server", "docs/bench", "-p", "8917", "-c-1", "--silent"],
+      "port": 8917
+    }
+  ]
+}

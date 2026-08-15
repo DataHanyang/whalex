@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Midnight Express</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --cream: #ffd9a1;
+      --gold: #ffad36;
+      --ember: #ff5b1f;
+      --steel: #778393;
+      --outline: #080d16;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #030811;
+    }
+
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .star { animation: twinkle var(--twinkle, 3s) ease-in-out infinite alternate; }
+    .cloud-bank { animation: cloudDrift 55s linear infinite; }
+    .far-clouds { animation-duration: 80s; animation-direction: reverse; }
+    .moon-halo { animation: breathe 5s ease-in-out infinite; }
+    .furnace-glow { animation: firePulse .72s ease-in-out infinite alternate; }
+    .headlight-beam { animation: beamPulse 2.5s ease-in-out infinite; }
+    .rail-shine { animation: railGlint 3.4s linear infinite; }
+
+    .steam-puff {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: puff 3.6s ease-out infinite;
+    }
+
+    .steam-puff:nth-child(2) { animation-delay: -.9s; }
+    .steam-puff:nth-child(3) { animation-delay: -1.8s; }
+    .steam-puff:nth-child(4) { animation-delay: -2.7s; }
+
+    .cylinder-steam {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: cylinderPuff 1.4s ease-out infinite;
+    }
+
+    .cylinder-steam:nth-child(2) { animation-delay: -.7s; }
+
+    .spark {
+      opacity: 0;
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: sparkFly var(--spark-time, .85s) linear infinite;
+      animation-delay: var(--spark-delay, 0s);
+    }
+
+    .wheel-shine { animation: wheelShine 1.7s ease-in-out infinite alternate; }
+    .lamp-core { animation: lampFlicker .18s steps(2, end) infinite; }
+    .foreground-mist { animation: mistSlide 20s linear infinite; }
+
+    @keyframes twinkle {
+      from { opacity: .18; }
+      to { opacity: .95; }
+    }
+
+    @keyframes cloudDrift {
+      from { transform: translateX(-160px); }
+      to { transform: translateX(1700px); }
+    }
+
+    @keyframes breathe {
+      50% { opacity: .5; transform: scale(1.08); }
+    }
+
+    @keyframes firePulse {
+      from { opacity: .65; filter: url(#fireGlow); }
+      to { opacity: 1; filter: url(#fireGlowStrong); }
+    }
+
+    @keyframes beamPulse {
+      50% { opacity: .63; }
+    }
+
+    @keyframes railGlint {
+      0%, 62% { opacity: 0; transform: translateX(-260px); }
+      78% { opacity: .75; }
+      100% { opacity: 0; transform: translateX(1750px); }
+    }
+
+    @keyframes puff {
+      0% { opacity: 0; transform: translate(0, 5px) scale(.25); }
+      10% { opacity: .72; }
+      58% { opacity: .45; }
+      100% { opacity: 0; transform: translate(-160px, -170px) scale(2.25); }
+    }
+
+    @keyframes cylinderPuff {
+      0% { opacity: .6; transform: translate(0, 0) scale(.35); }
+      100% { opacity: 0; transform: translate(-90px, 16px) scale(1.8); }
+    }
+
+    @keyframes sparkFly {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      35% { opacity: .95; }
+      100% { opacity: 0; transform: translate(var(--spark-x, -110px), var(--spark-y, -70px)) scale(.15); }
+    }
+
+    @keyframes wheelShine {
+      to { opacity: .72; }
+    }
+
+    @keyframes lampFlicker {
+      50% { opacity: .78; }
+    }
+
+    @keyframes mistSlide {
+      from { transform: translateX(-140px); }
+      to { transform: translateX(200px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .star, .moon-halo, .furnace-glow, .lamp-core { animation-duration: 8s; }
+    }
+  </style>
+</head>
+<body>
+  <svg id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-labelledby="title description">
+    <title id="title">Midnight Express</title>
+    <desc id="description">A steam locomotive races through a moonlit mountain landscape with turning wheels, moving rods, smoke, sparks, and a glowing furnace.</desc>
+
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#030713"/>
+        <stop offset=".48" stop-color="#101c38"/>
+        <stop offset="1" stop-color="#35435b"/>
+      </linearGradient>
+      <linearGradient id="horizonGlow" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#526279" stop-opacity=".42"/>
+        <stop offset="1" stop-color="#162235" stop-opacity="0"/>
+      </linearGradient>
+      <radialGradient id="moonFill">
+        <stop offset="0" stop-color="#fffde5"/>
+        <stop offset=".7" stop-color="#f5e9bd"/>
+        <stop offset="1" stop-color="#b6b6aa"/>
+      </radialGradient>
+      <radialGradient id="halo">
+        <stop stop-color="#fff6c8" stop-opacity=".38"/>
+        <stop offset="1" stop-color="#fff6c8" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="mountain" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#283551"/>
+        <stop offset="1" stop-color="#111a2a"/>
+      </linearGradient>
+      <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#111a23"/>
+        <stop offset="1" stop-color="#030609"/>
+      </linearGradient>
+      <linearGradient id="boiler" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#34424b"/>
+        <stop offset=".22" stop-color="#1b2a31"/>
+        <stop offset=".58" stop-color="#0b1419"/>
+        <stop offset="1" stop-color="#172129"/>
+      </linearGradient>
+      <linearGradient id="cab" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#293842"/>
+        <stop offset="1" stop-color="#0a1117"/>
+      </linearGradient>
+      <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+        <stop stop-color="#ffe07a"/>
+        <stop offset=".28" stop-color="#a96b16"/>
+        <stop offset=".55" stop-color="#ffe48f"/>
+        <stop offset="1" stop-color="#6e410d"/>
+      </linearGradient>
+      <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="#d3dae0"/>
+        <stop offset=".35" stop-color="#687684"/>
+        <stop offset="1" stop-color="#222c35"/>
+      </linearGradient>
+      <linearGradient id="fire" x1="0" y1="1" x2="0" y2="0">
+        <stop stop-color="#e6320f"/>
+        <stop offset=".42" stop-color="#ff7a18"/>
+        <stop offset="1" stop-color="#fff0a8"/>
+      </linearGradient>
+      <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+        <stop stop-color="#fff4bd" stop-opacity=".6"/>
+        <stop offset="1" stop-color="#ffe16a" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="blur24" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="24"/>
+      </filter>
+      <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="7"/>
+      </filter>
+      <filter id="fireGlow" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="7" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="fireGlowStrong" x="-100%" y="-100%" width="300%" height="300%">
+        <feGaussianBlur stdDeviation="13" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="lampGlow" x="-200%" y="-200%" width="500%" height="500%">
+        <feGaussianBlur stdDeviation="6" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="smokeTexture" x="-60%" y="-60%" width="220%" height="220%">
+        <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="4" result="noise"/>
+        <feDisplacementMap in="SourceGraphic" in2="noise" scale="15"/>
+        <feGaussianBlur stdDeviation="1.4"/>
+      </filter>
+      <filter id="shadow" x="-30%" y="-50%" width="180%" height="220%">
+        <feGaussianBlur stdDeviation="10"/>
+      </filter>
+      <clipPath id="cabWindow"><path d="M255 422h72v92h-72z"/></clipPath>
+    </defs>
+
+    <!-- Sky and moon -->
+    <rect width="1600" height="900" fill="url(#sky)"/>
+    <rect y="390" width="1600" height="330" fill="url(#horizonGlow)"/>
+    <g transform="translate(1270 178)">
+      <circle class="moon-halo" r="145" fill="url(#halo)" transform-origin="center"/>
+      <circle r="73" fill="url(#moonFill)"/>
+      <circle cx="-24" cy="-15" r="13" fill="#aaa998" opacity=".26"/>
+      <circle cx="26" cy="20" r="9" fill="#9e9e91" opacity=".22"/>
+      <circle cx="18" cy="-35" r="5" fill="#9e9e91" opacity=".18"/>
+    </g>
+    <g id="stars" fill="#e8efff"></g>
+
+    <g class="cloud-bank far-clouds" opacity=".13" fill="#9ca9bd" filter="url(#softBlur)">
+      <ellipse cx="80" cy="280" rx="115" ry="25"/><ellipse cx="150" cy="266" rx="76" ry="34"/>
+      <ellipse cx="230" cy="284" rx="112" ry="24"/><ellipse cx="760" cy="212" rx="135" ry="27"/>
+      <ellipse cx="860" cy="202" rx="90" ry="35"/>
+    </g>
+    <g class="cloud-bank" opacity=".12" fill="#a5b1c0" filter="url(#softBlur)">
+      <ellipse cx="-180" cy="350" rx="150" ry="31"/><ellipse cx="-80" cy="330" rx="92" ry="38"/>
+      <ellipse cx="20" cy="347" rx="145" ry="29"/>
+    </g>
+
+    <!-- Layered mountains and forest -->
+    <path d="M0 545 170 350l72 93 154-177 166 223 190-238 134 194 155-142 195 224 158-188 206 205v176H0z" fill="url(#mountain)"/>
+    <path d="M0 535 170 350l72 93 154-177 27 37-31 21-17-9-24 52-30 15-14 45-65 16z" fill="#d8e2ec" opacity=".18"/>
+    <path d="m752 251 134 194 155-142 48 55-38-12-24 39-36-12-40 67-47-18z" fill="#d8e2ec" opacity=".14"/>
+    <path d="M0 590 128 482l100 79 148-118 147 117 136-80 126 94 168-129 138 111 156-95 193 139v120H0z" fill="#111b2a" opacity=".92"/>
+
+    <g fill="#08111a" opacity=".96">
+      <path d="M0 600l30-101 18 56 35-137 38 138 25-82 28 118 33-147 35 143 27-84 29 93 36-173 38 166 29-93 32 104 31-147 38 141 31-73 34 106 34-174 42 166 30-99 31 96 36-151 39 147 30-66 29 104 38-185 43 181 31-93 36 105 31-154 40 148 33-79 34 103 34-169 42 159 36-100 33 104 37-142 40 135 40-64 35 117v122H0z"/>
+    </g>
+
+    <!-- Ground and rails -->
+    <path d="M0 675Q380 650 780 674t820-4v230H0z" fill="url(#ground)"/>
+    <g opacity=".6" fill="#26313a">
+      <path d="M0 762l86-27 115 4 76 22-112 21zM327 765l96-22 122 7 55 29-151 10zM706 759l78-19 154 11 81 31-186 5zM1125 760l104-20 127 9 105 31-194 8z"/>
+    </g>
+    <g id="track">
+      <path d="M0 717H1600" stroke="#151a1f" stroke-width="30"/>
+      <path d="M0 701H1600" stroke="#68717a" stroke-width="13"/>
+      <path d="M0 697H1600" stroke="#b7c0c5" stroke-width="3" opacity=".65"/>
+      <path d="M0 780H1600" stroke="#4b5157" stroke-width="11"/>
+      <g stroke="#23292d" stroke-width="20">
+        <path d="M-40 714l95 91M80 714l95 91M200 714l95 91M320 714l95 91M440 714l95 91M560 714l95 91M680 714l95 91M800 714l95 91M920 714l95 91M1040 714l95 91M1160 714l95 91M1280 714l95 91M1400 714l95 91M1520 714l95 91"/>
+      </g>
+      <path class="rail-shine" d="M0 697h260" stroke="#e9f2f5" stroke-width="4" opacity="0"/>
+    </g>
+
+    <ellipse cx="800" cy="690" rx="690" ry="26" fill="#000" opacity=".4" filter="url(#shadow)"/>
+
+    <!-- The moving train. JavaScript keeps travel, wheels, and rods synchronized. -->
+    <g id="train">
+      <g id="trainArt">
+        <!-- Headlight beam, behind the locomotive -->
+        <path class="headlight-beam" d="M684 465 1030 365v205L684 486z" fill="url(#beam)" opacity=".48"/>
+
+        <!-- Tender -->
+        <path d="M28 475h225v181H45L20 622z" fill="#0a1116" stroke="var(--outline)" stroke-width="9"/>
+        <path d="M35 476h207l-25-72H69z" fill="#18242b" stroke="#090e13" stroke-width="8"/>
+        <path d="M67 416q56-42 142 0" fill="#0c1217" stroke="#27343c" stroke-width="8"/>
+        <path d="M45 505h182v81H45z" fill="#111b21" stroke="#334049" stroke-width="4"/>
+        <path d="M61 520h150" stroke="#45535c" stroke-width="3" opacity=".65"/>
+        <text x="136" y="559" fill="#c28a3d" font-size="22" font-weight="700" letter-spacing="4" text-anchor="middle">MIDNIGHT</text>
+        <path d="M231 569h34v31h-34z" fill="#151e24" stroke="#0a0f13" stroke-width="7"/>
+
+        <!-- Cab -->
+        <path d="M230 375h126l31 64v213H220V429z" fill="url(#cab)" stroke="var(--outline)" stroke-width="10"/>
+        <path d="M214 371h155l-13-27H232z" fill="#17242c" stroke="#080d12" stroke-width="8"/>
+        <path d="M244 407h99v127h-99z" fill="#070b0e" stroke="#52606a" stroke-width="7"/>
+        <g clip-path="url(#cabWindow)">
+          <rect class="furnace-glow" x="250" y="413" width="87" height="111" fill="#ff8b26" opacity=".78"/>
+          <path d="M303 533q-27-31-4-68 22 29 8 43 24-23 17-52 33 42 8 77z" fill="url(#fire)"/>
+          <path d="M290 420v105M326 420v105" stroke="#11191e" stroke-width="7"/>
+        </g>
+        <path d="M245 546h100v104H245z" fill="#10191f" stroke="#060b0f" stroke-width="7"/>
+        <circle cx="326" cy="578" r="7" fill="#bc7a28"/>
+
+        <!-- Boiler and details -->
+        <path d="M345 446h281q54 0 54 81v83q0 43-50 43H345z" fill="url(#boiler)" stroke="var(--outline)" stroke-width="10"/>
+        <path d="M366 461h259q28 0 38 29H366z" fill="#5b6870" opacity=".35"/>
+        <ellipse cx="631" cy="549" rx="55" ry="102" fill="#131d22" stroke="#080d12" stroke-width="9"/>
+        <ellipse cx="636" cy="548" rx="39" ry="79" fill="#202d34" stroke="#52616a" stroke-width="5"/>
+        <circle cx="643" cy="545" r="7" fill="#a27638"/>
+        <path d="M388 443v209M478 443v209M565 443v209" stroke="#080d12" stroke-width="10" opacity=".88"/>
+        <path d="M392 449v197M482 449v197M569 449v197" stroke="#5c6870" stroke-width="3" opacity=".48"/>
+
+        <!-- Domes and chimney -->
+        <path d="M398 446v-59h60v59" fill="#18242b" stroke="#080d12" stroke-width="8"/>
+        <ellipse cx="428" cy="385" rx="41" ry="14" fill="#26343c" stroke="#080d12" stroke-width="7"/>
+        <path d="M495 446v-82h54v82" fill="#18242b" stroke="#080d12" stroke-width="8"/>
+        <path d="M483 361q39-32 78 0" fill="#27353d" stroke="#080d12" stroke-width="7"/>
+        <path d="M570 448l8-105h57l9 105" fill="#111c22" stroke="#080d12" stroke-width="9"/>
+        <path d="M576 346 558 314h96l-20 32z" fill="#1d2b32" stroke="#080d12" stroke-width="9"/>
+        <ellipse cx="606" cy="314" rx="49" ry="13" fill="#314049" stroke="#080d12" stroke-width="7"/>
+        <path d="M581 338h51" stroke="#6b767b" stroke-width="3" opacity=".55"/>
+
+        <!-- Steam cloud puffs originate from chimney -->
+        <g filter="url(#smokeTexture)" fill="#c7d0d5">
+          <g class="steam-puff"><circle cx="605" cy="294" r="23"/><circle cx="622" cy="289" r="18"/><circle cx="590" cy="284" r="16"/></g>
+          <g class="steam-puff"><circle cx="605" cy="294" r="25"/><circle cx="625" cy="286" r="17"/><circle cx="589" cy="279" r="19"/></g>
+          <g class="steam-puff"><circle cx="605" cy="294" r="22"/><circle cx="620" cy="282" r="21"/><circle cx="585" cy="288" r="17"/></g>
+          <g class="steam-puff"><circle cx="605" cy="294" r="24"/><circle cx="626" cy="289" r="16"/><circle cx="591" cy="278" r="20"/></g>
+        </g>
+
+        <!-- Running board and front -->
+        <path d="M203 622h489v31H203z" fill="#171f24" stroke="#070b0f" stroke-width="8"/>
+        <path d="M643 596h55v56h-55z" fill="#12191e" stroke="#080c0f" stroke-width="7"/>
+        <path d="m681 640 82 65h-116z" fill="#20292e" stroke="#080d12" stroke-width="8"/>
+        <path d="m684 650 58 46M676 661l29 32M698 650l53 35" stroke="#66737b" stroke-width="5"/>
+        <path d="M674 497h27v66h-27z" fill="#28343a" stroke="#090e12" stroke-width="7"/>
+
+        <!-- Headlamp -->
+        <path d="M664 422h48v51h-48z" fill="#182229" stroke="#080d12" stroke-width="7"/>
+        <circle cx="710" cy="448" r="24" fill="#171c1f" stroke="#9b7635" stroke-width="6"/>
+        <circle class="lamp-core" cx="713" cy="448" r="14" fill="#fff1a5" filter="url(#lampGlow)"/>
+
+        <!-- Underframe -->
+        <path d="M35 642h625v44H35z" fill="#11181d" stroke="#06090c" stroke-width="9"/>
+        <path d="M52 659h590" stroke="#4f5b61" stroke-width="4"/>
+
+        <!-- Wheel sets -->
+        <g id="wheelTenderBack" data-cx="82" data-cy="684" data-radius="38">
+          <circle cx="82" cy="684" r="43" fill="#0a0d10" stroke="#758089" stroke-width="7"/>
+          <g stroke="#55616a" stroke-width="6"><path d="M82 646v76M44 684h76M55 657l54 54M55 711l54-54"/></g>
+          <circle cx="82" cy="684" r="12" fill="url(#steel)"/>
+          <circle class="wheel-shine" cx="82" cy="684" r="34" fill="none" stroke="#c5d0d5" stroke-width="2" opacity=".28"/>
+        </g>
+        <g id="wheelTenderFront" data-cx="186" data-cy="684" data-radius="38">
+          <circle cx="186" cy="684" r="43" fill="#0a0d10" stroke="#758089" stroke-width="7"/>
+          <g stroke="#55616a" stroke-width="6"><path d="M186 646v76M148 684h76M159 657l54 54M159 711l54-54"/></g>
+          <circle cx="186" cy="684" r="12" fill="url(#steel)"/>
+          <circle class="wheel-shine" cx="186" cy="684" r="34" fill="none" stroke="#c5d0d5" stroke-width="2" opacity=".28"/>
+        </g>
+        <g id="wheelDriveOne" data-cx="338" data-cy="674" data-radius="66">
+          <circle cx="338" cy="674" r="72" fill="#090d10" stroke="#697780" stroke-width="9"/>
+          <circle cx="338" cy="674" r="55" fill="#131c22" stroke="#343f46" stroke-width="6"/>
+          <g stroke="#63717a" stroke-width="7"><path d="M338 619v110M283 674h110M299 635l78 78M299 713l78-78"/></g>
+          <circle cx="338" cy="674" r="15" fill="url(#steel)"/>
+          <circle class="wheel-shine" cx="338" cy="674" r="63" fill="none" stroke="#dce7eb" stroke-width="2" opacity=".3"/>
+        </g>
+        <g id="wheelDriveTwo" data-cx="500" data-cy="674" data-radius="66">
+          <circle cx="500" cy="674" r="72" fill="#090d10" stroke="#697780" stroke-width="9"/>
+          <circle cx="500" cy="674" r="55" fill="#131c22" stroke="#343f46" stroke-width="6"/>
+          <g stroke="#63717a" stroke-width="7"><path d="M500 619v110M445 674h110M461 635l78 78M461 713l78-78"/></g>
+          <circle cx="500" cy="674" r="15" fill="url(#steel)"/>
+          <circle class="wheel-shine" cx="500" cy="674" r="63" fill="none" stroke="#dce7eb" stroke-width="2" opacity=".3"/>
+        </g>
+        <g id="wheelFront" data-cx="622" data-cy="687" data-radius="39">
+          <circle cx="622" cy="687" r="45" fill="#090d10" stroke="#697780" stroke-width="8"/>
+          <g stroke="#5d6a72" stroke-width="6"><path d="M622 648v78M583 687h78M594 659l56 56M594 715l56-56"/></g>
+          <circle cx="622" cy="687" r="12" fill="url(#steel)"/>
+          <circle class="wheel-shine" cx="622" cy="687" r="35" fill="none" stroke="#dce7eb" stroke-width="2" opacity=".28"/>
+        </g>
+
+        <!-- Animated connecting rods overlay the wheels -->
+        <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path id="mainRodShadow" stroke="#05080a" stroke-width="18"/>
+          <path id="mainRod" stroke="url(#steel)" stroke-width="11"/>
+          <path id="pistonRodShadow" stroke="#05080a" stroke-width="15"/>
+          <path id="pistonRod" stroke="#909ba2" stroke-width="8"/>
+        </g>
+        <g id="rodPins" fill="#c5ccd0" stroke="#30383e" stroke-width="5">
+          <circle id="pinOne" r="10"/><circle id="pinTwo" r="10"/>
+        </g>
+
+        <!-- Low steam and track sparks -->
+        <g fill="#d9e1e4" filter="url(#softBlur)">
+          <g class="cylinder-steam"><circle cx="652" cy="653" r="18"/><circle cx="668" cy="659" r="12"/></g>
+          <g class="cylinder-steam"><circle cx="652" cy="653" r="17"/><circle cx="670" cy="662" r="14"/></g>
+        </g>
+        <g fill="#ffc23c" filter="url(#lampGlow)">
+          <circle class="spark" cx="703" cy="708" r="4" style="--spark-x:-130px;--spark-y:-82px;--spark-time:.9s;--spark-delay:-.1s"/>
+          <circle class="spark" cx="708" cy="710" r="3" style="--spark-x:-94px;--spark-y:-38px;--spark-time:.65s;--spark-delay:-.4s"/>
+          <circle class="spark" cx="699" cy="710" r="5" style="--spark-x:-158px;--spark-y:-57px;--spark-time:1.1s;--spark-delay:-.7s"/>
+          <circle class="spark" cx="710" cy="707" r="3" style="--spark-x:-70px;--spark-y:-105px;--spark-time:.8s;--spark-delay:-.55s"/>
+          <circle class="spark" cx="704" cy="711" r="2.5" style="--spark-x:-180px;--spark-y:-25px;--spark-time:1.2s;--spark-delay:-.95s"/>
+        </g>
+      </g>
+    </g>
+
+    <!-- Foreground mist and silhouetted grass -->
+    <g class="foreground-mist" fill="#b8c4ca" opacity=".055" filter="url(#softBlur)">
+      <ellipse cx="210" cy="804" rx="310" ry="35"/><ellipse cx="950" cy="830" rx="440" ry="43"/><ellipse cx="1570" cy="790" rx="250" ry="32"/>
+    </g>
+    <path d="M0 900v-72l18 33 9-65 13 62 21-38 8 42 17-78 12 75 27-42 8 47 15-61 10 58 26-30 16 33 14-75 14 75 24-49 15 48 22-83 12 84 25-54 14 52 21-70 11 69 29-46 13 47 25-86 12 85 25-58 17 59 28-76 11 75 25-31 17 34 15-73 16 71 31-52 12 53 22-83 14 82 29-45 14 44 17-64 16 64 31-87 13 85 25-47 16 49 26-69 11 67 22-39 19 40 17-89 14 87 25-61 15 62 28-44 17 45 18-78 14 76 27-51 14 53 25-82 14 81 28-42 15 43 19-70 13 69 31-53 14 54 24-84 13 82 30-46 15 47 17-62 14 61 31-77 12 75 28-49 14 51 24-74 15 72 26-38 17 39 18-68 13 66 28-47 15 49 24-75 14 73 29-41 15 43v78z" fill="#020507"/>
+
+    <g opacity=".55" fill="#a7b7c4" font-family="system-ui, sans-serif" text-anchor="end">
+      <text x="1540" y="840" font-size="13" letter-spacing="5">MIDNIGHT EXPRESS</text>
+      <path d="M1392 850h148" stroke="#a7b7c4" stroke-width="1"/>
+    </g>
+  </svg>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const svg = document.getElementById('scene');
+      const stars = document.getElementById('stars');
+      const train = document.getElementById('train');
+      const mainRod = document.getElementById('mainRod');
+      const mainRodShadow = document.getElementById('mainRodShadow');
+      const pistonRod = document.getElementById('pistonRod');
+      const pistonRodShadow = document.getElementById('pistonRodShadow');
+      const pinOne = document.getElementById('pinOne');
+      const pinTwo = document.getElementById('pinTwo');
+      const wheels = [...document.querySelectorAll('[data-radius]')];
+      const NS = 'http://www.w3.org/2000/svg';
+
+      // A deterministic star field keeps the page visually rich without external assets.
+      let seed = 48271;
+      const random = () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+
+      for (let i = 0; i < 95; i += 1) {
+        const star = document.createElementNS(NS, 'circle');
+        star.setAttribute('class', 'star');
+        star.setAttribute('cx', (25 + random() * 1540).toFixed(1));
+        star.setAttribute('cy', (22 + random() * 390).toFixed(1));
+        star.setAttribute('r', (0.6 + random() * 1.8).toFixed(1));
+        star.style.setProperty('--twinkle', `${(1.8 + random() * 3.8).toFixed(2)}s`);
+        star.style.animationDelay = `${(-random() * 4).toFixed(2)}s`;
+        stars.appendChild(star);
+      }
+
+      const startX = -805;
+      const endX = 1680;
+      const travel = endX - startX;
+      const duration = 12000;
+      const driveRadius = 66;
+      const phase = -0.35;
+      let animationStart;
+
+      const pointOnWheel = (cx, cy, radius, angle) => ({
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius
+      });
+
+      const pathBetween = (a, b) => `M${a.x.toFixed(2)} ${a.y.toFixed(2)} L${b.x.toFixed(2)} ${b.y.toFixed(2)}`;
+
+      function animate(now) {
+        if (animationStart === undefined) animationStart = now;
+        const elapsed = (now - animationStart) % duration;
+        const progress = elapsed / duration;
+        const trainX = startX + travel * progress;
+        const wheelAngle = (travel * progress / driveRadius) + phase;
+        const degrees = wheelAngle * 180 / Math.PI;
+
+        train.setAttribute('transform', `translate(${trainX.toFixed(2)} 0)`);
+
+        wheels.forEach((wheel) => {
+          const cx = Number(wheel.dataset.cx);
+          const cy = Number(wheel.dataset.cy);
+          const radius = Number(wheel.dataset.radius);
+          const scaledDegrees = degrees * driveRadius / radius;
+          wheel.setAttribute('transform', `rotate(${scaledDegrees.toFixed(2)} ${cx} ${cy})`);
+        });
+
+        const firstPin = pointOnWheel(338, 674, 43, wheelAngle);
+        const secondPin = pointOnWheel(500, 674, 43, wheelAngle);
+        const mainPath = pathBetween(firstPin, secondPin);
+        const pistonAnchor = { x: 628 + Math.cos(wheelAngle) * 24, y: 632 };
+        const pistonPath = pathBetween(secondPin, pistonAnchor);
+
+        mainRod.setAttribute('d', mainPath);
+        mainRodShadow.setAttribute('d', mainPath);
+        pistonRod.setAttribute('d', pistonPath);
+        pistonRodShadow.setAttribute('d', pistonPath);
+        pinOne.setAttribute('cx', firstPin.x.toFixed(2));
+        pinOne.setAttribute('cy', firstPin.y.toFixed(2));
+        pinTwo.setAttribute('cx', secondPin.x.toFixed(2));
+        pinTwo.setAttribute('cy', secondPin.y.toFixed(2));
+
+        requestAnimationFrame(animate);
+      }
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

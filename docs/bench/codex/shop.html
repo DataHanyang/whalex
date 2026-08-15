@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="North & Pine — thoughtfully selected goods for modern living.">
+  <title>North & Pine — Modern Everyday Goods</title>
+  <style>
+    :root {
+      --ink: #17251f;
+      --muted: #66736d;
+      --forest: #174f3f;
+      --forest-dark: #103c30;
+      --sage: #dbe8df;
+      --cream: #f8f5ee;
+      --paper: #fffefa;
+      --coral: #ed7358;
+      --yellow: #f2c75c;
+      --line: #dfe5e1;
+      --shadow: 0 18px 50px rgba(23, 79, 63, .11);
+      --radius: 24px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    a { color: inherit; text-decoration: none; }
+    img, svg { display: block; max-width: 100%; }
+
+    .container {
+      width: min(1180px, calc(100% - 40px));
+      margin-inline: auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 18px;
+      color: var(--forest);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      border-radius: 4px;
+      background: var(--coral);
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 254, 250, .9);
+      border-bottom: 1px solid rgba(23, 37, 31, .08);
+      backdrop-filter: blur(16px);
+    }
+
+    .navbar {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
+      font-size: 1.03rem;
+      font-weight: 850;
+      letter-spacing: -.02em;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 37px;
+      height: 37px;
+      color: white;
+      background: var(--forest);
+      border-radius: 12px 12px 12px 4px;
+      transform: rotate(-2deg);
+    }
+
+    .brand-mark svg { width: 21px; height: 21px; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      margin-right: auto;
+    }
+
+    .nav-links a {
+      position: relative;
+      padding: 27px 0;
+      color: #425149;
+      font-size: .91rem;
+      font-weight: 650;
+    }
+
+    .nav-links a::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: 20px;
+      left: 0;
+      height: 2px;
+      border-radius: 3px;
+      background: var(--coral);
+      transform: scaleX(0);
+      transition: transform .25s ease;
+    }
+
+    .nav-links a:hover::after,
+    .nav-links a:focus-visible::after { transform: scaleX(1); }
+
+    .search {
+      position: relative;
+      width: min(225px, 22vw);
+    }
+
+    .search svg {
+      position: absolute;
+      top: 50%;
+      left: 14px;
+      width: 18px;
+      color: #6d7a74;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .search input {
+      width: 100%;
+      height: 43px;
+      padding: 0 15px 0 42px;
+      color: var(--ink);
+      background: #f1f3ef;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      outline: none;
+      transition: background .2s, border-color .2s, box-shadow .2s;
+    }
+
+    .search input:focus {
+      background: white;
+      border-color: #93b2a5;
+      box-shadow: 0 0 0 4px rgba(23, 79, 63, .08);
+    }
+
+    .cart-btn,
+    .menu-btn {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 43px;
+      height: 43px;
+      flex: 0 0 auto;
+      color: var(--ink);
+      background: transparent;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: color .2s, background .2s, transform .2s;
+    }
+
+    .cart-btn:hover,
+    .menu-btn:hover { color: white; background: var(--forest); transform: translateY(-2px); }
+    .cart-btn svg, .menu-btn svg { width: 21px; height: 21px; }
+
+    .cart-count {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      display: grid;
+      place-items: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      color: white;
+      background: var(--coral);
+      border: 2px solid var(--paper);
+      border-radius: 999px;
+      font-size: .67rem;
+      font-weight: 800;
+    }
+
+    .menu-btn { display: none; }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 78px 0 88px;
+      background:
+        radial-gradient(circle at 88% 10%, rgba(242, 199, 92, .25), transparent 27%),
+        linear-gradient(135deg, #f8f5ee 0%, #edf3ec 100%);
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 42px;
+      left: -80px;
+      width: 190px;
+      height: 190px;
+      border: 34px solid rgba(23, 79, 63, .05);
+      border-radius: 50%;
+    }
+
+    .hero-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.02fr .98fr;
+      align-items: center;
+      gap: clamp(40px, 7vw, 90px);
+    }
+
+    .hero-copy h1 {
+      max-width: 680px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(3.25rem, 6.1vw, 5.8rem);
+      font-weight: 500;
+      letter-spacing: -.06em;
+      line-height: .96;
+    }
+
+    .hero-copy h1 em {
+      position: relative;
+      color: var(--forest);
+      font-style: italic;
+      white-space: nowrap;
+    }
+
+    .hero-copy h1 em::after {
+      content: "";
+      position: absolute;
+      right: 2px;
+      bottom: -4px;
+      left: 8px;
+      height: 7px;
+      background: var(--yellow);
+      border-radius: 50%;
+      opacity: .8;
+      transform: rotate(-1deg);
+    }
+
+    .hero-copy > p:not(.eyebrow) {
+      max-width: 570px;
+      margin: 28px 0 34px;
+      color: var(--muted);
+      font-size: 1.09rem;
+      line-height: 1.75;
+    }
+
+    .hero-actions { display: flex; align-items: center; gap: 20px; }
+
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 11px;
+      min-height: 54px;
+      padding: 0 25px;
+      color: white;
+      background: var(--forest);
+      border: 0;
+      border-radius: 16px;
+      font-weight: 750;
+      box-shadow: 0 12px 24px rgba(23, 79, 63, .2);
+      cursor: pointer;
+      transition: background .2s, transform .2s, box-shadow .2s;
+    }
+
+    .primary-btn:hover {
+      background: var(--forest-dark);
+      box-shadow: 0 16px 30px rgba(23, 79, 63, .26);
+      transform: translateY(-3px);
+    }
+
+    .primary-btn svg { width: 18px; transition: transform .2s; }
+    .primary-btn:hover svg { transform: translateX(4px); }
+
+    .hero-proof { color: #4e5d55; font-size: .83rem; font-weight: 700; }
+    .hero-proof span { color: #e2a827; letter-spacing: .08em; }
+
+    .hero-visual {
+      position: relative;
+      min-height: 500px;
+    }
+
+    .hero-orbit {
+      position: absolute;
+      inset: 32px 4% 30px 8%;
+      border: 1px dashed rgba(23, 79, 63, .25);
+      border-radius: 50%;
+      transform: rotate(-8deg);
+    }
+
+    .hero-main-card {
+      position: absolute;
+      top: 4%;
+      right: 8%;
+      width: 72%;
+      height: 84%;
+      overflow: hidden;
+      background: #b8ccbd;
+      border: 9px solid rgba(255, 255, 255, .78);
+      border-radius: 48% 48% 28px 28px;
+      box-shadow: var(--shadow);
+      transform: rotate(3deg);
+    }
+
+    .hero-main-card svg { width: 100%; height: 100%; }
+
+    .floating-tag {
+      position: absolute;
+      z-index: 2;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, .94);
+      border: 1px solid rgba(23, 37, 31, .08);
+      border-radius: 16px;
+      box-shadow: 0 12px 26px rgba(23, 79, 63, .13);
+      backdrop-filter: blur(8px);
+    }
+
+    .floating-tag small { display: block; color: var(--muted); font-size: .7rem; font-weight: 700; }
+    .floating-tag strong { font-size: .92rem; }
+    .tag-one { top: 20%; left: 0; transform: rotate(-5deg); }
+    .tag-two { right: 0; bottom: 12%; transform: rotate(4deg); }
+
+    .mini-product {
+      position: absolute;
+      bottom: 2%;
+      left: 5%;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 142px;
+      height: 142px;
+      overflow: hidden;
+      background: #eedaa5;
+      border: 8px solid rgba(255, 255, 255, .9);
+      border-radius: 50%;
+      box-shadow: var(--shadow);
+    }
+
+    .promo {
+      color: white;
+      background: var(--forest);
+    }
+
+    .promo-inner {
+      min-height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      text-align: center;
+    }
+
+    .promo-badge {
+      padding: 5px 10px;
+      color: var(--ink);
+      background: var(--yellow);
+      border-radius: 999px;
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .promo p { margin: 0; font-weight: 650; }
+    .promo p strong { font-size: 1.07rem; }
+    .promo a { border-bottom: 1px solid rgba(255, 255, 255, .65); font-size: .88rem; font-weight: 750; }
+
+    .categories { padding: 94px 0 58px; }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 30px;
+      margin-bottom: 34px;
+    }
+
+    .section-heading h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.25rem, 4vw, 3.4rem);
+      font-weight: 500;
+      letter-spacing: -.045em;
+      line-height: 1;
+    }
+
+    .section-heading p { max-width: 430px; margin: 0; color: var(--muted); }
+    .section-heading .eyebrow { margin-bottom: 12px; }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+
+    .category-card {
+      position: relative;
+      min-height: 235px;
+      overflow: hidden;
+      border-radius: var(--radius);
+      isolation: isolate;
+      transition: transform .3s ease, box-shadow .3s ease;
+    }
+
+    .category-card:hover { transform: translateY(-7px); box-shadow: var(--shadow); }
+    .category-card:nth-child(1) { background: #e0e7dc; }
+    .category-card:nth-child(2) { background: #f2dfc5; }
+    .category-card:nth-child(3) { background: #dbe8ed; }
+    .category-card:nth-child(4) { background: #eadcd5; }
+
+    .category-art {
+      position: absolute;
+      inset: 12px 10px 54px;
+      display: grid;
+      place-items: center;
+      transition: transform .35s ease;
+    }
+
+    .category-card:hover .category-art { transform: scale(1.05) rotate(2deg); }
+    .category-art svg { width: 145px; height: 145px; }
+
+    .category-label {
+      position: absolute;
+      right: 13px;
+      bottom: 13px;
+      left: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      padding: 0 16px;
+      background: rgba(255, 255, 255, .9);
+      border-radius: 14px;
+      font-weight: 800;
+      backdrop-filter: blur(8px);
+    }
+
+    .category-label span:last-child {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      background: var(--ink);
+      color: white;
+      border-radius: 50%;
+      transition: transform .2s;
+    }
+
+    .category-card:hover .category-label span:last-child { transform: translateX(3px); }
+
+    .products {
+      padding: 60px 0 104px;
+    }
+
+    .view-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--forest);
+      font-size: .9rem;
+      font-weight: 800;
+    }
+
+    .view-all span { transition: transform .2s; }
+    .view-all:hover span { transform: translateX(4px); }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 22px;
+    }
+
+    .product-card {
+      position: relative;
+      overflow: hidden;
+      background: white;
+      border: 1px solid #e8ebe8;
+      border-radius: 22px;
+      transition: transform .3s, box-shadow .3s, border-color .3s;
+    }
+
+    .product-card:hover {
+      border-color: transparent;
+      box-shadow: 0 18px 42px rgba(23, 37, 31, .1);
+      transform: translateY(-7px);
+    }
+
+    .product-card[hidden] { display: none; }
+
+    .product-image {
+      position: relative;
+      display: grid;
+      place-items: center;
+      height: 260px;
+      overflow: hidden;
+    }
+
+    .product-card:nth-child(1) .product-image { background: #edf1e9; }
+    .product-card:nth-child(2) .product-image { background: #f5eadd; }
+    .product-card:nth-child(3) .product-image { background: #e2ebeb; }
+    .product-card:nth-child(4) .product-image { background: #f1e6e1; }
+    .product-card:nth-child(5) .product-image { background: #e7e5dd; }
+    .product-card:nth-child(6) .product-image { background: #dfe9df; }
+    .product-card:nth-child(7) .product-image { background: #eee2ce; }
+    .product-card:nth-child(8) .product-image { background: #e5e3ed; }
+
+    .product-image::after {
+      content: "";
+      position: absolute;
+      width: 170px;
+      height: 38px;
+      bottom: 18px;
+      background: rgba(23, 37, 31, .1);
+      border-radius: 50%;
+      filter: blur(9px);
+      transform: scaleY(.35);
+    }
+
+    .product-image svg {
+      position: relative;
+      z-index: 1;
+      width: 84%;
+      height: 84%;
+      transition: transform .4s cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .product-card:hover .product-image svg { transform: scale(1.07) rotate(-2deg); }
+
+    .product-tag {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 2;
+      padding: 6px 10px;
+      color: white;
+      background: var(--coral);
+      border-radius: 999px;
+      font-size: .67rem;
+      font-weight: 850;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .heart-btn {
+      position: absolute;
+      top: 13px;
+      right: 13px;
+      z-index: 2;
+      display: grid;
+      place-items: center;
+      width: 35px;
+      height: 35px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, .88);
+      border: 0;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: color .2s, transform .2s;
+    }
+
+    .heart-btn:hover,
+    .heart-btn.active { color: var(--coral); transform: scale(1.08); }
+    .heart-btn.active svg { fill: currentColor; }
+    .heart-btn svg { width: 17px; }
+
+    .product-info { padding: 20px; }
+
+    .rating {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #a87809;
+      font-size: .74rem;
+      font-weight: 700;
+    }
+
+    .stars { color: #e7ad20; letter-spacing: .04em; }
+    .rating-count { color: #8a948f; }
+
+    .product-info h3 {
+      margin: 8px 0 12px;
+      font-size: 1.02rem;
+      letter-spacing: -.02em;
+    }
+
+    .product-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .price { font-size: 1.12rem; font-weight: 850; }
+    .old-price { margin-left: 5px; color: #99a19d; font-size: .78rem; font-weight: 500; text-decoration: line-through; }
+
+    .add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 0 13px;
+      color: white;
+      background: var(--ink);
+      border: 0;
+      border-radius: 12px;
+      font-size: .77rem;
+      font-weight: 750;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+
+    .add-btn:hover { background: var(--forest); transform: translateY(-2px); }
+    .add-btn:active { transform: scale(.97); }
+    .add-btn svg { width: 15px; }
+
+    .no-results {
+      display: none;
+      grid-column: 1 / -1;
+      padding: 48px;
+      color: var(--muted);
+      background: var(--cream);
+      border-radius: 20px;
+      text-align: center;
+    }
+
+    .no-results.visible { display: block; }
+
+    .newsletter { padding: 0 0 100px; }
+
+    .newsletter-shell {
+      position: relative;
+      min-height: 350px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr .8fr;
+      align-items: center;
+      gap: 70px;
+      padding: clamp(42px, 6vw, 76px);
+      color: white;
+      background: var(--forest);
+      border-radius: 32px;
+      isolation: isolate;
+    }
+
+    .newsletter-shell::before,
+    .newsletter-shell::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      border-radius: 50%;
+    }
+
+    .newsletter-shell::before {
+      top: -140px;
+      right: -70px;
+      width: 390px;
+      height: 390px;
+      border: 75px solid rgba(255, 255, 255, .05);
+    }
+
+    .newsletter-shell::after {
+      bottom: -150px;
+      left: 28%;
+      width: 290px;
+      height: 290px;
+      background: rgba(242, 199, 92, .07);
+    }
+
+    .newsletter h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.35rem, 4.2vw, 3.7rem);
+      font-weight: 500;
+      letter-spacing: -.045em;
+      line-height: 1.05;
+    }
+
+    .newsletter-copy p { max-width: 590px; margin: 20px 0 0; color: #cddbd5; }
+
+    .newsletter-form {
+      position: relative;
+      display: flex;
+      padding: 6px;
+      background: white;
+      border-radius: 17px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, .17);
+    }
+
+    .newsletter-form input {
+      min-width: 0;
+      flex: 1;
+      height: 49px;
+      padding: 0 16px;
+      color: var(--ink);
+      background: transparent;
+      border: 0;
+      outline: none;
+    }
+
+    .newsletter-form button {
+      padding: 0 20px;
+      color: var(--ink);
+      background: var(--yellow);
+      border: 0;
+      border-radius: 12px;
+      font-weight: 850;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+
+    .newsletter-form button:hover { background: #f6d477; transform: translateX(2px); }
+
+    .form-note { margin-top: 12px; color: #b8cbc3; font-size: .73rem; }
+    .form-message { min-height: 20px; margin: 10px 0 0; color: #f6dc94; font-size: .81rem; font-weight: 700; }
+
+    footer {
+      padding: 75px 0 30px;
+      color: #d5dfda;
+      background: #11251e;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1.55fr repeat(3, 1fr);
+      gap: 60px;
+      padding-bottom: 60px;
+    }
+
+    .footer-brand .brand { color: white; }
+    .footer-brand .brand-mark { color: var(--forest); background: var(--yellow); }
+    .footer-brand p { max-width: 320px; margin: 20px 0 24px; color: #93a79e; font-size: .89rem; line-height: 1.7; }
+
+    .socials { display: flex; gap: 10px; }
+
+    .socials a {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      color: white;
+      background: rgba(255, 255, 255, .08);
+      border-radius: 12px;
+      transition: color .2s, background .2s, transform .2s;
+    }
+
+    .socials a:hover { color: var(--ink); background: var(--yellow); transform: translateY(-3px); }
+    .socials svg { width: 18px; height: 18px; }
+
+    .footer-column h3 { margin: 5px 0 20px; color: white; font-size: .9rem; }
+    .footer-column a { display: block; width: max-content; margin: 12px 0; color: #93a79e; font-size: .85rem; transition: color .2s, transform .2s; }
+    .footer-column a:hover { color: white; transform: translateX(3px); }
+
+    .footer-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding-top: 26px;
+      color: #7f948a;
+      border-top: 1px solid rgba(255, 255, 255, .09);
+      font-size: .78rem;
+    }
+
+    .footer-bottom-links { display: flex; gap: 24px; }
+
+    .toast {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: calc(100% - 44px);
+      padding: 14px 18px;
+      color: white;
+      background: var(--ink);
+      border-radius: 14px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, .22);
+      font-size: .85rem;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(15px);
+      transition: opacity .25s, transform .25s;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    :focus-visible { outline: 3px solid rgba(237, 115, 88, .55); outline-offset: 3px; }
+
+    @media (max-width: 1000px) {
+      .navbar { gap: 18px; }
+      .nav-links { gap: 16px; }
+      .search { width: 180px; }
+      .hero { padding-top: 60px; }
+      .hero-visual { min-height: 430px; }
+      .product-grid { grid-template-columns: repeat(3, 1fr); }
+      .category-grid { grid-template-columns: repeat(2, 1fr); }
+      .newsletter-shell { gap: 40px; }
+      .footer-grid { grid-template-columns: 1.4fr repeat(3, 1fr); gap: 32px; }
+    }
+
+    @media (max-width: 800px) {
+      .container { width: min(100% - 28px, 680px); }
+      .navbar { min-height: 68px; }
+      .menu-btn { display: grid; }
+      .nav-links {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 14px;
+        left: 14px;
+        display: grid;
+        gap: 0;
+        padding: 10px;
+        background: rgba(255, 254, 250, .98);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        box-shadow: var(--shadow);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(-8px);
+        transition: opacity .2s, transform .2s, visibility .2s;
+      }
+      .nav-links.open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+      .nav-links a { padding: 11px 13px; border-radius: 10px; }
+      .nav-links a:hover { background: var(--cream); }
+      .nav-links a::after { display: none; }
+      .search { width: auto; flex: 1; margin-left: auto; }
+      .hero { padding: 54px 0 68px; }
+      .hero-grid { grid-template-columns: 1fr; }
+      .hero-copy { text-align: center; }
+      .hero-copy .eyebrow { justify-content: center; }
+      .hero-copy > p:not(.eyebrow) { margin-inline: auto; }
+      .hero-actions { justify-content: center; }
+      .hero-visual { width: min(500px, 100%); min-height: 450px; margin-inline: auto; }
+      .hero-main-card { right: 11%; width: 70%; }
+      .section-heading { align-items: start; }
+      .section-heading p { max-width: 350px; }
+      .product-grid { grid-template-columns: repeat(2, 1fr); }
+      .newsletter-shell { grid-template-columns: 1fr; gap: 30px; text-align: center; }
+      .newsletter-copy p { margin-inline: auto; }
+      .footer-grid { grid-template-columns: 1.4fr 1fr 1fr; }
+      .footer-brand { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 560px) {
+      .brand-name { display: none; }
+      .search { order: 3; }
+      .search input { font-size: .84rem; }
+      .hero-copy h1 { font-size: clamp(2.8rem, 15vw, 4rem); }
+      .hero-copy > p:not(.eyebrow) { font-size: 1rem; }
+      .hero-actions { flex-direction: column; }
+      .hero-visual { min-height: 365px; }
+      .hero-main-card { right: 8%; height: 85%; width: 76%; border-width: 6px; }
+      .mini-product { width: 105px; height: 105px; border-width: 5px; }
+      .floating-tag { padding: 9px 12px; }
+      .tag-one { top: 16%; }
+      .tag-two { bottom: 8%; }
+      .promo-inner { flex-wrap: wrap; gap: 7px 14px; padding: 17px 0; }
+      .promo p { width: 100%; }
+      .categories { padding-top: 70px; }
+      .section-heading { display: block; }
+      .section-heading > p { margin-top: 16px; }
+      .section-heading .view-all { margin-top: 18px; }
+      .category-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+      .category-card { min-height: 195px; }
+      .category-art { inset: 8px 4px 50px; }
+      .category-art svg { width: 112px; height: 112px; }
+      .category-label { right: 9px; bottom: 9px; left: 9px; min-height: 43px; padding: 0 11px; font-size: .78rem; }
+      .product-grid { gap: 12px; }
+      .product-image { height: 185px; }
+      .product-info { padding: 15px; }
+      .product-info h3 { min-height: 42px; font-size: .91rem; }
+      .product-bottom { align-items: stretch; flex-direction: column; }
+      .add-btn { justify-content: center; }
+      .newsletter { padding-bottom: 70px; }
+      .newsletter-shell { padding: 42px 20px; border-radius: 24px; }
+      .newsletter-form { display: grid; gap: 7px; background: transparent; box-shadow: none; }
+      .newsletter-form input { width: 100%; background: white; border-radius: 12px; }
+      .newsletter-form button { min-height: 49px; }
+      footer { padding-top: 60px; }
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 30px 18px; }
+      .footer-brand { grid-column: 1 / -1; }
+      .footer-bottom { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="navbar container" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="North and Pine home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 21V8m0 0L7.2 13.1M12 8l4.8 5.1M12 3L8.7 7h6.6L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-name">North &amp; Pine</span>
+      </a>
+
+      <button class="menu-btn" id="menuButton" type="button" aria-label="Toggle navigation menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+
+      <div class="nav-links" id="navLinks">
+        <a href="#new">New In</a>
+        <a href="#categories">Categories</a>
+        <a href="#products">Best Sellers</a>
+        <a href="#about">Our Story</a>
+      </div>
+
+      <label class="search" aria-label="Search products">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="search" placeholder="Search products" autocomplete="off">
+      </label>
+
+      <button class="cart-btn" type="button" aria-label="Shopping cart, 2 items">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 5h2l1.7 9.2a2 2 0 0 0 2 1.7h7.9a2 2 0 0 0 1.9-1.5L20.5 8H6.2M9.5 20a.7.7 0 1 0 0-1.4.7.7 0 0 0 0 1.4Zm7.5 0a.7.7 0 1 0 0-1.4.7.7 0 0 0 0 1.4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="cart-count" id="cartCount">2</span>
+      </button>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" id="new">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Small upgrades, big joy</p>
+          <h1>Objects for a life <em>well lived.</em></h1>
+          <p>Discover thoughtful essentials for your home, your wardrobe, and everywhere in between—chosen to look good and last longer.</p>
+          <div class="hero-actions">
+            <a class="primary-btn" href="#products">Shop the collection
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <span class="hero-proof"><span aria-hidden="true">★★★★★</span><br>4.9 from 2,400+ reviews</span>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-label="A curated collection of home and lifestyle objects">
+          <div class="hero-orbit" aria-hidden="true"></div>
+          <div class="hero-main-card" aria-hidden="true">
+            <svg viewBox="0 0 430 520" role="img">
+              <defs>
+                <linearGradient id="heroBg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#cbdacb"/><stop offset="1" stop-color="#93ad9b"/></linearGradient>
+                <linearGradient id="vase" x1="0" x2="1"><stop stop-color="#f9f0df"/><stop offset=".55" stop-color="#d9c8ac"/><stop offset="1" stop-color="#bca789"/></linearGradient>
+                <filter id="heroShadow"><feGaussianBlur stdDeviation="9"/></filter>
+              </defs>
+              <rect width="430" height="520" fill="url(#heroBg)"/>
+              <circle cx="370" cy="95" r="100" fill="#f0d58e" opacity=".52"/>
+              <path d="M38 377h354v25H38z" fill="#6b866f"/>
+              <path d="M18 399h394v121H18z" fill="#d5bf9e"/>
+              <ellipse cx="222" cy="405" rx="121" ry="24" fill="#496153" opacity=".25" filter="url(#heroShadow)"/>
+              <path d="M245 129c-37 63-37 139-8 213" fill="none" stroke="#405f4a" stroke-width="7" stroke-linecap="round"/>
+              <path d="M240 196c-43-4-69-34-75-69 39-6 72 18 75 69Z" fill="#55795d"/>
+              <path d="M240 241c38-10 63-37 65-74-38-.8-66 25-65 74Z" fill="#6d8e70"/>
+              <path d="M232 286c-37-5-63-30-70-62 36-6 66 15 70 62Z" fill="#456a51"/>
+              <path d="M157 302h147l-12 101H169l-12-101Z" fill="url(#vase)"/>
+              <path d="M151 302c0-12 36-22 79-22s80 10 80 22-36 22-80 22-79-10-79-22Z" fill="#eee1cc"/>
+              <path d="M171 317c32 14 83 14 120 0" fill="none" stroke="#bca98d" stroke-width="3" opacity=".6"/>
+              <path d="M182 344h100" stroke="#bca98d" stroke-width="3" opacity=".45"/>
+              <circle cx="97" cy="354" r="44" fill="#e96f54"/>
+              <path d="M69 359c19 12 39 12 58-1" fill="none" stroke="#ce513a" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+            </svg>
+          </div>
+          <div class="floating-tag tag-one"><small>CURATED WITH CARE</small><strong>Made to be kept</strong></div>
+          <div class="mini-product" aria-hidden="true">
+            <svg viewBox="0 0 130 130"><rect width="130" height="130" fill="#ead496"/><ellipse cx="66" cy="104" rx="39" ry="8" fill="#9b8047" opacity=".22"/><path d="M46 43h39l-4 59H50l-4-59Z" fill="#f7f2e8"/><path d="M48 54c14 5 24 5 36 0" fill="none" stroke="#c5bba8" stroke-width="2"/><path d="M65 47V22" stroke="#345b46" stroke-width="4"/><path d="M65 32c-16 0-24-9-26-20 16-2 25 6 26 20Zm0 7c14-2 23-10 25-22-14-1-24 7-25 22Z" fill="#52785c"/></svg>
+          </div>
+          <div class="floating-tag tag-two"><small>THIS WEEK'S PICK</small><strong>Cedar ceramic vase</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="promo" aria-label="Promotion">
+      <div class="container promo-inner">
+        <span class="promo-badge">Summer Edit</span>
+        <p><strong>Up to 30% off</strong> bright ideas for sunny days.</p>
+        <a href="#products">Shop the sale →</a>
+      </div>
+    </aside>
+
+    <section class="categories" id="categories">
+      <div class="container">
+        <div class="section-heading">
+          <div><p class="eyebrow">Find your favorite</p><h2>Shop by category</h2></div>
+          <p>Everyday pieces with a little more personality, selected for quality, utility, and timeless style.</p>
+        </div>
+
+        <div class="category-grid">
+          <a class="category-card" href="#products">
+            <div class="category-art" aria-hidden="true">
+              <svg viewBox="0 0 160 160"><ellipse cx="79" cy="139" rx="54" ry="9" fill="#54705b" opacity=".15"/><path d="M48 63h66l-9 71H57L48 63Z" fill="#f8f3e9"/><ellipse cx="81" cy="64" rx="33" ry="9" fill="#d7cebd"/><path d="M80 63V24" stroke="#3f624a" stroke-width="5"/><path d="M80 45C60 45 50 34 48 19c19-2 31 8 32 26Zm1 7c18-3 30-13 32-29-18-1-30 10-32 29Z" fill="#608267"/></svg>
+            </div>
+            <div class="category-label"><span>Home</span><span>→</span></div>
+          </a>
+          <a class="category-card" href="#products">
+            <div class="category-art" aria-hidden="true">
+              <svg viewBox="0 0 160 160"><ellipse cx="80" cy="138" rx="52" ry="9" fill="#7f6445" opacity=".14"/><path d="M48 53 66 37h28l18 16 14 21-20 12-8-15v64H62V71l-8 15-20-12 14-21Z" fill="#f7f0e5"/><path d="M67 38c2 9 23 9 26 0" fill="none" stroke="#d4bd9e" stroke-width="4"/><path d="M65 90h31" stroke="#d4bd9e" stroke-width="2" stroke-dasharray="3 4"/></svg>
+            </div>
+            <div class="category-label"><span>Apparel</span><span>→</span></div>
+          </a>
+          <a class="category-card" href="#products">
+            <div class="category-art" aria-hidden="true">
+              <svg viewBox="0 0 160 160"><ellipse cx="79" cy="136" rx="52" ry="9" fill="#496a78" opacity=".13"/><path d="M52 38h56v96H52z" fill="#284c5a" rx="8"/><path d="M58 45h44v79H58z" fill="#f6f1e4"/><path d="M67 25h27v15H67z" fill="#dfba63"/><path d="M70 64h20M70 74h24M70 84h16" stroke="#78939a" stroke-width="3" stroke-linecap="round"/><circle cx="80" cy="108" r="8" fill="#e37559"/></svg>
+            </div>
+            <div class="category-label"><span>Wellness</span><span>→</span></div>
+          </a>
+          <a class="category-card" href="#products">
+            <div class="category-art" aria-hidden="true">
+              <svg viewBox="0 0 160 160"><ellipse cx="80" cy="136" rx="54" ry="9" fill="#805c53" opacity=".14"/><path d="M43 58h74l10 71H33l10-71Z" fill="#a96b58"/><path d="M56 66c0-23 10-36 24-36s24 13 24 36" fill="none" stroke="#7b5044" stroke-width="6"/><path d="M59 78h42" stroke="#c98a75" stroke-width="3"/><path d="m69 93 11 11 11-11" fill="none" stroke="#e0ac98" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="category-label"><span>Accessories</span><span>→</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="products" id="products">
+      <div class="container">
+        <div class="section-heading">
+          <div><p class="eyebrow">Loved by you</p><h2>Featured products</h2></div>
+          <a class="view-all" href="#products">View all products <span>→</span></a>
+        </div>
+
+        <div class="product-grid" id="productGrid">
+          <article class="product-card" data-name="Luma ceramic table lamp home lighting">
+            <div class="product-image">
+              <span class="product-tag">Best seller</span>
+              <button class="heart-btn" type="button" aria-label="Save Luma ceramic table lamp"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Cream ceramic table lamp" role="img"><ellipse cx="130" cy="207" rx="61" ry="11" fill="#516455" opacity=".14"/><path d="M88 85h84l-19-62h-46L88 85Z" fill="#f6e8c9"/><path d="M98 81h64" stroke="#dccaa4" stroke-width="4"/><path d="M126 84h8v44h-8z" fill="#46614c"/><path d="M91 185c5-41 18-59 39-59s34 18 39 59H91Z" fill="#fffaf0"/><path d="M91 185c0 11 18 20 39 20s39-9 39-20" fill="#d8c7ad"/><path d="M103 157c17 7 38 7 54 0" fill="none" stroke="#dfd2bf" stroke-width="3"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.9 out of 5 stars">★★★★★</span><span class="rating-count">(128)</span></div>
+              <h3>Luma Ceramic Table Lamp</h3>
+              <div class="product-bottom"><div class="price">$86.00</div><button class="add-btn" type="button" data-product="Luma Ceramic Table Lamp"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Willow woven market tote accessories bag">
+            <div class="product-image">
+              <button class="heart-btn" type="button" aria-label="Save Willow woven market tote"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Woven market tote bag" role="img"><ellipse cx="131" cy="207" rx="68" ry="11" fill="#6d543e" opacity=".13"/><path d="M68 82h124l-13 116H82L68 82Z" fill="#c79b61"/><path d="M86 90h88l-7 95H94L86 90Z" fill="#d9b278"/><path d="M97 91c0-41 15-64 34-64s34 23 34 64" fill="none" stroke="#9d7041" stroke-width="8"/><path d="M89 108h84M87 130h88M86 152h88M84 174h88M105 88l-8 100m32-100-3 100m28-100 7 100" fill="none" stroke="#b18755" stroke-width="3" opacity=".7"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.8 out of 5 stars">★★★★★</span><span class="rating-count">(94)</span></div>
+              <h3>Willow Woven Market Tote</h3>
+              <div class="product-bottom"><div class="price">$54.00</div><button class="add-btn" type="button" data-product="Willow Woven Market Tote"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Solace essential oil diffuser wellness home">
+            <div class="product-image">
+              <span class="product-tag">New</span>
+              <button class="heart-btn" type="button" aria-label="Save Solace essential oil diffuser"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Stone essential oil diffuser" role="img"><ellipse cx="130" cy="205" rx="66" ry="11" fill="#42636a" opacity=".14"/><path d="M102 67c9-19 5-30-6-43 20 9 29 25 19 43m38 0c-9-19-5-30 6-43-20 9-29 25-19 43" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".7"/><path d="M78 174c3-58 20-98 52-98s49 40 52 98H78Z" fill="#eff2ed"/><ellipse cx="130" cy="174" rx="52" ry="25" fill="#c8d1cc"/><path d="M91 139c25 11 53 11 78 0" fill="none" stroke="#d5ddd8" stroke-width="3"/><circle cx="130" cy="178" r="3" fill="#e7ad20"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.7 out of 5 stars">★★★★<span aria-hidden="true" style="color:#c9cfcb">★</span></span><span class="rating-count">(76)</span></div>
+              <h3>Solace Essential Oil Diffuser</h3>
+              <div class="product-bottom"><div class="price">$69.00</div><button class="add-btn" type="button" data-product="Solace Essential Oil Diffuser"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Arc recycled glass vase home decor">
+            <div class="product-image">
+              <span class="product-tag">-20%</span>
+              <button class="heart-btn" type="button" aria-label="Save Arc recycled glass vase"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Rose-colored recycled glass vase" role="img"><ellipse cx="130" cy="205" rx="64" ry="11" fill="#74574e" opacity=".12"/><path d="M121 74c-22-13-27-31-23-48 20 6 31 23 23 48Zm13-4c21-10 30-25 29-43-20 3-33 18-29 43Z" fill="#55785b"/><path d="M129 87c-1-24-5-46-15-65" fill="none" stroke="#46684e" stroke-width="5"/><path d="M103 68h53l-5 32c25 25 31 73 4 94-13 10-42 10-55 0-27-21-21-69 4-94l-1-32Z" fill="#c4776d" opacity=".82"/><path d="M105 77h48M98 155c24 10 46 10 68 0" fill="none" stroke="#e2aca4" stroke-width="4" opacity=".75"/><path d="M118 85c-12 35-15 69-2 99" fill="none" stroke="#efc5bd" stroke-width="5" opacity=".45"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.9 out of 5 stars">★★★★★</span><span class="rating-count">(112)</span></div>
+              <h3>Arc Recycled Glass Vase</h3>
+              <div class="product-bottom"><div class="price">$48.00 <span class="old-price">$60</span></div><button class="add-btn" type="button" data-product="Arc Recycled Glass Vase"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Sunday organic cotton throw home blanket textile">
+            <div class="product-image">
+              <button class="heart-btn" type="button" aria-label="Save Sunday organic cotton throw"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Folded striped cotton throw" role="img"><ellipse cx="131" cy="203" rx="72" ry="11" fill="#5f5d51" opacity=".13"/><path d="M63 72h126v105c0 17-13 27-29 27H63V72Z" fill="#dfd5bc"/><path d="M74 58h114v115H74z" fill="#f3eee1"/><path d="M74 87h114M74 119h114M74 151h114" stroke="#627763" stroke-width="10" opacity=".72"/><path d="M85 173v22m13-22v22m13-22v22m13-22v22m13-22v22m13-22v22m13-22v22m13-22v17" stroke="#c5b899" stroke-width="3" stroke-linecap="round"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.6 out of 5 stars">★★★★<span aria-hidden="true" style="color:#c9cfcb">★</span></span><span class="rating-count">(63)</span></div>
+              <h3>Sunday Organic Cotton Throw</h3>
+              <div class="product-bottom"><div class="price">$72.00</div><button class="add-btn" type="button" data-product="Sunday Organic Cotton Throw"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Moss stoneware mug set kitchen home drinkware">
+            <div class="product-image">
+              <span class="product-tag">Set of 2</span>
+              <button class="heart-btn" type="button" aria-label="Save Moss stoneware mug set"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Two moss-green stoneware mugs" role="img"><ellipse cx="130" cy="202" rx="75" ry="12" fill="#3e5e45" opacity=".13"/><path d="M74 94h75v93c0 12-13 18-37 18s-38-6-38-18V94Z" fill="#45694f"/><ellipse cx="112" cy="95" rx="37" ry="10" fill="#2d513a"/><ellipse cx="112" cy="96" rx="28" ry="6" fill="#543d2e"/><path d="M147 113c38 0 42 58 1 62" fill="none" stroke="#45694f" stroke-width="15"/><path d="M117 114h62v75c0 10-11 16-31 16s-31-6-31-16v-75Z" fill="#77917b"/><ellipse cx="148" cy="115" rx="31" ry="8" fill="#59755e"/><ellipse cx="148" cy="115" rx="23" ry="5" fill="#5a4030"/><path d="M177 127c29 0 32 46 1 50" fill="none" stroke="#77917b" stroke-width="12"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><span class="rating-count">(147)</span></div>
+              <h3>Moss Stoneware Mug Set</h3>
+              <div class="product-bottom"><div class="price">$38.00</div><button class="add-btn" type="button" data-product="Moss Stoneware Mug Set"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Dune linen cushion cover home pillow textile">
+            <div class="product-image">
+              <button class="heart-btn" type="button" aria-label="Save Dune linen cushion cover"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Ochre linen cushion" role="img"><ellipse cx="130" cy="202" rx="76" ry="11" fill="#785c39" opacity=".13"/><path d="M61 53c46 8 91 8 138 0-8 46-8 91 0 138-46-8-92-8-138 0 8-46 8-92 0-138Z" fill="#d6a85d"/><path d="M72 64c38 7 77 7 116 0-7 38-7 77 0 116-39-7-78-7-116 0 7-39 7-78 0-116Z" fill="#e2bd78"/><path d="M87 83h86v78H87z" fill="none" stroke="#c4934b" stroke-width="3" stroke-dasharray="3 5"/><path d="m108 122 14 14 30-32" fill="none" stroke="#f5dfae" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.8 out of 5 stars">★★★★★</span><span class="rating-count">(81)</span></div>
+              <h3>Dune Linen Cushion Cover</h3>
+              <div class="product-bottom"><div class="price">$42.00</div><button class="add-btn" type="button" data-product="Dune Linen Cushion Cover"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <article class="product-card" data-name="Orbit minimalist wall clock home decor">
+            <div class="product-image">
+              <span class="product-tag">New</span>
+              <button class="heart-btn" type="button" aria-label="Save Orbit minimalist wall clock"><svg viewBox="0 0 24 24" fill="none"><path d="M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 1 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>
+              <svg viewBox="0 0 260 230" aria-label="Minimalist lilac wall clock" role="img"><ellipse cx="130" cy="207" rx="64" ry="10" fill="#504d63" opacity=".12"/><circle cx="130" cy="112" r="82" fill="#857d98"/><circle cx="130" cy="112" r="70" fill="#ece9ee"/><path d="M130 48v8m0 112v8m-64-64h8m112 0h8" stroke="#857d98" stroke-width="4" stroke-linecap="round"/><path d="M130 112V72m0 40 31 18" stroke="#334c40" stroke-width="5" stroke-linecap="round"/><circle cx="130" cy="112" r="7" fill="#e37257"/></svg>
+            </div>
+            <div class="product-info">
+              <div class="rating"><span class="stars" aria-label="4.7 out of 5 stars">★★★★<span aria-hidden="true" style="color:#c9cfcb">★</span></span><span class="rating-count">(59)</span></div>
+              <h3>Orbit Minimalist Wall Clock</h3>
+              <div class="product-bottom"><div class="price">$58.00</div><button class="add-btn" type="button" data-product="Orbit Minimalist Wall Clock"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Add to cart</button></div>
+            </div>
+          </article>
+
+          <p class="no-results" id="noResults">No products match your search. Try a different word.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="newsletter" id="about">
+      <div class="container newsletter-shell">
+        <div class="newsletter-copy">
+          <h2>A little inspiration, delivered.</h2>
+          <p>Join our list for fresh finds, practical styling ideas, and a welcoming 15% off your first order.</p>
+        </div>
+        <div>
+          <form class="newsletter-form" id="newsletterForm" novalidate>
+            <label for="email" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Email address</label>
+            <input id="email" type="email" placeholder="Your email address" autocomplete="email" required>
+            <button type="submit">Join the list</button>
+          </form>
+          <p class="form-message" id="formMessage" aria-live="polite"></p>
+          <p class="form-note">No clutter, no spam. Unsubscribe whenever you like.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="brand" href="#top" aria-label="North and Pine home">
+            <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21V8m0 0L7.2 13.1M12 8l4.8 5.1M12 3 8.7 7h6.6L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>North &amp; Pine</span>
+          </a>
+          <p>Useful, beautiful goods for everyday life. Thoughtfully found, honestly made, and shipped with care.</p>
+          <div class="socials" aria-label="Social media links">
+            <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="6.7" r="1" fill="currentColor"/></svg></a>
+            <a href="#" aria-label="Pinterest"><svg viewBox="0 0 24 24" fill="none"><path d="M9.3 20.5c.8-2.3 1.4-4.2 1.9-6.3-.9-1.7.1-5.1 2.1-5.1 1.5 0 2 1.1 2 2.4 0 1.5-.9 3.6-1.4 5.5-.4 1.6.8 2.8 2.3 2.8 2.8 0 4.9-2.9 4.9-7.1 0-3.7-2.7-6.3-6.5-6.3-4.4 0-7 3.3-7 6.7 0 1.3.5 2.8 1.1 3.5.1.1.1.3.1.5l-.4 1.7c-.1.5-.5.6-.9.4-2.3-1.1-3.7-4.3-3.7-6.9 0-5.6 4.1-10.8 11.7-10.8 6.2 0 10.9 4.4 10.9 10.2 0 6.1-3.8 11-9.2 11-1.8 0-3.5-.9-4-2l-1.1 4.1" transform="scale(.78) translate(3 1)" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+            <a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="none"><path d="M14 21v-8h3l.5-3H14V8.2c0-.9.3-1.7 1.8-1.7h1.9V3.8c-.3 0-1.5-.1-2.6-.1-2.7 0-4.5 1.6-4.5 4.6V10h-3v3h3v8H14Z" fill="currentColor"/></svg></a>
+            <a href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none"><path d="M15 4c.5 2.8 2.1 4.4 5 4.6v3.1c-1.9.1-3.6-.5-5-1.5v6.3a5.6 5.6 0 1 1-4.8-5.6V14a2.6 2.6 0 1 0 1.8 2.5V4h3Z" fill="currentColor"/></svg></a>
+          </div>
+        </div>
+        <div class="footer-column"><h3>Shop</h3><a href="#new">New arrivals</a><a href="#products">Best sellers</a><a href="#products">Gift cards</a><a href="#products">Sale</a></div>
+        <div class="footer-column"><h3>About</h3><a href="#about">Our story</a><a href="#about">Materials</a><a href="#about">Journal</a><a href="#about">Careers</a></div>
+        <div class="footer-column"><h3>Help</h3><a href="#">Contact us</a><a href="#">Shipping</a><a href="#">Returns</a><a href="#">FAQ</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> North &amp; Pine. All rights reserved.</span>
+        <div class="footer-bottom-links"><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Accessibility</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><span aria-hidden="true">✓</span><span id="toastText">Added to your cart</span></div>
+
+  <script>
+    (() => {
+      const menuButton = document.getElementById('menuButton');
+      const navLinks = document.getElementById('navLinks');
+      const cartCount = document.getElementById('cartCount');
+      const cartButton = document.querySelector('.cart-btn');
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+      const searchInput = document.getElementById('searchInput');
+      const products = [...document.querySelectorAll('.product-card')];
+      const noResults = document.getElementById('noResults');
+      let cartItems = 2;
+      let toastTimer;
+
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      menuButton.addEventListener('click', () => {
+        const isOpen = navLinks.classList.toggle('open');
+        menuButton.setAttribute('aria-expanded', String(isOpen));
+      });
+
+      navLinks.addEventListener('click', () => {
+        navLinks.classList.remove('open');
+        menuButton.setAttribute('aria-expanded', 'false');
+      });
+
+      document.addEventListener('click', (event) => {
+        if (!navLinks.contains(event.target) && !menuButton.contains(event.target)) {
+          navLinks.classList.remove('open');
+          menuButton.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      const showToast = (message) => {
+        clearTimeout(toastTimer);
+        toastText.textContent = message;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => toast.classList.remove('show'), 2300);
+      };
+
+      document.querySelectorAll('.add-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+          cartItems += 1;
+          cartCount.textContent = cartItems;
+          cartButton.setAttribute('aria-label', `Shopping cart, ${cartItems} items`);
+          showToast(`${button.dataset.product} added to your cart`);
+        });
+      });
+
+      document.querySelectorAll('.heart-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+          const saved = button.classList.toggle('active');
+          button.setAttribute('aria-pressed', String(saved));
+        });
+      });
+
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+        products.forEach((product) => {
+          const match = product.dataset.name.toLowerCase().includes(query);
+          product.hidden = !match;
+          if (match) visible += 1;
+        });
+        noResults.classList.toggle('visible', visible === 0);
+      });
+
+      searchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+
+      document.getElementById('newsletterForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const email = document.getElementById('email');
+        const message = document.getElementById('formMessage');
+        if (!email.validity.valid) {
+          message.textContent = 'Please enter a valid email address.';
+          email.focus();
+          return;
+        }
+        message.textContent = 'Welcome in! Your 15% offer is on its way.';
+        event.currentTarget.reset();
+      });
+    })();
+  </script>
+</body>
+</html>
