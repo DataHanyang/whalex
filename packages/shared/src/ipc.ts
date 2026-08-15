@@ -59,8 +59,12 @@ export const IPC_INVOKE = {
       settings: SettingsSchema,
       /** providerId → masked key tail ("...a1b2") or null when unset. */
       secrets: z.record(z.string().nullable()),
+      edition: z.enum(["oss", "cloud"]),
+      signedIn: z.boolean(),
     }),
   },
+  "auth:signIn": { req: z.void(), res: z.void() },
+  "auth:signOut": { req: z.void(), res: z.void() },
   "settings:update": {
     req: SettingsSchema.partial(),
     res: SettingsSchema,
@@ -84,6 +88,10 @@ export const IPC_INVOKE = {
   "session:list": {
     req: z.object({ cwd: z.string().optional() }),
     res: z.array(SessionMetaSchema),
+  },
+  "session:delete": {
+    req: z.object({ cwd: z.string(), sessionId: z.string() }),
+    res: z.void(),
   },
   "session:start": {
     req: z.object({ cwd: z.string(), resumeSessionId: z.string().optional() }),
@@ -172,6 +180,15 @@ export const IPC_INVOKE = {
   "vision:test": {
     req: z.object({ baseUrl: z.string(), model: z.string(), apiKey: z.string().optional() }),
     res: z.object({ ok: z.boolean(), error: z.string().optional() }),
+  },
+  "vision:describe": {
+    req: z.object({ imageDataUrl: z.string(), question: z.string().optional() }),
+    res: z.object({
+      ok: z.boolean(),
+      description: z.string().optional(),
+      error: z.string().optional(),
+      configured: z.boolean(),
+    }),
   },
   "dialog:pickFolder": {
     req: z.void(),

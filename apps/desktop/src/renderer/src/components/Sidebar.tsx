@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FolderOpen, MessageSquare, Plus, Settings } from "lucide-react";
+import { FolderOpen, MessageSquare, Plus, Settings, Trash2 } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore } from "../stores/uiStore";
@@ -21,6 +21,7 @@ export function Sidebar() {
   const activeId = useSessionStore((s) => s.activeSessionId);
   const cwd = useSessionStore((s) => s.cwd);
   const startSession = useSessionStore((s) => s.startSession);
+  const deleteSession = useSessionStore((s) => s.deleteSession);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const openSettings = useUiStore((s) => s.openSettings);
 
@@ -40,46 +41,56 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-      <div className="px-3 pb-2 pt-3">
+      <div className="px-3 pb-2.5 pt-3">
         <button
           onClick={() => void changeFolder()}
-          className="flex w-full items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] text-muted hover:bg-surface-2"
+          className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-[12.5px] text-muted hover:bg-surface-2"
           title={cwd ?? ""}
         >
           <FolderOpen size={14} className="shrink-0" />
-          <span className="truncate">{folderName || t("sidebar.changeFolder")}</span>
+          <span className="min-w-0 truncate">{folderName || t("sidebar.changeFolder")}</span>
         </button>
         <button
           onClick={newSession}
-          className="mt-2 flex w-full items-center gap-2 rounded-md bg-accent px-2.5 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover"
+          className="mt-2 flex w-full items-center gap-2 rounded-md bg-accent px-3 py-2 text-[12.5px] font-medium text-white hover:bg-accent-hover"
         >
           <Plus size={14} />
           {t("sidebar.newSession")}
         </button>
       </div>
-      <div className="px-4 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-wider text-faint">
+      <div className="px-3.5 pb-1.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wider text-faint">
         {t("sidebar.sessions")}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 pb-2">
         {sessions.length === 0 && (
           <div className="px-2 py-3 text-[12px] text-faint">{t("sidebar.empty")}</div>
         )}
         {sessions.map((s) => (
-          <button
+          <div
             key={s.sessionId}
             onClick={() => void startSession(s.cwd, s.sessionId)}
-            className={`mb-0.5 flex w-full flex-col rounded-md px-2.5 py-2 text-left hover:bg-surface-2 ${
+            className={`group mb-1 flex w-full cursor-pointer flex-col rounded-lg px-3 py-2 text-left hover:bg-surface-2 ${
               s.sessionId === activeId ? "bg-accent-soft" : ""
             }`}
           >
-            <span className="flex items-center gap-1.5 text-[12.5px]">
+            <div className="flex min-w-0 items-center gap-1.5 text-[12.5px]">
               <MessageSquare size={12} className="shrink-0 text-faint" />
-              <span className="truncate">{s.title}</span>
-            </span>
+              <span className="min-w-0 flex-1 truncate">{s.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(t("sidebar.deleteConfirm"))) void deleteSession(s.sessionId, s.cwd);
+                }}
+                className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                title={t("sidebar.delete")}
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
             <span className="mt-0.5 pl-[18px] text-[11px] text-faint">
               {timeAgo(s.updatedAt, i18n.language)}
             </span>
-          </button>
+          </div>
         ))}
       </div>
       <button

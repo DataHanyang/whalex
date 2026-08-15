@@ -106,6 +106,11 @@ export class SessionStore {
     return store;
   }
 
+  static async delete(cwd: string, sessionId: string): Promise<void> {
+    const file = path.join(projectDir(cwd), `${sessionId}.jsonl`);
+    await fsp.rm(file, { force: true });
+  }
+
   static async load(cwd: string, sessionId: string): Promise<SessionStore | null> {
     const store = new SessionStore(sessionId, cwd);
     try {

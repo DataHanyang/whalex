@@ -16,3 +16,4 @@ export * from "./agent/Subagent.js";
 export * from "./workflow/WorkflowRunner.js";
 export * from "./browser/BrowserController.js";
 export * from "./vision/VisionBridge.js";
+export * from "./computer/ComputerController.js";

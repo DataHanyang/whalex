@@ -38,6 +38,7 @@ interface SessionState {
   closeArtifact(): void;
   closeBrowser(): void;
   refreshSessions(): Promise<void>;
+  deleteSession(sessionId: string, cwd: string): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
@@ -88,6 +89,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const cwd = get().cwd;
     const sessions = await whalex.invoke("session:list", { cwd: cwd ?? undefined });
     set({ sessions });
+  },
+
+  async deleteSession(sessionId, cwd) {
+    await whalex.invoke("session:delete", { cwd, sessionId });
+    const { activeSessionId, cwd: activeCwd } = get();
+    await get().refreshSessions();
+    // If we deleted the open session, start a fresh one.
+    if (sessionId === activeSessionId && activeCwd) {
+      await get().startSession(activeCwd);
+    }
   },
 
   async startSession(cwd, resumeSessionId) {

@@ -3,11 +3,14 @@ import type { WhalexApi } from "@whalex/shared";
 
 const INVOKE_CHANNELS = new Set([
   "app:getState",
+  "auth:signIn",
+  "auth:signOut",
   "settings:update",
   "secrets:set",
   "provider:test",
   "models:list",
   "session:list",
+  "session:delete",
   "session:start",
   "session:send",
   "session:abort",
@@ -29,6 +32,7 @@ const INVOKE_CHANNELS = new Set([
   "browser:setBounds",
   "browser:hide",
   "vision:test",
+  "vision:describe",
   "dialog:pickFolder",
   "shell:openExternal",
 ]);
