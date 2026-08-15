@@ -1,0 +1,4 @@
+# Keep the deliverables and the compressed comparison shots; skip the raw
+# PNG captures and debug frames (regenerable, several MB).
+shots/*.png
+shots/frames/

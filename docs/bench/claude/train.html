@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Night Express &mdash; Steam Locomotive</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070f; }
+  body { font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif; }
+
+  #stage { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  .hud {
+    position: fixed;
+    left: 22px;
+    bottom: 20px;
+    color: #cfd8f5;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .9);
+    pointer-events: none;
+    user-select: none;
+  }
+  .hud .title {
+    font-size: 15px;
+    letter-spacing: .38em;
+    text-transform: uppercase;
+    color: #ffd9a8;
+    opacity: .92;
+  }
+  .hud .sub {
+    margin-top: 5px;
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    opacity: .45;
+  }
+  .hint {
+    position: fixed;
+    right: 22px;
+    bottom: 20px;
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #cfd8f5;
+    opacity: .3;
+    pointer-events: none;
+    user-select: none;
+  }
+  @media (max-width: 620px) {
+    .hud .title { font-size: 12px; letter-spacing: .28em; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="scene"></canvas></div>
+
+<div class="hud">
+  <div class="title">Night Express</div>
+  <div class="sub">2:14 AM &middot; Northbound Line</div>
+</div>
+<div class="hint">Press S for headlight &middot; Space to pause</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var canvas = document.getElementById("scene");
+  var ctx = canvas.getContext("2d");
+
+  var W = 0, H = 0, DPR = 1;
+  var railY = 0, horizonY = 0, k = 1;
+  var bg = null, vignette = null;
+
+  var paused = false;
+  var headlightOn = true;
+
+  var TAU = Math.PI * 2;
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+
+  /* deterministic value noise, used for hills */
+  function noise(x, seed) {
+    return Math.sin(x * 1.7 + seed) * 0.5 +
+           Math.sin(x * 0.83 + seed * 2.3) * 0.32 +
+           Math.sin(x * 3.31 + seed * 5.1) * 0.11 +
+           Math.sin(x * 6.7 + seed * 1.9) * 0.05;
+  }
+
+  /* ---------------------------------------------------------------- sprites */
+  function makeSprite(size, stops) {
+    var c = document.createElement("canvas");
+    c.width = c.height = size;
+    var g = c.getContext("2d");
+    var grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    for (var i = 0; i < stops.length; i++) grad.addColorStop(stops[i][0], stops[i][1]);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, size, size);
+    return c;
+  }
+
+  var sprSteam = makeSprite(128, [
+    [0.00, "rgba(255,255,255,0.85)"],
+    [0.30, "rgba(226,234,255,0.42)"],
+    [0.62, "rgba(186,201,238,0.16)"],
+    [1.00, "rgba(150,168,210,0.00)"]
+  ]);
+  var sprSmoke = makeSprite(128, [
+    [0.00, "rgba(96,102,124,0.80)"],
+    [0.35, "rgba(70,76,96,0.40)"],
+    [1.00, "rgba(40,44,60,0.00)"]
+  ]);
+  var sprFire = makeSprite(128, [
+    [0.00, "rgba(255,214,150,0.95)"],
+    [0.25, "rgba(255,152,54,0.55)"],
+    [0.60, "rgba(226,74,16,0.18)"],
+    [1.00, "rgba(150,40,0,0.00)"]
+  ]);
+  var sprSpark = makeSprite(64, [
+    [0.00, "rgba(255,248,214,1)"],
+    [0.22, "rgba(255,186,84,0.85)"],
+    [0.55, "rgba(255,104,28,0.30)"],
+    [1.00, "rgba(255,60,0,0.00)"]
+  ]);
+
+  /* ------------------------------------------------------------ scene build */
+  var stars = [], twinklers = [];
+
+  function buildStars() {
+    stars = [];
+    twinklers = [];
+    var count = Math.round((W * H) / 5200);
+    for (var i = 0; i < count; i++) {
+      var s = {
+        x: Math.random() * W,
+        y: Math.random() * horizonY * 0.98,
+        r: Math.pow(Math.random(), 2.4) * 1.5 + 0.25,
+        a: rand(0.18, 0.95),
+        p: Math.random() * TAU,
+        sp: rand(0.6, 2.4)
+      };
+      stars.push(s);
+      if (i % 9 === 0) twinklers.push(s);
+    }
+  }
+
+  function hillLayer(g, baseY, amp, seed, fill, step) {
+    g.beginPath();
+    g.moveTo(-10, baseY + amp);
+    for (var x = -10; x <= W + 10; x += step) {
+      var n = noise(x / (W * 0.36) * 3.0, seed);
+      g.lineTo(x, baseY - n * amp);
+    }
+    g.lineTo(W + 10, H);
+    g.lineTo(-10, H);
+    g.closePath();
+    g.fillStyle = fill;
+    g.fill();
+  }
+
+  function pine(g, x, baseY, h, fill) {
+    var w = h * 0.42;
+    g.fillStyle = fill;
+    g.fillRect(x - h * 0.032, baseY - h * 0.22, h * 0.064, h * 0.24);
+    for (var i = 0; i < 4; i++) {
+      var t = i / 4;
+      var yTop = baseY - h * (1 - t * 0.58);
+      var yBot = baseY - h * (0.66 - t * 0.62);
+      var ww = w * (0.42 + t * 0.62);
+      g.beginPath();
+      g.moveTo(x, yTop);
+      g.lineTo(x + ww * 0.5, yBot);
+      g.lineTo(x - ww * 0.5, yBot);
+      g.closePath();
+      g.fill();
+    }
+  }
+
+  function telegraphPole(g, x, baseY, h, fill) {
+    g.strokeStyle = fill;
+    g.lineWidth = Math.max(1.5, h * 0.028);
+    g.beginPath();
+    g.moveTo(x, baseY);
+    g.lineTo(x, baseY - h);
+    g.stroke();
+    g.lineWidth = Math.max(1, h * 0.02);
+    for (var i = 0; i < 2; i++) {
+      var y = baseY - h * (0.94 - i * 0.13);
+      g.beginPath();
+      g.moveTo(x - h * 0.11, y);
+      g.lineTo(x + h * 0.11, y);
+      g.stroke();
+    }
+  }
+
+  function buildBackground() {
+    bg = document.createElement("canvas");
+    bg.width = Math.max(1, Math.round(W * DPR));
+    bg.height = Math.max(1, Math.round(H * DPR));
+    var g = bg.getContext("2d");
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    /* sky */
+    var sky = g.createLinearGradient(0, 0, 0, horizonY + 40);
+    sky.addColorStop(0.00, "#05070f");
+    sky.addColorStop(0.42, "#0b1024");
+    sky.addColorStop(0.74, "#152046");
+    sky.addColorStop(1.00, "#2b3363");
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, horizonY + 42);
+
+    /* milky band */
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    g.globalAlpha = 0.13;
+    g.translate(W * 0.68, horizonY * 0.30);
+    g.rotate(-0.5);
+    var mw = g.createLinearGradient(0, -H * 0.22, 0, H * 0.22);
+    mw.addColorStop(0, "rgba(90,110,190,0)");
+    mw.addColorStop(0.5, "rgba(150,170,235,1)");
+    mw.addColorStop(1, "rgba(90,110,190,0)");
+    g.fillStyle = mw;
+    g.fillRect(-W, -H * 0.22, W * 2, H * 0.44);
+    g.restore();
+
+    /* stars */
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      g.globalAlpha = s.a;
+      g.fillStyle = i % 7 === 0 ? "#ffe6c4" : (i % 5 === 0 ? "#cfe0ff" : "#ffffff");
+      g.beginPath();
+      g.arc(s.x, s.y, s.r, 0, TAU);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+
+    /* moon */
+    var mx = W * 0.80, my = horizonY * 0.26, mr = Math.max(26, Math.min(W, H) * 0.045);
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    var halo = g.createRadialGradient(mx, my, mr * 0.4, mx, my, mr * 7.5);
+    halo.addColorStop(0, "rgba(196,214,255,0.34)");
+    halo.addColorStop(0.28, "rgba(150,175,240,0.10)");
+    halo.addColorStop(1, "rgba(120,150,230,0)");
+    g.fillStyle = halo;
+    g.beginPath();
+    g.arc(mx, my, mr * 7.5, 0, TAU);
+    g.fill();
+    g.restore();
+
+    var mg = g.createRadialGradient(mx - mr * 0.3, my - mr * 0.35, mr * 0.1, mx, my, mr);
+    mg.addColorStop(0, "#fffdf4");
+    mg.addColorStop(0.7, "#e9edf8");
+    mg.addColorStop(1, "#bcc6de");
+    g.fillStyle = mg;
+    g.beginPath();
+    g.arc(mx, my, mr, 0, TAU);
+    g.fill();
+    g.fillStyle = "rgba(150,160,185,0.22)";
+    var craters = [[-0.30, -0.18, 0.20], [0.22, 0.10, 0.26], [-0.10, 0.42, 0.14], [0.44, -0.34, 0.11]];
+    for (var c = 0; c < craters.length; c++) {
+      g.beginPath();
+      g.arc(mx + craters[c][0] * mr, my + craters[c][1] * mr, craters[c][2] * mr, 0, TAU);
+      g.fill();
+    }
+
+    /* distant mountains */
+    hillLayer(g, horizonY - H * 0.045, H * 0.075, 1.7, "#1a2247", 9);
+    hillLayer(g, horizonY - H * 0.012, H * 0.052, 4.9, "#141a37", 7);
+    hillLayer(g, horizonY + H * 0.018, H * 0.034, 9.3, "#0e1328", 5);
+
+    /* ground */
+    var gr = g.createLinearGradient(0, horizonY, 0, H);
+    gr.addColorStop(0, "#0d1226");
+    gr.addColorStop(0.45, "#090d1c");
+    gr.addColorStop(1, "#05070f");
+    g.fillStyle = gr;
+    g.fillRect(0, horizonY + H * 0.012, W, H - horizonY);
+
+    /* tree line + poles */
+    var treeBase = horizonY + H * 0.055;
+    var seedX = 13.77;
+    for (var x = -40; x < W + 60; x += 1) {
+      seedX += 1;
+      if ((Math.sin(seedX * 12.9898) * 43758.5453 % 1 + 1) % 1 > 0.965) {
+        var h = H * (0.05 + ((Math.sin(seedX * 78.233) * 12345.6789 % 1 + 1) % 1) * 0.055);
+        pine(g, x, treeBase, h, "#080b18");
+      }
+    }
+    for (var px = W * 0.08; px < W + 100; px += W * 0.27) {
+      telegraphPole(g, px, treeBase + H * 0.012, H * 0.13, "rgba(8,11,24,0.95)");
+    }
+
+    /* ballast bed */
+    var ballastTop = railY + 3;
+    var ballastBot = railY + H * 0.075;
+    g.beginPath();
+    g.moveTo(-10, ballastTop);
+    g.lineTo(W + 10, ballastTop);
+    g.lineTo(W + 10, ballastBot);
+    g.lineTo(-10, ballastBot);
+    g.closePath();
+    var bgrad = g.createLinearGradient(0, ballastTop, 0, ballastBot);
+    bgrad.addColorStop(0, "#191d2c");
+    bgrad.addColorStop(1, "#0a0d16");
+    g.fillStyle = bgrad;
+    g.fill();
+
+    /* ballast speckle */
+    for (var s2 = 0; s2 < W * 1.6; s2++) {
+      var sx = Math.random() * W;
+      var sy = ballastTop + Math.random() * (ballastBot - ballastTop);
+      var f = 1 - (sy - ballastTop) / (ballastBot - ballastTop);
+      g.fillStyle = "rgba(150,162,196," + (0.03 + Math.random() * 0.09 * f) + ")";
+      g.fillRect(sx, sy, 1.6, 1.4);
+    }
+
+    /* sleepers */
+    var sleeperW = 26 * k, gap = 46 * k;
+    for (var tx = -gap; tx < W + gap; tx += gap) {
+      g.save();
+      g.beginPath();
+      g.moveTo(tx, railY + 2);
+      g.lineTo(tx + sleeperW, railY + 2);
+      g.lineTo(tx + sleeperW + 7 * k, railY + 13 * k);
+      g.lineTo(tx - 7 * k, railY + 13 * k);
+      g.closePath();
+      g.fillStyle = "#16192a";
+      g.fill();
+      g.strokeStyle = "rgba(160,175,215,0.10)";
+      g.lineWidth = 1;
+      g.stroke();
+      g.restore();
+    }
+
+    /* far rail */
+    g.fillStyle = "#242a3d";
+    g.fillRect(0, railY - 5 * k, W, 2.4 * k);
+    /* near rail */
+    g.fillStyle = "#2c3346";
+    g.fillRect(0, railY, W, 3.2 * k);
+    var rl = g.createLinearGradient(0, railY, 0, railY + 1.4 * k);
+    rl.addColorStop(0, "rgba(190,206,246,0.55)");
+    rl.addColorStop(1, "rgba(190,206,246,0)");
+    g.fillStyle = rl;
+    g.fillRect(0, railY, W, 1.4 * k);
+
+    /* foreground grass silhouette */
+    var fgY = H - H * 0.055;
+    g.fillStyle = "#03050b";
+    g.beginPath();
+    g.moveTo(0, H);
+    g.lineTo(0, fgY);
+    for (var gx = 0; gx <= W; gx += 6) {
+      g.lineTo(gx, fgY - Math.abs(noise(gx / 60, 3.3)) * H * 0.02);
+    }
+    g.lineTo(W, H);
+    g.closePath();
+    g.fill();
+    for (var t2 = 0; t2 < W / 8; t2++) {
+      var bx = Math.random() * W;
+      var bh = rand(6, 26);
+      g.strokeStyle = "rgba(3,5,11,1)";
+      g.lineWidth = rand(1, 2.2);
+      g.beginPath();
+      g.moveTo(bx, fgY + 6);
+      g.quadraticCurveTo(bx + rand(-6, 6), fgY + 6 - bh * 0.6, bx + rand(-12, 12), fgY + 6 - bh);
+      g.stroke();
+    }
+
+    /* vignette */
+    vignette = document.createElement("canvas");
+    vignette.width = bg.width;
+    vignette.height = bg.height;
+    var vg = vignette.getContext("2d");
+    vg.setTransform(DPR, 0, 0, DPR, 0, 0);
+    var vgr = vg.createRadialGradient(W / 2, H * 0.52, Math.min(W, H) * 0.22, W / 2, H * 0.52, Math.max(W, H) * 0.78);
+    vgr.addColorStop(0, "rgba(0,0,0,0)");
+    vgr.addColorStop(0.62, "rgba(0,0,0,0.20)");
+    vgr.addColorStop(1, "rgba(0,0,0,0.72)");
+    vg.fillStyle = vgr;
+    vg.fillRect(0, 0, W, H);
+  }
+
+  /* ------------------------------------------------------- locomotive model */
+  /* Local design units. x grows toward the FRONT (right). y is negative up
+     from the top of the rail. Overall body spans x = 0 (rear of tender)
+     to x = 322 (tip of the pilot).                                          */
+  var LOCO = {
+    length: 322,
+    driverR: 28,
+    driverX: [115, 170, 225],
+    mainDriver: 170,
+    crankR: 14,
+    rodLen: 85,
+    crossY: -50,
+    truckR: 12,
+    truckX: [262, 291],
+    tenderR: 13,
+    tenderX: [20, 58],
+    chimney: { x: 290, y: -142 },
+    fireboxX: 122,
+    fireboxY: -32
+  };
+
+  function crosshead(theta) {
+    var pinX = LOCO.mainDriver + LOCO.crankR * Math.cos(theta);
+    var pinY = -LOCO.driverR + LOCO.crankR * Math.sin(theta);
+    var dy = LOCO.crossY - pinY;
+    var dx = Math.sqrt(Math.max(0, LOCO.rodLen * LOCO.rodLen - dy * dy));
+    return { pinX: pinX, pinY: pinY, x: pinX + dx, y: LOCO.crossY };
+  }
+
+  function drawWheel(g, cx, cy, r, theta, spokes, hubColor) {
+    g.save();
+    g.translate(cx, cy);
+
+    /* tyre */
+    var tg = g.createLinearGradient(0, -r, 0, r);
+    tg.addColorStop(0, "#3c4358");
+    tg.addColorStop(0.5, "#232838");
+    tg.addColorStop(1, "#12151f");
+    g.fillStyle = tg;
+    g.beginPath();
+    g.arc(0, 0, r, 0, TAU);
+    g.fill();
+
+    g.rotate(theta);
+
+    /* wheel face */
+    g.fillStyle = "#171b28";
+    g.beginPath();
+    g.arc(0, 0, r * 0.86, 0, TAU);
+    g.fill();
+
+    /* spokes */
+    g.strokeStyle = "#2f3548";
+    g.lineWidth = r * 0.11;
+    g.lineCap = "round";
+    for (var i = 0; i < spokes; i++) {
+      var a = (i / spokes) * TAU;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * r * 0.20, Math.sin(a) * r * 0.20);
+      g.lineTo(Math.cos(a) * r * 0.80, Math.sin(a) * r * 0.80);
+      g.stroke();
+    }
+
+    /* counterweight */
+    if (spokes >= 10) {
+      g.fillStyle = "#262c3d";
+      g.beginPath();
+      g.arc(0, 0, r * 0.82, Math.PI * 0.62, Math.PI * 1.38);
+      g.arc(0, 0, r * 0.30, Math.PI * 1.38, Math.PI * 0.62, true);
+      g.closePath();
+      g.fill();
+    }
+
+    /* hub */
+    g.fillStyle = hubColor || "#39405a";
+    g.beginPath();
+    g.arc(0, 0, r * 0.19, 0, TAU);
+    g.fill();
+
+    g.restore();
+
+    /* rim highlight (moonlight from above) */
+    g.save();
+    g.strokeStyle = "rgba(178,196,240,0.30)";
+    g.lineWidth = Math.max(0.8, r * 0.055);
+    g.beginPath();
+    g.arc(cx, cy, r - r * 0.03, Math.PI * 1.08, Math.PI * 1.92);
+    g.stroke();
+    g.restore();
+  }
+
+  function drawLoco(g, theta, t, glow) {
+    var L = LOCO;
+
+    /* ---- tender ---- */
+    g.fillStyle = "#151926";
+    roundRect(g, 2, -104, 88, 62, 3);
+    g.fill();
+    /* coal load */
+    g.fillStyle = "#0b0e18";
+    g.beginPath();
+    g.moveTo(8, -104);
+    for (var i = 0; i <= 8; i++) {
+      var cx2 = 8 + (76 / 8) * i;
+      g.lineTo(cx2, -104 - 4 - Math.abs(Math.sin(i * 2.1)) * 7);
+    }
+    g.lineTo(84, -104);
+    g.closePath();
+    g.fill();
+    g.fillStyle = "#1c2132";
+    g.fillRect(0, -46, 92, 6);
+    /* tender rivet line */
+    g.strokeStyle = "rgba(150,168,215,0.12)";
+    g.lineWidth = 1;
+    strokeLine(g, 4, -72, 88, -72);
+
+    /* ---- footplate (stops short of the motion so the rods stay clear) ---- */
+    g.fillStyle = "#1c2132";
+    g.fillRect(88, -50, 148, 6);
+    g.fillStyle = "#10141f";
+    g.fillRect(88, -44, 148, 4);
+
+    /* ---- cab ---- */
+    g.fillStyle = "#171c2b";
+    roundRect(g, 90, -120, 56, 70, 3);
+    g.fill();
+    /* cab roof */
+    g.fillStyle = "#20263a";
+    roundRect(g, 84, -128, 70, 9, 3);
+    g.fill();
+    /* cab window (fire lit) */
+    var flick = glow;
+    g.save();
+    var wg = g.createLinearGradient(0, -116, 0, -92);
+    wg.addColorStop(0, "rgba(255,196,110," + (0.55 * flick) + ")");
+    wg.addColorStop(1, "rgba(255,132,40," + (0.85 * flick) + ")");
+    g.fillStyle = wg;
+    roundRect(g, 99, -114, 22, 24, 2);
+    g.fill();
+    g.restore();
+    /* window frame */
+    g.strokeStyle = "#2b3247";
+    g.lineWidth = 2;
+    roundRect(g, 99, -114, 22, 24, 2);
+    g.stroke();
+    /* crew silhouette */
+    g.fillStyle = "rgba(10,8,10,0.75)";
+    g.beginPath();
+    g.arc(112, -104, 4.2, 0, TAU);
+    g.fill();
+    g.fillRect(107.5, -100, 9, 10);
+
+    /* ---- boiler ---- */
+    var bgr = g.createLinearGradient(0, -104, 0, -52);
+    bgr.addColorStop(0.00, "#2a3145");
+    bgr.addColorStop(0.18, "#1d2333");
+    bgr.addColorStop(0.62, "#12161f");
+    bgr.addColorStop(1.00, "#090c14");
+    g.fillStyle = bgr;
+    roundRect(g, 142, -104, 148, 52, 6);
+    g.fill();
+
+    /* boiler bands */
+    g.strokeStyle = "rgba(140,158,205,0.16)";
+    g.lineWidth = 1.6;
+    for (var b = 0; b < 4; b++) {
+      var bx = 162 + b * 30;
+      strokeLine(g, bx, -103, bx, -53);
+    }
+    /* top moonlit edge */
+    g.strokeStyle = "rgba(186,204,248,0.34)";
+    g.lineWidth = 2;
+    strokeLine(g, 148, -103.2, 286, -103.2);
+
+    /* steam dome + sand dome */
+    g.fillStyle = "#20263a";
+    domeShape(g, 205, -104, 20, 13);
+    domeShape(g, 240, -104, 15, 10);
+    g.fillStyle = "rgba(186,204,248,0.22)";
+    g.fillRect(196, -116, 18, 1.6);
+
+    /* ---- smokebox ---- */
+    g.fillStyle = "#0f131d";
+    roundRect(g, 286, -106, 26, 56, 5);
+    g.fill();
+    g.strokeStyle = "rgba(160,178,225,0.20)";
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.arc(299, -78, 13, 0, TAU);
+    g.stroke();
+    g.fillStyle = "#1a2030";
+    g.beginPath();
+    g.arc(299, -78, 4, 0, TAU);
+    g.fill();
+
+    /* ---- chimney ---- */
+    g.fillStyle = "#151a28";
+    g.beginPath();
+    g.moveTo(282, -104);
+    g.lineTo(300, -104);
+    g.lineTo(299, -134);
+    g.lineTo(283, -134);
+    g.closePath();
+    g.fill();
+    g.fillStyle = "#1e2436";
+    g.beginPath();
+    g.moveTo(277, -134);
+    g.lineTo(305, -134);
+    g.lineTo(302, -144);
+    g.lineTo(280, -144);
+    g.closePath();
+    g.fill();
+    g.fillStyle = "rgba(186,204,248,0.20)";
+    g.fillRect(280, -144, 22, 1.6);
+
+    /* ---- headlight ---- */
+    g.fillStyle = "#20263a";
+    roundRect(g, 292, -128, 16, 14, 3);
+    g.fill();
+    if (headlightOn) {
+      g.save();
+      g.globalCompositeOperation = "lighter";
+      g.globalAlpha = 0.95;
+      g.drawImage(sprFire, 300 - 22, -121 - 22, 44, 44);
+      g.globalAlpha = 1;
+      g.fillStyle = "#fff6d8";
+      g.beginPath();
+      g.arc(305, -121, 4.6, 0, TAU);
+      g.fill();
+      g.restore();
+    }
+
+    /* ---- pilot / cowcatcher ---- */
+    g.fillStyle = "#141926";
+    g.beginPath();
+    g.moveTo(310, -50);
+    g.lineTo(322, -50);
+    g.lineTo(316, -2);
+    g.lineTo(300, -2);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = "rgba(150,168,215,0.25)";
+    g.lineWidth = 1.4;
+    for (var p = 0; p < 5; p++) {
+      var px1 = 302 + p * 4;
+      strokeLine(g, px1 + 6, -48, px1, -4);
+    }
+    g.fillStyle = "#1c2132";
+    g.fillRect(296, -56, 26, 7);
+
+    /* ---- buffer beam / bufferbeam glow ---- */
+    g.fillStyle = "#3a1f22";
+    g.fillRect(298, -46, 20, 5);
+
+    /* ---- cylinder (aligned with the crosshead) ---- */
+    g.fillStyle = "#191e2d";
+    roundRect(g, 268, -66, 44, 30, 4);
+    g.fill();
+    g.fillStyle = "#222941";
+    roundRect(g, 272, -70, 36, 6, 2);
+    g.fill();
+    g.strokeStyle = "rgba(170,190,240,0.22)";
+    g.lineWidth = 1.4;
+    strokeLine(g, 270, -64.5, 310, -64.5);
+    strokeLine(g, 270, -38.5, 310, -38.5);
+    /* drain cock */
+    g.strokeStyle = "#2a3145";
+    g.lineWidth = 2;
+    strokeLine(g, 282, -36, 280, -26);
+
+    /* ---- firebox glow under the cab ---- */
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    var fs = 150 * (0.86 + flick * 0.3);
+    g.globalAlpha = 0.55 * flick;
+    g.drawImage(sprFire, LOCO.fireboxX - fs / 2, LOCO.fireboxY - fs / 2, fs, fs);
+    g.globalAlpha = 0.34 * flick;
+    g.drawImage(sprFire, LOCO.fireboxX - fs * 0.9, LOCO.fireboxY - fs * 0.42, fs * 1.8, fs * 0.84);
+    g.restore();
+
+    /* ash pan slot */
+    g.fillStyle = "rgba(255,150,50," + (0.85 * flick) + ")";
+    g.fillRect(104, -30, 36, 5);
+    g.fillStyle = "rgba(255,224,170," + (0.7 * flick) + ")";
+    g.fillRect(110, -29, 22, 2.2);
+
+    /* ---- wheels ---- */
+    var i2;
+    for (i2 = 0; i2 < LOCO.tenderX.length; i2++) {
+      drawWheel(g, LOCO.tenderX[i2], -LOCO.tenderR, LOCO.tenderR, theta * (LOCO.driverR / LOCO.tenderR), 8);
+    }
+    for (i2 = 0; i2 < LOCO.truckX.length; i2++) {
+      drawWheel(g, LOCO.truckX[i2], -LOCO.truckR, LOCO.truckR, theta * (LOCO.driverR / LOCO.truckR), 8);
+    }
+    for (i2 = 0; i2 < LOCO.driverX.length; i2++) {
+      drawWheel(g, LOCO.driverX[i2], -LOCO.driverR, LOCO.driverR, theta, 12, "#4a5372");
+    }
+
+    /* ---- motion: side rod + main rod + crosshead ---- */
+    var ch = crosshead(theta);
+    var cosT = Math.cos(theta), sinT = Math.sin(theta);
+    var pins = [];
+    for (i2 = 0; i2 < LOCO.driverX.length; i2++) {
+      pins.push({
+        x: LOCO.driverX[i2] + LOCO.crankR * cosT,
+        y: -LOCO.driverR + LOCO.crankR * sinT
+      });
+    }
+
+    /* guide bars for the crosshead */
+    g.strokeStyle = "#2c3346";
+    g.lineWidth = 2.4;
+    strokeLine(g, 230, LOCO.crossY - 7, 264, LOCO.crossY - 7);
+    strokeLine(g, 230, LOCO.crossY + 7, 264, LOCO.crossY + 7);
+
+    /* piston rod (crosshead into cylinder) */
+    g.strokeStyle = "#8f9cba";
+    g.lineWidth = 2.6;
+    strokeLine(g, ch.x, ch.y, 290, ch.y);
+
+    /* main connecting rod */
+    rodBar(g, ch.x, ch.y, pins[1].x, pins[1].y, 4.6, "#5a6484", "#98a6c8");
+
+    /* coupling (side) rod across all drivers */
+    rodBar(g, pins[0].x, pins[0].y, pins[2].x, pins[2].y, 4.2, "#4e5878", "#8e9cbe");
+
+    /* crank pins */
+    for (i2 = 0; i2 < pins.length; i2++) {
+      g.fillStyle = "#aab6d4";
+      g.beginPath();
+      g.arc(pins[i2].x, pins[i2].y, 2.6, 0, TAU);
+      g.fill();
+    }
+
+    /* crosshead block */
+    g.fillStyle = "#7a86a6";
+    roundRect(g, ch.x - 7, ch.y - 5.5, 14, 11, 2);
+    g.fill();
+    g.fillStyle = "rgba(200,214,246,0.5)";
+    g.fillRect(ch.x - 7, ch.y - 5.5, 14, 1.6);
+  }
+
+  function rodBar(g, x1, y1, x2, y2, w, fill, hi) {
+    var a = Math.atan2(y2 - y1, x2 - x1);
+    var len = Math.hypot(x2 - x1, y2 - y1);
+    g.save();
+    g.translate(x1, y1);
+    g.rotate(a);
+    g.fillStyle = fill;
+    roundRect(g, -w * 0.6, -w / 2, len + w * 1.2, w, w / 2);
+    g.fill();
+    g.fillStyle = hi;
+    g.globalAlpha = 0.55;
+    g.fillRect(0, -w / 2, len, w * 0.28);
+    g.globalAlpha = 1;
+    g.restore();
+  }
+
+  function domeShape(g, cx, baseY, w, h) {
+    g.beginPath();
+    g.moveTo(cx - w / 2, baseY);
+    g.quadraticCurveTo(cx - w / 2, baseY - h * 1.5, cx, baseY - h * 1.5);
+    g.quadraticCurveTo(cx + w / 2, baseY - h * 1.5, cx + w / 2, baseY);
+    g.closePath();
+    g.fill();
+  }
+
+  function roundRect(g, x, y, w, h, r) {
+    r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  function strokeLine(g, x1, y1, x2, y2) {
+    g.beginPath();
+    g.moveTo(x1, y1);
+    g.lineTo(x2, y2);
+    g.stroke();
+  }
+
+  /* ------------------------------------------------------------- particles */
+  var steam = [];
+  var sparks = [];
+  var MAX_STEAM = 580;
+  var MAX_SPARKS = 260;
+
+  function emitSteam(x, y, burst, speed) {
+    var n = burst ? 7 : 1;
+    for (var i = 0; i < n; i++) {
+      if (steam.length >= MAX_STEAM) break;
+      var soot = Math.random() < (burst ? 0.28 : 0.14);
+      steam.push({
+        x: x + rand(-7, 7) * k,
+        y: y + rand(-6, 6) * k,
+        vx: speed * rand(0.24, 0.58) + rand(-20, 20),
+        vy: (burst ? rand(-215, -130) : rand(-125, -70)) * (k * 0.5 + 0.5),
+        r: rand(5, 12) * k * (burst ? 1.2 : 0.85),
+        grow: rand(13, 23) * k,
+        life: 0,
+        max: burst ? rand(2.8, 4.2) : rand(2.0, 3.2),
+        soot: soot,
+        seed: Math.random() * TAU,
+        wob: rand(0.5, 1.4),
+        spin: rand(-0.6, 0.6)
+      });
+    }
+  }
+
+  function emitEmber(x, y, speed) {
+    if (sparks.length >= MAX_SPARKS) return;
+    sparks.push({
+      x: x, y: y,
+      vx: speed * rand(0.15, 0.5) + rand(-20, 20),
+      vy: rand(-120, -40),
+      g: rand(20, 70),
+      r: rand(1.2, 2.6) * k,
+      life: 0,
+      max: rand(1.4, 2.8),
+      bounce: false
+    });
+  }
+
+  function emitSpark(x, y, speed) {
+    if (sparks.length >= MAX_SPARKS) return;
+    sparks.push({
+      x: x, y: y,
+      vx: -speed * rand(0.05, 0.35) + rand(-60, 40),
+      vy: rand(-260, -70),
+      g: rand(700, 1100),
+      r: rand(1.0, 2.4) * k,
+      life: 0,
+      max: rand(0.5, 1.25),
+      bounce: true
+    });
+  }
+
+  function updateParticles(dt, t) {
+    var i, p;
+    for (i = steam.length - 1; i >= 0; i--) {
+      p = steam[i];
+      p.life += dt;
+      if (p.life >= p.max) { steam.splice(i, 1); continue; }
+      var f = p.life / p.max;
+      /* drag + buoyancy + turbulence */
+      p.vx *= (1 - 2.3 * dt);
+      p.vy = p.vy * (1 - 0.9 * dt) - (22 + 40 * (1 - f)) * dt * k;
+      p.x += (p.vx + Math.sin(t * p.wob + p.seed) * 16 * k * f) * dt;
+      p.y += p.vy * dt;
+      p.r += p.grow * dt;
+      p.seed += p.spin * dt;
+    }
+    for (i = sparks.length - 1; i >= 0; i--) {
+      p = sparks[i];
+      p.life += dt;
+      if (p.life >= p.max) { sparks.splice(i, 1); continue; }
+      p.vy += p.g * dt;
+      p.vx *= (1 - 0.6 * dt);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.bounce && p.y > railY && p.vy > 0) {
+        p.y = railY;
+        p.vy *= -rand(0.28, 0.52);
+        p.vx *= 0.6;
+        if (Math.abs(p.vy) < 30) p.bounce = false;
+      }
+    }
+  }
+
+  function drawParticles(g) {
+    var i, p, f, a, d;
+    /* steam: soft, drawn back-to-front (oldest first = biggest behind) */
+    for (i = 0; i < steam.length; i++) {
+      p = steam[i];
+      f = p.life / p.max;
+      a = Math.sin(Math.min(1, f * 5.2) * Math.PI * 0.5) * (1 - f) * (1 - f) * (p.soot ? 0.30 : 0.44);
+      if (a <= 0.002) continue;
+      d = p.r * 2;
+      g.globalAlpha = a;
+      g.drawImage(p.soot ? sprSmoke : sprSteam, p.x - p.r, p.y - p.r, d, d);
+      /* fresh puffs catch the firebox light */
+      if (f < 0.22 && !p.soot) {
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = (0.22 - f) * 1.5;
+        g.drawImage(sprFire, p.x - p.r * 0.8, p.y - p.r * 0.8, p.r * 1.6, p.r * 1.6);
+        g.globalCompositeOperation = "source-over";
+      }
+    }
+    g.globalAlpha = 1;
+
+    /* sparks: additive */
+    g.globalCompositeOperation = "lighter";
+    for (i = 0; i < sparks.length; i++) {
+      p = sparks[i];
+      f = p.life / p.max;
+      a = (1 - f) * (1 - f);
+      var gr = p.r * (4.2 - f * 2);
+      g.globalAlpha = a * 0.42;
+      g.drawImage(sprSpark, p.x - gr, p.y - gr, gr * 2, gr * 2);
+      /* streak */
+      g.globalAlpha = a;
+      g.strokeStyle = "rgba(255," + Math.round(210 - 90 * f) + "," + Math.round(150 - 120 * f) + ",1)";
+      g.lineWidth = p.r;
+      g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(p.x, p.y);
+      g.lineTo(p.x - p.vx * 0.016, p.y - p.vy * 0.016);
+      g.stroke();
+    }
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 1;
+  }
+
+  /* ------------------------------------------------------------------ loop */
+  var speed = 250;          /* screen px per second */
+  var travel = 0;           /* accumulated screen distance */
+  var animT = 0;            /* animation clock (stops while paused) */
+  var lastChuff = 0;
+  var lastTime = 0;
+  var sparkAcc = 0;
+  var emberAcc = 0;
+  var steamAcc = 0;
+
+  function localToScreen(originX, lx, ly, bob) {
+    return { x: originX + lx * k, y: railY + bob + ly * k };
+  }
+
+  /* pose of the locomotive for the current value of `travel` */
+  var state = { originX: 0, theta: 0, bob: 0, glow: 1, onScreen: false };
+
+  function computeState(t) {
+    var span = W + LOCO.length * k + 40;
+    state.originX = ((travel % span) + span) % span - LOCO.length * k - 20;
+    /* wheel angle: rolling to the right => clockwise */
+    state.theta = (travel / k) / LOCO.driverR;
+    state.bob = Math.sin(t * 7.3) * 0.9 * k + Math.sin(t * 3.1) * 0.5 * k;
+    state.glow = clamp(0.72 + 0.16 * Math.sin(t * 11.7) + 0.09 * Math.sin(t * 23.3 + 1.2) +
+                       0.06 * Math.sin(t * 41.1 + 0.4), 0.45, 1.1);
+    state.onScreen = state.originX > -LOCO.length * k - 60 && state.originX < W + 60;
+  }
+
+  function simulate(dt, t) {
+    travel += speed * dt;
+    computeState(t);
+
+    var originX = state.originX, bob = state.bob, theta = state.theta;
+    var chim = localToScreen(originX, LOCO.chimney.x, LOCO.chimney.y, bob);
+
+    if (state.onScreen) {
+      /* chuff: four exhaust beats per driver revolution */
+      var beat = Math.floor(theta / (Math.PI / 2));
+      if (beat !== lastChuff) {
+        lastChuff = beat;
+        emitSteam(chim.x, chim.y, true, speed);
+        for (var e = 0; e < (Math.random() < 0.5 ? 1 : 2); e++) emitEmber(chim.x + rand(-6, 6) * k, chim.y, speed);
+        /* cylinder cocks: a low puff at rail level near the cylinders */
+        if (beat % 2 === 0) {
+          var cyl = localToScreen(originX, 272, -34, bob);
+          for (var c2 = 0; c2 < 2; c2++) {
+            if (steam.length < MAX_STEAM) {
+              steam.push({
+                x: cyl.x + rand(-3, 3) * k, y: cyl.y,
+                vx: speed * 0.85 + rand(0, 70), vy: rand(-14, 16),
+                r: rand(5, 9) * k, grow: rand(26, 44) * k,
+                life: 0, max: rand(0.9, 1.5), soot: false,
+                seed: Math.random() * TAU, wob: rand(1, 2), spin: 0
+              });
+            }
+          }
+        }
+      }
+      /* continuous light plume between the beats */
+      steamAcc += dt * 30;
+      while (steamAcc >= 1) {
+        steamAcc -= 1;
+        emitSteam(chim.x, chim.y, false, speed);
+      }
+
+      /* sparks kicked up where the drivers meet the rail */
+      sparkAcc += dt * 46;
+      while (sparkAcc >= 1) {
+        sparkAcc -= 1;
+        var wi = (Math.random() * LOCO.driverX.length) | 0;
+        var contact = localToScreen(originX, LOCO.driverX[wi] + rand(-6, 6), 0, bob);
+        emitSpark(contact.x, contact.y, speed);
+      }
+      /* ash dropping from the firebox */
+      emberAcc += dt * 14;
+      while (emberAcc >= 1) {
+        emberAcc -= 1;
+        var ash = localToScreen(originX, LOCO.fireboxX + rand(-16, 16), -26, bob);
+        sparks.push({
+          x: ash.x, y: ash.y,
+          vx: speed * 0.55 + rand(-30, 30), vy: rand(-10, 40),
+          g: rand(500, 900), r: rand(1, 2.2) * k,
+          life: 0, max: rand(0.7, 1.6), bounce: true
+        });
+      }
+    }
+
+    updateParticles(dt, t);
+  }
+
+  /* run the simulation forward without drawing, so the page opens on a
+     locomotive already under way with an established plume */
+  function warmUp(seconds) {
+    var dt = 1 / 60;
+    var n = Math.round(seconds / dt);
+    for (var i = 0; i < n; i++) {
+      animT += dt;
+      simulate(dt, animT);
+    }
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    var dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (!isFinite(dt) || dt <= 0) dt = 1 / 60;
+    dt = Math.min(dt, 0.05);
+
+    if (!paused) {
+      animT += dt;
+      simulate(dt, animT);
+    }
+
+    var t = animT;
+    var originX = state.originX, bob = state.bob;
+    var theta = state.theta, glow = state.glow, onScreen = state.onScreen;
+
+    /* ------- render ------- */
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bg, 0, 0);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    /* twinkle a subset of stars */
+    ctx.globalCompositeOperation = "lighter";
+    for (var s = 0; s < twinklers.length; s++) {
+      var st = twinklers[s];
+      var tw = 0.5 + 0.5 * Math.sin(t * st.sp + st.p);
+      ctx.globalAlpha = tw * 0.55 * st.a;
+      ctx.fillStyle = "#dce8ff";
+      ctx.beginPath();
+      ctx.arc(st.x, st.y, st.r * 1.9, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+
+    if (onScreen) {
+      drawGroundLight(ctx, originX, bob, glow, t);
+    }
+
+    /* steam that trails behind the loco sits behind the body */
+    drawParticles(ctx);
+
+    ctx.save();
+    ctx.translate(originX, railY + bob);
+    ctx.scale(k, k);
+    drawLoco(ctx, theta, t, glow);
+    ctx.restore();
+
+    if (onScreen) {
+      drawHeadlightBeam(ctx, originX, bob, t);
+      drawRailShine(ctx, originX, bob, glow);
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(vignette, 0, 0);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+
+  /* warm pool of light thrown onto the ballast by the firebox */
+  function drawGroundLight(g, originX, bob, glow, t) {
+    var fx = originX + LOCO.fireboxX * k;
+    var fy = railY + bob + 6;
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    var w = 300 * k * (0.9 + 0.12 * Math.sin(t * 9.1));
+    var h = 78 * k;
+    g.globalAlpha = 0.30 * glow;
+    g.drawImage(sprFire, fx - w / 2, fy - h / 2, w, h);
+    g.globalAlpha = 0.16 * glow;
+    g.drawImage(sprFire, fx - w * 0.8, fy - h * 0.9, w * 1.6, h * 1.8);
+    g.restore();
+  }
+
+  function drawHeadlightBeam(g, originX, bob, t) {
+    if (!headlightOn) return;
+    var hx = originX + 308 * k;
+    var hy = railY + bob - 121 * k;
+    var len = 300 * k;
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    g.globalAlpha = 0.17 + 0.025 * Math.sin(t * 17);
+    var beam = g.createLinearGradient(hx, hy, hx + len, hy);
+    beam.addColorStop(0, "rgba(255,236,196,0.85)");
+    beam.addColorStop(0.35, "rgba(255,226,170,0.20)");
+    beam.addColorStop(1, "rgba(255,220,160,0)");
+    g.fillStyle = beam;
+    /* wedge tilts down toward the rails so it reads as a lamp, not a searchlight */
+    g.beginPath();
+    g.moveTo(hx, hy - 5 * k);
+    g.lineTo(hx + len, hy + 6 * k);
+    g.lineTo(hx + len, hy + 104 * k);
+    g.lineTo(hx, hy + 5 * k);
+    g.closePath();
+    g.fill();
+    /* pool of light on the track ahead */
+    var pw = 240 * k, ph = 34 * k;
+    g.globalAlpha = 0.22;
+    g.drawImage(sprFire, hx + len * 0.55 - pw / 2, railY - ph * 0.55, pw, ph);
+    g.restore();
+  }
+
+  /* rails catch the firebox / headlight glow as the loco passes */
+  function drawRailShine(g, originX, bob, glow) {
+    var cx = originX + 160 * k;
+    var w = 620 * k;
+    g.save();
+    g.globalCompositeOperation = "lighter";
+    var grd = g.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
+    grd.addColorStop(0, "rgba(255,150,60,0)");
+    grd.addColorStop(0.5, "rgba(255,170,80," + (0.34 * glow) + ")");
+    grd.addColorStop(1, "rgba(255,150,60,0)");
+    g.fillStyle = grd;
+    g.fillRect(cx - w / 2, railY - 0.5, w, 2.6 * k);
+    g.fillRect(cx - w / 2, railY - 5 * k, w, 1.8 * k);
+    g.restore();
+  }
+
+  /* ------------------------------------------------------------------ init */
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.max(320, window.innerWidth);
+    H = Math.max(240, window.innerHeight);
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    horizonY = H * 0.60;
+    railY = Math.round(H * 0.80);
+    k = clamp(Math.min(H / 460, W / 760), 0.55, 2.6);
+
+    buildStars();
+    buildBackground();
+    steam.length = 0;
+    sparks.length = 0;
+
+    if (!warmed) {
+      warmed = true;
+      warmUp(5);
+    } else {
+      computeState(animT);
+    }
+  }
+  var warmed = false;
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 140);
+  });
+
+  window.addEventListener("keydown", function (ev) {
+    if (ev.code === "Space") { ev.preventDefault(); paused = !paused; }
+    else if (ev.key === "s" || ev.key === "S") { headlightOn = !headlightOn; }
+  });
+
+  resize();
+  lastTime = performance.now();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

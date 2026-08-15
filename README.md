@@ -148,6 +148,62 @@ Every write or command is gated by a **permission card** unless you switch modes
 | **Plan** | Read-only — the agent plans without changing anything |
 | **Auto** | Approve everything (a warning banner stays on) |
 
+## 📊 Measured against Codex and Claude Code
+
+Same prompts, same Windows machine, all three CLIs running full-auto. Tokens come from each
+tool's own usage report; cost is computed from published rates. Artifacts were **rendered in a
+real browser engine** to confirm they work — not just that a file was written.
+
+| Task | 🐋 Whalex<br><sub>DeepSeek V4 Pro</sub> | Claude Code<br><sub>Opus 5</sub> | Codex<br><sub>GPT-5.6 Sol</sub> |
+|---|:---:|:---:|:---:|
+| **LeetCode classics**<br><sub>7 problems · 48 hidden tests</sub> | **100%** · **20s** · **$0.003** | 100% · 38s · $0.187 | 100% · 68s · $0.214 |
+| **Steam locomotive**<br><sub>canvas animation, night scene</sub> | **100%** · **408s** · **$0.035** | 100% · 858s · $4.35 | 92% · 444s · $1.11 |
+| **E-commerce landing page**<br><sub>single-file storefront</sub> | **100%** · **136s** · **$0.015** | 93% · 239s · $0.926 | 100% · 684s · $2.41 |
+| **Realistic 3D Earth**<br><sub>WebGL globe, day/night</sub> | **100%** · **397s** · **$0.035** | see note | 100% · 901s · $1.21 |
+
+```
+Total cost, all four tasks (USD)
+
+Whalex      ▏$0.09
+Codex       ██████████████████████████▏$4.95    57× more
+Claude Code █████████████████████████████▏$5.55  63× more
+```
+
+DeepSeek's per-token price is what opens the gap: **$0.435/$0.87** per 1M in/out against
+**$5/$25** (Opus 5) and **$5/$30** (GPT-5.6 Sol).
+
+### Same prompt, three results
+
+<sub>"Create a single-file HTML/CSS/JS animation of a steam locomotive moving through a night scene —
+spinning wheels with connecting rods, steam puffing from the chimney, glowing furnace light, sparks
+flying from the track, seamless loop."</sub>
+
+| 🐋 Whalex · **$0.035** | Codex · $1.11 | Claude Code · $4.35 |
+|---|---|---|
+| <img src="docs/bench/shots/whalex-train.jpg" alt="Whalex steam locomotive"> | <img src="docs/bench/shots/codex-train.jpg" alt="Codex steam locomotive"> | <img src="docs/bench/shots/claude-train.jpg" alt="Claude Code steam locomotive"> |
+
+<sub>"Create a realistic 3D HTML animation of the Earth."</sub>
+
+| 🐋 Whalex · **$0.035** | Codex · $1.34 | Claude Code |
+|---|---|---|
+| <img src="docs/bench/shots/whalex-earth.jpg" alt="Whalex 3D Earth"> | <img src="docs/bench/shots/codex-earth.jpg" alt="Codex 3D Earth"> | <img src="docs/bench/shots/claude-earth.jpg" alt="Claude Code 3D Earth"> |
+
+<sub>"Build a modern landing page for an online shopping mall as a single self-contained file."</sub>
+
+| 🐋 Whalex · **$0.015** | Codex · $2.41 | Claude Code · $0.93 |
+|---|---|---|
+| <img src="docs/bench/shots/whalex-shop.jpg" alt="Whalex storefront"> | <img src="docs/bench/shots/codex-shop.jpg" alt="Codex storefront"> | <img src="docs/bench/shots/claude-shop.jpg" alt="Claude Code storefront"> |
+
+<sub>**Honest notes.** Whalex's *first* locomotive attempt failed outright — the night scene drew,
+the train never appeared. That failure is exactly why `verify_page` exists: the agent now renders
+its own page in a browser engine, sees "only 0.1% of the frame changes", and fixes it. The run in
+the table is the one that used it. Claude Code's Earth run ended after a single turn without
+writing the file (a one-off; a rerun is noted in the report). Codex's Windows sandbox helper
+failed every write on this machine, so it ran with the OS sandbox off — the same full-auto
+condition as the others. Four tasks, one run each: enough to show order-of-magnitude cost
+differences, not enough to rank model intelligence. Rates verified 16 Aug 2026, with a DeepSeek
+promotional discount in effect.</sub>
+
 ## 🧩 Extend it
 
 - **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, GitHub, Playwright, …). Or paste any `mcpServers` JSON.
