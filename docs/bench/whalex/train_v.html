@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steam Locomotive at Night</title>
+<style>
+  :root {
+    color-scheme: dark;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #020309;
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: min(100vw, 1200px);
+    height: auto;
+    box-shadow: 0 0 70px rgba(0, 0, 0, 0.9);
+    background: #04050f;
+  }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="Animation of a steam locomotive moving through a night scene"></canvas>
+<script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('scene');
+  var ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  var W = 1200;
+  var H = 600;
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+  var TAU = Math.PI * 2;
+
+  function resize() {
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ---- World / loop constants -------------------------------------------
+  var PERIOD = 1760;       // length of one seamless world loop (W + train length)
+  var SPEED = 132;         // train speed in px/second
+  var RAIL_Y = 470;        // top of the near rail (wheels rest here)
+  var HORIZON_Y = 400;
+  var TRAIN_LEN = 560;
+  var TIE_SPACING = 40;
+
+  var offset = 0;          // world scroll position
+  var trainX = -TRAIN_LEN;
+  var t = 0;
+  var lastTime = performance.now();
+
+  // ---- Static sky --------------------------------------------------------
+  var stars = [];
+  (function makeStars() {
+    for (var i = 0; i < 170; i++) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * HORIZON_Y * 0.85,
+        r: 0.4 + Math.random() * 1.5,
+        phase: Math.random() * TAU,
+        speed: 0.6 + Math.random() * 1.8
+      });
+    }
+  })();
+
+  // ---- Particles ---------------------------------------------------------
+  var steam = [];
+  var sparks = [];
+
+  // ---- Small math / drawing helpers -------------------------------------
+  function clamp(v, a, b) {
+    return v < a ? a : (v > b ? b : v);
+  }
+
+  function roundRect(x, y, w, h, r) {
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    var rr = Math.min(r, w / 2, h / 2);
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y);
+    ctx.arcTo(x + w, y, x + w, y + rr, rr);
+    ctx.lineTo(x + w, y + h - rr);
+    ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+    ctx.lineTo(x + rr, y + h);
+    ctx.arcTo(x, y + h, x, y + h - rr, rr);
+    ctx.lineTo(x, y + rr);
+    ctx.arcTo(x, y, x + rr, y, rr);
+    ctx.closePath();
+  }
+
+  function drawLine(x1, y1, x2, y2) {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  function ridgeNoise(wx, seed) {
+    var u = wx / PERIOD * TAU;
+    return 0.36 * Math.sin(u * 1.0 + seed * 1.7) +
+           0.26 * Math.sin(u * 2.0 + seed * 3.1) +
+           0.18 * Math.sin(u * 3.0 + seed * 5.3) +
+           0.12 * Math.sin(u * 5.0 + seed * 7.9) +
+           0.08 * Math.sin(u * 8.0 + seed * 11.3);
+  }
+
+  function ridgeY(wx, seed, base, amp) {
+    return base - amp * (0.5 + 0.5 * ridgeNoise(wx, seed));
+  }
+
+  function drawRidge(seed, base, amp, color, parallax) {
+    var off = (offset * parallax) % PERIOD;
+    if (off < 0) off += PERIOD;
+    ctx.beginPath();
+    ctx.moveTo(0, ridgeY(off, seed, base, amp));
+    for (var x = 0; x <= W; x += 8) {
+      var wx = (x + off) % PERIOD;
+      ctx.lineTo(x, ridgeY(wx, seed, base, amp));
+    }
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  // ---- Background --------------------------------------------------------
+  function drawSky() {
+    var g = ctx.createLinearGradient(0, 0, 0, HORIZON_Y + 60);
+    g.addColorStop(0, '#03040c');
+    g.addColorStop(0.55, '#0a1024');
+    g.addColorStop(1, '#1a2240');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, HORIZON_Y + 60);
+  }
+
+  function drawStars() {
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      var a = 0.35 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+      ctx.globalAlpha = a;
+      ctx.fillStyle = '#d7e2ff';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawMoon() {
+    var mx = 940;
+    var my = 118;
+    var glow = ctx.createRadialGradient(mx, my, 0, mx, my, 130);
+    glow.addColorStop(0, 'rgba(210, 220, 255, 0.55)');
+    glow.addColorStop(0.35, 'rgba(180, 195, 245, 0.18)');
+    glow.addColorStop(1, 'rgba(150, 165, 225, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(mx, my, 130, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = '#e7ecf8';
+    ctx.beginPath();
+    ctx.arc(mx, my, 46, 0, TAU);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(150, 160, 195, 0.28)';
+    ctx.beginPath(); ctx.arc(mx - 16, my - 10, 10, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + 12, my + 8, 14, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + 18, my - 20, 7, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx - 4, my + 22, 8, 0, TAU); ctx.fill();
+  }
+
+  function drawGround() {
+    var g = ctx.createLinearGradient(0, HORIZON_Y, 0, H);
+    g.addColorStop(0, '#0d1120');
+    g.addColorStop(1, '#04050a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, HORIZON_Y, W, H - HORIZON_Y);
+  }
+
+  // ---- Track -------------------------------------------------------------
+  function drawTrack() {
+    // Ballast
+    var bg = ctx.createLinearGradient(0, RAIL_Y - 24, 0, RAIL_Y + 46);
+    bg.addColorStop(0, '#161622');
+    bg.addColorStop(1, '#08070d');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(0, RAIL_Y - 16);
+    ctx.lineTo(W, RAIL_Y - 16);
+    ctx.lineTo(W, RAIL_Y + 44);
+    ctx.lineTo(0, RAIL_Y + 44);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ties (sleepers) scroll with the world
+    var start = -(offset % TIE_SPACING);
+    if (start > 0) start -= TIE_SPACING;
+    ctx.fillStyle = '#0d0d15';
+    for (var x = start; x <= W + TIE_SPACING; x += TIE_SPACING) {
+      ctx.fillRect(x - 13, RAIL_Y - 10, 26, 34);
+    }
+    for (x = start; x <= W + TIE_SPACING; x += TIE_SPACING) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.fillRect(x - 13, RAIL_Y - 10, 26, 2);
+      ctx.fillStyle = '#0d0d15';
+    }
+
+    // Far rail (behind, drawn lighter and higher for depth)
+    ctx.fillStyle = '#1a1d28';
+    ctx.fillRect(0, RAIL_Y - 16, W, 5);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.fillRect(0, RAIL_Y - 16, W, 1.5);
+
+    // Near rail
+    ctx.fillStyle = '#3b4357';
+    ctx.fillRect(0, RAIL_Y - 4, W, 7);
+    var railGrad = ctx.createLinearGradient(0, RAIL_Y - 4, 0, RAIL_Y + 3);
+    railGrad.addColorStop(0, '#6d768d');
+    railGrad.addColorStop(0.5, '#394054');
+    railGrad.addColorStop(1, '#171923');
+    ctx.fillStyle = railGrad;
+    ctx.fillRect(0, RAIL_Y - 4, W, 7);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.fillRect(0, RAIL_Y - 4, W, 1.5);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, RAIL_Y + 3, W, 3);
+  }
+
+  // ---- Locomotive geometry ----------------------------------------------
+  var DRIVE_XS = [150, 285, 420];
+  var WHEEL_R = 58;
+  var WHEEL_CY = RAIL_Y - WHEEL_R;
+  var CRANK_R = 30;
+
+  function crankPoint(trainX, driveIndex, angle) {
+    var cx = trainX + DRIVE_XS[driveIndex];
+    return {
+      x: cx + Math.cos(angle) * CRANK_R,
+      y: WHEEL_CY + Math.sin(angle) * CRANK_R
+    };
+  }
+
+  function drawWheel(cx, cy, r, angle, isDrive) {
+    ctx.save();
+    ctx.lineWidth = 3;
+
+    // Tire
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fillStyle = '#1e232f';
+    ctx.fill();
+    ctx.strokeStyle = '#05060a';
+    ctx.stroke();
+
+    // Inner rim
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 8, 0, TAU);
+    ctx.fillStyle = '#394152';
+    ctx.fill();
+
+    // Spokes
+    ctx.strokeStyle = '#5a6478';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    for (var i = 0; i < 6; i++) {
+      var a = angle + i * Math.PI / 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * (r - 9), cy + Math.sin(a) * (r - 9));
+      ctx.stroke();
+    }
+
+    // Rim highlight
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 4, 0, TAU);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Hub
+    ctx.beginPath();
+    ctx.arc(cx, cy, 10, 0, TAU);
+    ctx.fillStyle = '#7c86a0';
+    ctx.fill();
+    ctx.strokeStyle = '#0c0e14';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Crank pin (for the coupled drive wheels)
+    if (isDrive) {
+      var px = cx + Math.cos(angle) * CRANK_R;
+      var py = cy + Math.sin(angle) * CRANK_R;
+      ctx.beginPath();
+      ctx.arc(px, py, 6, 0, TAU);
+      ctx.fillStyle = '#e8edf7';
+      ctx.fill();
+      ctx.strokeStyle = '#262b36';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function drawCouplingRod(trainX, angle) {
+    var p0 = crankPoint(trainX, 0, angle);
+    var p2 = crankPoint(trainX, 2, angle);
+
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    // Shadow
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.lineWidth = 14;
+    drawLine(p0.x, p0.y + 3, p2.x, p2.y + 3);
+
+    // Rod body
+    ctx.strokeStyle = '#a7b1c2';
+    ctx.lineWidth = 10;
+    drawLine(p0.x, p0.y, p2.x, p2.y);
+
+    // Highlight
+    ctx.strokeStyle = '#eef2f8';
+    ctx.lineWidth = 3;
+    drawLine(p0.x, p0.y - 2, p2.x, p2.y - 2);
+
+    // Small link boss over the middle wheel
+    var pm = crankPoint(trainX, 1, angle);
+    ctx.beginPath();
+    ctx.arc(pm.x, pm.y, 9, 0, TAU);
+    ctx.fillStyle = '#aeb5c3';
+    ctx.fill();
+    ctx.strokeStyle = '#222733';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawPiston(trainX, angle) {
+    var pin = crankPoint(trainX, 1, angle);
+    var guideY = WHEEL_CY - 4;
+    var rodLen = 158;
+    var dy = pin.y - guideY;
+    var dx = Math.sqrt(Math.max(0, rodLen * rodLen - dy * dy));
+    var crossX = pin.x + dx;
+    var cylX = trainX + 500;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+
+    // Slide bar / guide
+    ctx.fillStyle = '#2b3140';
+    ctx.fillRect(trainX + 360, guideY - 3, 165, 6);
+
+    // Cylinder body (below the smokebox, above the front wheels)
+    ctx.fillStyle = '#242b3a';
+    ctx.fillRect(cylX, guideY - 16, 48, 34);
+    ctx.beginPath();
+    ctx.ellipse(cylX, guideY, 7, 17, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cylX + 48, guideY, 7, 17, 0, 0, TAU);
+    ctx.fill();
+
+    // Cylinder highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cylX, guideY - 15);
+    ctx.lineTo(cylX + 48, guideY - 15);
+    ctx.stroke();
+
+    // Crosshead block
+    ctx.fillStyle = '#d2d8e2';
+    ctx.fillRect(crossX - 6, guideY - 8, 12, 16);
+
+    // Piston rod (from crosshead into the cylinder)
+    ctx.strokeStyle = '#e4e9f1';
+    ctx.lineWidth = 6;
+    drawLine(crossX, guideY, cylX, guideY);
+
+    // Main rod (from crank pin to crosshead)
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.lineWidth = 9;
+    drawLine(pin.x, pin.y + 2, crossX, guideY + 2);
+    ctx.strokeStyle = '#cdd4df';
+    ctx.lineWidth = 7;
+    drawLine(pin.x, pin.y, crossX, guideY);
+
+    ctx.restore();
+  }
+
+  function drawLocomotiveBody(trainX) {
+    var f = flicker();
+
+    // Running board / frame
+    ctx.fillStyle = '#232837';
+    ctx.fillRect(trainX + 60, 350, 470, 22);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(trainX + 60, 351);
+    ctx.lineTo(trainX + 530, 351);
+    ctx.stroke();
+
+    // Cab
+    ctx.fillStyle = '#272d3d';
+    ctx.beginPath();
+    roundRect(trainX + 0, 252, 158, 118, 6);
+    ctx.fill();
+
+    // Cab roof (with overhang)
+    ctx.fillStyle = '#161a26';
+    ctx.beginPath();
+    roundRect(trainX - 12, 240, 184, 18, 6);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(trainX - 12, 241);
+    ctx.lineTo(trainX + 172, 241);
+    ctx.stroke();
+
+    // Cab window, lit by the furnace
+    var winGrad = ctx.createLinearGradient(0, 268, 0, 330);
+    winGrad.addColorStop(0, 'rgba(255, 205, 110, ' + (0.85 * f) + ')');
+    winGrad.addColorStop(1, 'rgba(255, 120, 40, ' + (0.55 * f) + ')');
+    ctx.fillStyle = winGrad;
+    ctx.beginPath();
+    roundRect(trainX + 28, 268, 96, 62, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#0c0e14';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    roundRect(trainX + 28, 268, 96, 62, 4);
+    ctx.stroke();
+    // Window divider
+    ctx.beginPath();
+    ctx.moveTo(trainX + 76, 268);
+    ctx.lineTo(trainX + 76, 330);
+    ctx.stroke();
+
+    // Firebox (lower front of cab, sits above the rear drive wheel)
+    ctx.fillStyle = '#261d1a';
+    ctx.beginPath();
+    roundRect(trainX + 124, 350, 82, 28, 5);
+    ctx.fill();
+
+    // Boiler
+    ctx.fillStyle = '#2c3446';
+    ctx.beginPath();
+    roundRect(trainX + 130, 288, 278, 66, 33);
+    ctx.fill();
+
+    // Boiler highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(trainX + 150, 292);
+    ctx.lineTo(trainX + 395, 292);
+    ctx.stroke();
+
+    // Boiler bands
+    var bandX = [185, 258, 331, 388];
+    for (var i = 0; i < bandX.length; i++) {
+      ctx.fillStyle = '#5d4a2f';
+      ctx.fillRect(trainX + bandX[i], 288, 9, 66);
+      ctx.fillStyle = 'rgba(255, 220, 150, 0.22)';
+      ctx.fillRect(trainX + bandX[i], 288, 2, 66);
+    }
+
+    // Steam dome
+    ctx.fillStyle = '#333b4e';
+    ctx.beginPath();
+    ctx.ellipse(trainX + 228, 288, 27, 20, 0, Math.PI, TAU);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Sand dome
+    ctx.fillStyle = '#333b4e';
+    ctx.beginPath();
+    ctx.ellipse(trainX + 322, 288, 18, 14, 0, Math.PI, TAU);
+    ctx.fill();
+
+    // Smokebox (front, slightly larger than the boiler)
+    ctx.fillStyle = '#202634';
+    ctx.beginPath();
+    roundRect(trainX + 400, 274, 84, 88, 30);
+    ctx.fill();
+
+    // Smokebox front door
+    ctx.fillStyle = '#0c0e14';
+    ctx.beginPath();
+    ctx.ellipse(trainX + 484, 318, 13, 42, 0, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = '#5d4a2f';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(trainX + 484, 318, 13, 42, 0, 0, TAU);
+    ctx.stroke();
+    // Door hinge / handle
+    ctx.strokeStyle = '#2c3240';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(trainX + 484, 284);
+    ctx.lineTo(trainX + 484, 300);
+    ctx.stroke();
+
+    // Chimney
+    ctx.fillStyle = '#2b3140';
+    ctx.beginPath();
+    roundRect(trainX + 434, 240, 26, 44, 3);
+    ctx.fill();
+    ctx.fillStyle = '#1c202c';
+    ctx.beginPath();
+    roundRect(trainX + 420, 210, 56, 36, 5);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    ctx.fillRect(trainX + 424, 214, 48, 2);
+    // Chimney mouth (inner dark opening)
+    ctx.fillStyle = '#05060a';
+    ctx.beginPath();
+    ctx.ellipse(trainX + 448, 212, 18, 5, 0, 0, TAU);
+    ctx.fill();
+
+    // Headlamp
+    ctx.fillStyle = '#232936';
+    ctx.beginPath();
+    roundRect(trainX + 470, 294, 22, 22, 4);
+    ctx.fill();
+    ctx.fillStyle = '#fff3c0';
+    ctx.beginPath();
+    ctx.ellipse(trainX + 493, 305, 6, 11, 0, 0, TAU);
+    ctx.fill();
+
+    // Cowcatcher / pilot
+    ctx.fillStyle = '#2a3040';
+    ctx.beginPath();
+    ctx.moveTo(trainX + 484, 360);
+    ctx.lineTo(trainX + 560, 452);
+    ctx.lineTo(trainX + 560, 372);
+    ctx.lineTo(trainX + 484, 372);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#2d3342';
+    ctx.lineWidth = 3;
+    for (var j = 0; j < 5; j++) {
+      var y0 = 366 + j * 10;
+      var y1 = 380 + j * 14;
+      ctx.beginPath();
+      ctx.moveTo(trainX + 486, y0);
+      ctx.lineTo(trainX + 560, y1);
+      ctx.stroke();
+    }
+
+    // Firebox glow / furnace light
+    drawFurnaceGlow(trainX, f);
+  }
+
+  function flicker() {
+    var v = 0.74 + 0.22 * Math.sin(t * 9.3) + 0.08 * Math.sin(t * 23.7) + 0.04 * Math.sin(t * 47.1);
+    return clamp(v, 0.35, 1);
+  }
+
+  function drawFurnaceGlow(trainX, f) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    var cx = trainX + 150;
+    var cy = 368;
+    var glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 120);
+    glow.addColorStop(0, 'rgba(255, 205, 100, ' + (0.75 * f) + ')');
+    glow.addColorStop(0.3, 'rgba(255, 130, 45, ' + (0.35 * f) + ')');
+    glow.addColorStop(1, 'rgba(255, 70, 15, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 120, 0, TAU);
+    ctx.fill();
+
+    // Ground glow just below the firebox
+    var groundGlow = ctx.createRadialGradient(cx, RAIL_Y + 10, 0, cx, RAIL_Y + 10, 80);
+    groundGlow.addColorStop(0, 'rgba(255, 140, 50, ' + (0.42 * f) + ')');
+    groundGlow.addColorStop(1, 'rgba(255, 70, 15, 0)');
+    ctx.fillStyle = groundGlow;
+    ctx.beginPath();
+    ctx.ellipse(cx, RAIL_Y + 12, 80, 20, 0, 0, TAU);
+    ctx.fill();
+
+    // Bright firebox door
+    ctx.fillStyle = 'rgba(255, ' + Math.floor(150 + 80 * f) + ', 55, 0.95)';
+    ctx.beginPath();
+    roundRect(trainX + 128, 354, 34, 20, 4);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 240, 170, 0.9)';
+    ctx.beginPath();
+    roundRect(trainX + 132, 358, 26, 8, 3);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawHeadlightBeam(trainX) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    var lx = trainX + 493;
+    var ly = 305;
+    var beam = ctx.createLinearGradient(lx, ly, lx + 500, ly);
+    beam.addColorStop(0, 'rgba(255, 240, 180, 0.55)');
+    beam.addColorStop(0.4, 'rgba(255, 224, 130, 0.22)');
+    beam.addColorStop(1, 'rgba(255, 220, 120, 0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(lx, ly - 5);
+    ctx.lineTo(lx + 500, ly - 130);
+    ctx.lineTo(lx + 500, ly + 130);
+    ctx.lineTo(lx, ly + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTrain(trainX) {
+    var angle = -offset / WHEEL_R;
+    var leadAngle = -offset / 32;
+
+    // Soft shadow beneath the locomotive
+    ctx.save();
+    var shadow = ctx.createRadialGradient(trainX + 280, RAIL_Y + 24, 20, trainX + 280, RAIL_Y + 24, 300);
+    shadow.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+    shadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = shadow;
+    ctx.fillRect(trainX - 40, RAIL_Y - 12, 660, 90);
+    ctx.restore();
+
+    // Leading truck wheel
+    drawWheel(trainX + 505, RAIL_Y - 32, 32, leadAngle, false);
+
+    // Three coupled drive wheels
+    for (var i = 0; i < DRIVE_XS.length; i++) {
+      drawWheel(trainX + DRIVE_XS[i], WHEEL_CY, WHEEL_R, angle, true);
+    }
+
+    // Coupling rod and piston rod (move with the wheels)
+    drawCouplingRod(trainX, angle);
+    drawPiston(trainX, angle);
+
+    // Body over the upper wheel area
+    drawLocomotiveBody(trainX);
+
+    // Headlamp lens and beam are drawn last over the locomotive
+    drawHeadlightBeam(trainX);
+  }
+
+  // ---- Steam -------------------------------------------------------------
+  function emitSteam() {
+    if (trainX < -120 || trainX > W + 120) return;
+    var cx = trainX + 448;
+    var cy = 212;
+    for (var i = 0; i < 6; i++) {
+      var a = Math.random() * TAU;
+      var rr = Math.random() * 10;
+      steam.push({
+        x: cx + Math.cos(a) * rr,
+        y: cy + Math.sin(a) * rr * 0.35,
+        vx: -30 - Math.random() * 78,
+        vy: -36 - Math.random() * 50,
+        r: 14 + Math.random() * 10,
+        grow: 20 + Math.random() * 18,
+        age: 0,
+        life: 1.6 + Math.random() * 1.6,
+        seed: Math.random() * TAU
+      });
+    }
+  }
+
+  function updateSteam(dt) {
+    for (var i = steam.length - 1; i >= 0; i--) {
+      var p = steam[i];
+      p.age += dt;
+      if (p.age >= p.life) {
+        steam.splice(i, 1);
+        continue;
+      }
+      p.x += (p.vx + Math.sin(t * 1.8 + p.seed) * 14) * dt;
+      p.y += p.vy * dt;
+      p.vy -= 20 * dt; // buoyancy makes the plume rise
+      p.r += p.grow * dt * (1 - p.age / p.life);
+      p.vx *= (1 - 0.25 * dt);
+    }
+  }
+
+  function drawSteam() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < steam.length; i++) {
+      var p = steam[i];
+      var k = p.age / p.life;
+      var alpha = (1 - k) * (1 - k) * 0.48;
+      var r = Math.max(1, p.r);
+      var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, 'rgba(214, 220, 232, ' + alpha + ')');
+      g.addColorStop(0.55, 'rgba(178, 186, 204, ' + (alpha * 0.55) + ')');
+      g.addColorStop(1, 'rgba(148, 156, 176, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, TAU);
+      ctx.fill();
+
+      // Secondary lobe makes each puff look more billowy
+      var lr = r * 0.55;
+      var lx = p.x + Math.cos(p.seed) * r * 0.25;
+      var ly = p.y + Math.sin(p.seed) * r * 0.2 - r * 0.2;
+      var g2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
+      g2.addColorStop(0, 'rgba(205, 212, 226, ' + (alpha * 0.8) + ')');
+      g2.addColorStop(1, 'rgba(160, 168, 188, 0)');
+      ctx.fillStyle = g2;
+      ctx.beginPath();
+      ctx.arc(lx, ly, lr, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ---- Sparks ------------------------------------------------------------
+  function emitSparks() {
+    if (trainX < -60 || trainX > W + 60) return;
+    if (Math.random() < 0.75) {
+      var idx = Math.floor(Math.random() * DRIVE_XS.length);
+      var sx = trainX + DRIVE_XS[idx] + (Math.random() * 26 - 13);
+      var sy = RAIL_Y - Math.random() * 2;
+      var n = 2 + Math.floor(Math.random() * 4);
+      for (var i = 0; i < n; i++) {
+        sparks.push({
+          x: sx,
+          y: sy,
+          ox: sx,
+          oy: sy,
+          vx: -30 - Math.random() * 110,
+          vy: -110 - Math.random() * 170,
+          age: 0,
+          life: 0.3 + Math.random() * 0.75
+        });
+      }
+    }
+  }
+
+  function updateSparks(dt) {
+    for (var i = sparks.length - 1; i >= 0; i--) {
+      var p = sparks[i];
+      p.age += dt;
+      if (p.age >= p.life) {
+        sparks.splice(i, 1);
+        continue;
+      }
+      p.ox = p.x;
+      p.oy = p.y;
+      p.vy += 620 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= (1 - 0.35 * dt);
+    }
+  }
+
+  function drawSparks() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (var i = 0; i < sparks.length; i++) {
+      var p = sparks[i];
+      var k = p.age / p.life;
+      var alpha = 1 - k;
+      ctx.strokeStyle = 'rgba(255, 205, 100, ' + (alpha * 0.95) + ')';
+      ctx.lineWidth = 2.5;
+      drawLine(p.ox, p.oy, p.x, p.y);
+      ctx.fillStyle = 'rgba(255, 240, 165, ' + alpha + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2.1, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ---- Render ------------------------------------------------------------
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+
+    drawSky();
+    drawStars();
+    drawMoon();
+    drawRidge(0.7, 388, 150, '#161c36', 0.14);
+    drawRidge(2.3, 420, 105, '#101527', 0.3);
+    drawGround();
+    drawTrack();
+
+    // Only draw the train when any part of it could be on screen
+    if (trainX < W + 80 && trainX + TRAIN_LEN > -80) {
+      drawTrain(trainX);
+    }
+
+    drawSteam();
+    drawSparks();
+  }
+
+  var smokeTimer = 0;
+
+  function frame(now) {
+    var dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    t += dt;
+
+    // Advance the seamless world loop
+    offset = (t * SPEED) % PERIOD;
+    trainX = offset - TRAIN_LEN;
+
+    // Emit billowing steam on a steady rhythm
+    smokeTimer -= dt;
+    while (smokeTimer <= 0) {
+      emitSteam();
+      smokeTimer += 0.13;
+    }
+
+    emitSparks();
+    updateSteam(dt);
+    updateSparks(dt);
+
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
