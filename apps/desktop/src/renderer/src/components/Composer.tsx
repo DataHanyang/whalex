@@ -115,6 +115,10 @@ export function Composer() {
       setSuperCode(!superCode);
       return true;
     }
+    if (name === "rewind") {
+      useUiStore.getState().openRewind();
+      return true;
+    }
     if (name === "compact" && activeSessionId) {
       const res = await whalex.invoke("session:command", { sessionId: activeSessionId, command: "compact" });
       return res.handled;

@@ -117,6 +117,21 @@ export const IPC_INVOKE = {
     req: z.object({ sessionId: z.string(), command: z.string(), args: z.string().optional() }),
     res: z.object({ handled: z.boolean(), message: z.string().optional() }),
   },
+  "checkpoint:list": {
+    req: z.object({ sessionId: z.string() }),
+    res: z.array(
+      z.object({
+        boundary: z.number(),
+        ts: z.number(),
+        label: z.string(),
+        fileChanges: z.number(),
+      }),
+    ),
+  },
+  "checkpoint:rewind": {
+    req: z.object({ sessionId: z.string(), boundary: z.number() }),
+    res: z.object({ restored: z.array(z.string()), transcript: z.array(TranscriptItemSchema) }),
+  },
   "commands:list": {
     req: z.object({ cwd: z.string().optional() }),
     res: z.array(SlashCommandSchema),

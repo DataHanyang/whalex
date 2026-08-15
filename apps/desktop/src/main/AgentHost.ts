@@ -13,6 +13,8 @@ import {
   createBuiltinRegistry,
   createComputerTools,
   createWorkflowTool,
+  listCheckpoints,
+  rewindTo,
   type BrowserController,
   type ComputerController,
   type ToolDef,
@@ -29,6 +31,7 @@ import {
 } from "@whalex/shared";
 import type { SettingsManager } from "./settings.js";
 import type { SecretVault } from "./secrets.js";
+import { HookManager } from "./HookManager.js";
 
 interface HostedSession {
   store: SessionStore;
@@ -53,6 +56,7 @@ export class AgentHost {
   private artifacts = new Map<string, import("@whalex/shared").Artifact>();
   readonly mcp = new McpManager();
   readonly skills = new SkillRegistry();
+  private hooks: HookManager;
 
   getArtifact(id: string): import("@whalex/shared").Artifact | null {
     return this.artifacts.get(id) ?? null;
@@ -67,6 +71,7 @@ export class AgentHost {
     private settings: SettingsManager,
     private vault: SecretVault,
   ) {
+    this.hooks = new HookManager(settings);
     this.mcp.setStatusListener((statuses) => this.emitMcpStatus(statuses));
   }
 
@@ -155,6 +160,7 @@ export class AgentHost {
         temperature: s.temperature,
         extraSystemPrompt: this.skills.catalog(),
         extraTools: () => this.mcp.toolDefs(),
+        hooks: this.hooks,
       }),
     };
     this.sessions.set(sessionId, hosted);
@@ -291,6 +297,7 @@ export class AgentHost {
       { name: "settings", description: "설정 열기", source: "builtin" },
       { name: "mcp", description: "MCP 서버 관리", source: "builtin" },
       { name: "skills", description: "스킬 관리", source: "builtin" },
+      { name: "rewind", description: "이전 지점으로 되돌리기", source: "builtin" },
       { name: "supercode", description: "슈퍼코드 멀티에이전트 모드 토글", source: "builtin" },
       { name: "help", description: "도움말", source: "builtin" },
     ];
@@ -301,6 +308,18 @@ export class AgentHost {
       source: "skill",
     }));
     return [...builtin, ...skillCommands];
+  }
+
+  listCheckpoints(sessionId: string) {
+    const hosted = this.sessions.get(sessionId);
+    return hosted ? listCheckpoints(hosted.store) : [];
+  }
+
+  async rewind(sessionId: string, boundary: number) {
+    const hosted = this.sessions.get(sessionId);
+    if (!hosted) return { restored: [], transcript: [] };
+    const { restored } = await rewindTo(hosted.store, boundary);
+    return { restored, transcript: hosted.store.transcript() };
   }
 
   abort(sessionId: string): void {

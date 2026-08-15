@@ -8,6 +8,8 @@ import { ArtifactPanel } from "./ArtifactPanel";
 import { BrowserPanel } from "./BrowserPanel";
 import { SettingsModal } from "./SettingsModal";
 import { UpdateToast } from "./UpdateToast";
+import { RewindDialog } from "./RewindDialog";
+import { useUiStore } from "../stores/uiStore";
 
 export function AppShell() {
   const status = useSessionStore((s) => s.status);
@@ -15,6 +17,8 @@ export function AppShell() {
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
   const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
   const browserActive = useSessionStore((s) => s.browser.active);
+  const rewindOpen = useUiStore((s) => s.rewindOpen);
+  const closeRewind = useUiStore((s) => s.closeRewind);
 
   // Esc aborts a running turn (unless a permission card owns the key).
   useEffect(() => {
@@ -51,6 +55,7 @@ export function AppShell() {
       </div>
       <StatusBar />
       <SettingsModal />
+      {rewindOpen && <RewindDialog onClose={closeRewind} />}
       <UpdateToast />
     </div>
   );
