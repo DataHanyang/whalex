@@ -43,6 +43,8 @@ jobs:
         run: pnpm dist --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Apple identity on the runner → skip macOS code signing entirely.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
