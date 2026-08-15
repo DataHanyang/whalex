@@ -35,8 +35,13 @@ async function main(): Promise<void> {
   const modelInfo = resolveModelInfo(modelId);
 
   const provider = new OpenAICompatProvider({ baseUrl: DEEPSEEK_BASE_URL, apiKey });
-  const registry = createBuiltinRegistry();
-  const permissions = new PermissionEngine({ mode: "default", allow: [], deny: [] });
+  const registry = createBuiltinRegistry({ includeVerifyPage: true });
+  const permMode = (process.env.WHALEX_PERMISSION_MODE ?? "default") as
+    | "default"
+    | "acceptEdits"
+    | "bypassPermissions"
+    | "plan";
+  const permissions = new PermissionEngine({ mode: permMode, allow: [], deny: [] });
   const session = SessionStore.create(cwd);
   const loop = new AgentLoop({
     provider,
@@ -46,6 +51,59 @@ async function main(): Promise<void> {
     modelInfo,
     temperature: 0.2,
   });
+
+  // Non-interactive one-shot mode (CI / benchmarks): run a single prompt to
+  // completion, auto-resolving permission requests per the selected mode, then
+  // emit a machine-readable metrics line and exit.
+  //   WHALEX_PROMPT="build X" WHALEX_PERMISSION_MODE=bypassPermissions \
+  //   WHALEX_MODEL=deepseek-v4-pro DEEPSEEK_API_KEY=sk-... whalex <workdir>
+  const execPrompt = process.env.WHALEX_PROMPT;
+  if (execPrompt) {
+    const startedAt = Date.now();
+    try {
+      for await (const ev of loop.run(execPrompt)) {
+        switch (ev.type) {
+          case "text-delta":
+            process.stdout.write(ev.delta);
+            break;
+          case "tool-start":
+            console.log(`\n${CYAN}⚙ ${ev.toolName}${RESET} ${DIM}${JSON.stringify(ev.args).slice(0, 160)}${RESET}`);
+            break;
+          case "tool-result": {
+            const mark = ev.ok ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
+            console.log(`${mark} ${DIM}(${ev.durationMs}ms)${RESET}`);
+            break;
+          }
+          case "permission-request":
+            // Full-auto: allow whatever the mode did not already auto-approve.
+            permissions.resolve({
+              id: ev.request.id,
+              behavior: "allow",
+              scope: "once",
+            });
+            break;
+          case "error":
+            console.error(`\n${RED}[${ev.code}] ${ev.message}${RESET}`);
+            break;
+          default:
+            break;
+        }
+      }
+    } catch (err) {
+      console.error(`${RED}${err instanceof Error ? err.message : String(err)}${RESET}`);
+    }
+    const u = loop.context.snapshot();
+    const metrics = {
+      model: modelId,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      cachedInputTokens: u.cachedInputTokens,
+      costUsd: u.costUsd,
+      wallMs: Date.now() - startedAt,
+    };
+    console.log(`\n__WHALEX_METRICS__ ${JSON.stringify(metrics)}`);
+    process.exit(0);
+  }
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   console.log(`${CYAN}Whalex CLI${RESET} — model ${modelId}, cwd ${cwd}`);
