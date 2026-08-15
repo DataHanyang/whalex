@@ -34,21 +34,17 @@ jobs:
       - run: pnpm -r typecheck
       - run: pnpm --filter @whalex/core test
 
-      # Build + publish installers to a draft release.
-      # Signing secrets are read automatically by electron-builder when present:
+      # Build + publish installers to a draft release (unsigned).
+      #
+      # To sign later, add a dedicated signed step guarded by the secret so the
+      # CSC_* vars are never set to empty strings (electron-builder treats an
+      # empty CSC_LINK as a missing cert file and fails with "… not a file"):
       #   Windows: WIN_CSC_LINK / WIN_CSC_KEY_PASSWORD (or Azure Trusted Signing)
-      #   macOS:   APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID + CSC_LINK
+      #   macOS:   CSC_LINK / CSC_KEY_PASSWORD + APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
       - name: Build & publish
         working-directory: apps/desktop
         run: pnpm dist --publish ${{ startsWith(github.ref, 'refs/tags/') && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # No Apple identity on the runner → skip macOS code signing entirely.
+          # No signing identity on the runner → don't attempt to sign.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
