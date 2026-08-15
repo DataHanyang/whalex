@@ -1,9 +1,49 @@
 import { z } from "zod";
-import { AgentEventEnvelopeSchema } from "./events.js";
+import { AgentEventEnvelopeSchema, ArtifactSchema } from "./events.js";
 import { PermissionResponseSchema } from "./permissions.js";
 import { SettingsSchema } from "./settings.js";
 import { ModelInfoSchema } from "./models.js";
 import { SessionMetaSchema, TranscriptItemSchema } from "./session.js";
+
+export const McpStatusSchema = z.object({
+  name: z.string(),
+  state: z.enum(["connecting", "connected", "error", "disabled"]),
+  transport: z.string(),
+  toolCount: z.number().default(0),
+  error: z.string().optional(),
+});
+export type McpStatus = z.infer<typeof McpStatusSchema>;
+
+export const SlashCommandSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  source: z.enum(["builtin", "skill", "mcp", "plugin"]),
+});
+export type SlashCommand = z.infer<typeof SlashCommandSchema>;
+
+export const SkillInfoSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  source: z.enum(["user", "project", "plugin"]),
+  path: z.string(),
+});
+export type SkillInfo = z.infer<typeof SkillInfoSchema>;
+
+export const FileMatchSchema = z.object({
+  path: z.string(),
+  relPath: z.string(),
+  isDir: z.boolean(),
+});
+export type FileMatch = z.infer<typeof FileMatchSchema>;
+
+export const UpdateStatusSchema = z.object({
+  state: z.enum(["idle", "checking", "available", "downloading", "downloaded", "error", "current"]),
+  version: z.string().optional(),
+  percent: z.number().optional(),
+  notes: z.string().optional(),
+  error: z.string().optional(),
+});
+export type UpdateStatus = z.infer<typeof UpdateStatusSchema>;
 
 /**
  * The renderer↔main contract. Every channel's request and response schema
@@ -65,6 +105,62 @@ export const IPC_INVOKE = {
     req: PermissionResponseSchema,
     res: z.void(),
   },
+  "session:command": {
+    req: z.object({ sessionId: z.string(), command: z.string(), args: z.string().optional() }),
+    res: z.object({ handled: z.boolean(), message: z.string().optional() }),
+  },
+  "commands:list": {
+    req: z.object({ cwd: z.string().optional() }),
+    res: z.array(SlashCommandSchema),
+  },
+  "files:search": {
+    req: z.object({ cwd: z.string(), query: z.string(), limit: z.number().optional() }),
+    res: z.array(FileMatchSchema),
+  },
+  "mcp:status": {
+    req: z.void(),
+    res: z.array(McpStatusSchema),
+  },
+  "mcp:restart": {
+    req: z.object({ name: z.string() }),
+    res: z.void(),
+  },
+  "skills:list": {
+    req: z.object({ cwd: z.string().optional() }),
+    res: z.array(SkillInfoSchema),
+  },
+  "plugins:install": {
+    req: z.object({ source: z.enum(["local", "git"]), location: z.string() }),
+    res: z.object({ ok: z.boolean(), name: z.string().optional(), error: z.string().optional() }),
+  },
+  "plugins:remove": {
+    req: z.object({ name: z.string() }),
+    res: z.void(),
+  },
+  "artifact:read": {
+    req: z.object({ artifactId: z.string() }),
+    res: ArtifactSchema.nullable(),
+  },
+  "preview:start": {
+    req: z.object({ sessionId: z.string(), command: z.string(), port: z.number(), cwd: z.string().optional() }),
+    res: z.object({ ok: z.boolean(), url: z.string().optional(), error: z.string().optional() }),
+  },
+  "preview:stop": {
+    req: z.object({ sessionId: z.string() }),
+    res: z.void(),
+  },
+  "update:check": {
+    req: z.void(),
+    res: z.void(),
+  },
+  "update:download": {
+    req: z.void(),
+    res: z.void(),
+  },
+  "update:install": {
+    req: z.void(),
+    res: z.void(),
+  },
   "dialog:pickFolder": {
     req: z.void(),
     res: z.object({ path: z.string().nullable() }),
@@ -77,6 +173,8 @@ export const IPC_INVOKE = {
 
 export const IPC_EVENTS = {
   "agent:event": AgentEventEnvelopeSchema,
+  "mcp:status": z.array(McpStatusSchema),
+  "update:status": UpdateStatusSchema,
 } as const;
 
 export type IpcInvokeChannel = keyof typeof IPC_INVOKE;

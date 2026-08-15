@@ -12,11 +12,25 @@ const INVOKE_CHANNELS = new Set([
   "session:send",
   "session:abort",
   "permission:respond",
+  "session:command",
+  "commands:list",
+  "files:search",
+  "mcp:status",
+  "mcp:restart",
+  "skills:list",
+  "plugins:install",
+  "plugins:remove",
+  "artifact:read",
+  "preview:start",
+  "preview:stop",
+  "update:check",
+  "update:download",
+  "update:install",
   "dialog:pickFolder",
   "shell:openExternal",
 ]);
 
-const EVENT_CHANNELS = new Set(["agent:event"]);
+const EVENT_CHANNELS = new Set(["agent:event", "mcp:status", "update:status"]);
 
 const api: WhalexApi = {
   invoke: (channel, req) => {

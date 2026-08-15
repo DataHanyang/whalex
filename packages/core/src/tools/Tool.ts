@@ -22,6 +22,11 @@ export interface ToolDef<TIn = unknown> {
   name: string;
   description: string;
   schema: z.ZodType<TIn>;
+  /**
+   * Pre-built JSON Schema, used instead of deriving one from `schema`. MCP
+   * tools set this to pass their server-provided schema through unchanged.
+   */
+  rawParameters?: Record<string, unknown>;
   readOnly: boolean;
   kind: PermissionKind;
   /** One-line humanized summary for permission prompts and tool cards. */
@@ -57,12 +62,15 @@ export class ToolRegistry {
       function: {
         name: t.name,
         description: t.description,
-        parameters: zodToJsonSchema(t.schema, { $refStrategy: "none" }) as Record<
-          string,
-          unknown
-        >,
+        parameters:
+          t.rawParameters ??
+          (zodToJsonSchema(t.schema, { $refStrategy: "none" }) as Record<string, unknown>),
       },
     }));
+  }
+
+  list(): ToolDef<never>[] {
+    return [...this.tools.values()];
   }
 }
 

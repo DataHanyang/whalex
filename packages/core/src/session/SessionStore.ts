@@ -32,6 +32,26 @@ export type SessionRecord =
       ts: number;
     }
   | { type: "todos"; todos: Todo[]; ts: number }
+  | {
+      type: "subagent";
+      agentRunId: string;
+      agentType: string;
+      label: string;
+      result: string;
+      toolCount: number;
+      tokens: number;
+      durationMs: number;
+      ts: number;
+    }
+  | {
+      type: "artifact";
+      artifactId: string;
+      title: string;
+      artifactKind: string;
+      ts: number;
+    }
+  | { type: "workflow"; workflowId: string; name: string; ts: number }
+  | { type: "compaction"; summary: string; upto: number; beforePct: number; afterPct: number; ts: number }
   | { type: "title"; title: string; ts: number };
 
 export function whalexHome(): string {
@@ -53,6 +73,7 @@ function projectDir(cwd: string): string {
 export class SessionStore {
   readonly records: SessionRecord[] = [];
   private filePath: string;
+  private ephemeral = false;
 
   private constructor(
     readonly sessionId: string,
@@ -71,6 +92,17 @@ export class SessionStore {
       createdAt: Date.now(),
       title: "New session",
     });
+    return store;
+  }
+
+  /**
+   * In-memory session for subagents and workflow agents: keeps the same
+   * message/transcript machinery without cluttering the project's session
+   * list. Nothing is written to disk.
+   */
+  static createEphemeral(cwd: string): SessionStore {
+    const store = new SessionStore(randomUUID(), cwd);
+    store.ephemeral = true;
     return store;
   }
 
@@ -155,7 +187,9 @@ export class SessionStore {
 
   append(record: SessionRecord): void {
     this.records.push(record);
-    fs.appendFileSync(this.filePath, JSON.stringify(record) + "\n", "utf8");
+    if (!this.ephemeral) {
+      fs.appendFileSync(this.filePath, JSON.stringify(record) + "\n", "utf8");
+    }
     if (record.type === "user" && this.records.filter((r) => r.type === "user").length === 1) {
       const title = record.text.replace(/\s+/g, " ").trim().slice(0, 60);
       this.append({ type: "title", title, ts: Date.now() });
@@ -163,12 +197,44 @@ export class SessionStore {
   }
 
   /**
+   * Records a compaction: everything up to now is replaced by `summary` when
+   * building the next request. Append-only — the summarized records stay in
+   * the file for the UI and for audit.
+   */
+  appendCompaction(summary: string, beforePct = 0, afterPct = 0): void {
+    this.append({
+      type: "compaction",
+      summary,
+      upto: this.records.length,
+      beforePct,
+      afterPct,
+      ts: Date.now(),
+    });
+  }
+
+  /**
    * Rebuilds the OpenAI wire-format message list. reasoning_content is
-   * deliberately dropped — DeepSeek 400s if it is sent back.
+   * deliberately dropped — DeepSeek 400s if it is sent back. If the session
+   * has been compacted, records before the last compaction are replaced by
+   * the summary.
    */
   messages(): ChatMessage[] {
     const msgs: ChatMessage[] = [];
-    for (const rec of this.records) {
+    let startIndex = 0;
+    let lastCompaction: (SessionRecord & { type: "compaction" }) | null = null;
+    this.records.forEach((rec, i) => {
+      if (rec.type === "compaction") {
+        lastCompaction = rec;
+        startIndex = i + 1;
+      }
+    });
+    if (lastCompaction) {
+      msgs.push({
+        role: "user",
+        content: `[Summary of the earlier conversation]\n\n${(lastCompaction as { summary: string }).summary}`,
+      });
+    }
+    for (const rec of this.records.slice(startIndex)) {
       switch (rec.type) {
         case "user":
           msgs.push({ role: "user", content: rec.text });
@@ -237,6 +303,48 @@ export class SessionStore {
           break;
         case "todos":
           items.push({ kind: "todos", id: `todos-${rec.ts}`, todos: rec.todos, ts: rec.ts });
+          break;
+        case "subagent":
+          items.push({
+            kind: "subagent",
+            id: rec.agentRunId,
+            agentType: rec.agentType,
+            label: rec.label,
+            state: "done",
+            toolCount: rec.toolCount,
+            tokens: rec.tokens,
+            result: rec.result,
+            durationMs: rec.durationMs,
+            ts: rec.ts,
+          });
+          break;
+        case "artifact":
+          items.push({
+            kind: "artifact",
+            id: rec.artifactId,
+            artifactId: rec.artifactId,
+            title: rec.title,
+            artifactKind: rec.artifactKind,
+            ts: rec.ts,
+          });
+          break;
+        case "workflow":
+          items.push({
+            kind: "workflow",
+            id: rec.workflowId,
+            workflowId: rec.workflowId,
+            name: rec.name,
+            ts: rec.ts,
+          });
+          break;
+        case "compaction":
+          items.push({
+            kind: "compaction",
+            id: `compaction-${rec.ts}`,
+            beforePct: rec.beforePct,
+            afterPct: rec.afterPct,
+            ts: rec.ts,
+          });
           break;
         default:
           break;

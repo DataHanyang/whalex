@@ -59,6 +59,41 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     newText: z.string(),
   }),
   z.object({ type: z.literal("todo-update"), todos: z.array(TodoSchema) }),
+  z.object({
+    type: z.literal("artifact"),
+    artifactId: z.string(),
+    title: z.string(),
+    kind: z.enum(["html", "markdown", "svg", "mermaid", "image", "code", "url"]),
+    path: z.string().optional(),
+    url: z.string().optional(),
+    content: z.string().optional(),
+    language: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("subagent-start"),
+    agentRunId: z.string(),
+    agentType: z.string(),
+    label: z.string(),
+  }),
+  z.object({
+    type: z.literal("subagent-update"),
+    agentRunId: z.string(),
+    state: z.enum(["running", "done", "error"]),
+    toolCount: z.number().default(0),
+    lastActivity: z.string().default(""),
+    tokens: z.number().default(0),
+    result: z.string().optional(),
+    durationMs: z.number().default(0),
+  }),
+  z.object({
+    type: z.literal("compaction"),
+    beforePct: z.number(),
+    afterPct: z.number(),
+  }),
+  z.object({
+    type: z.literal("workflow-update"),
+    workflow: z.lazy(() => WorkflowStateSchema),
+  }),
   z.object({ type: z.literal("permission-request"), request: PermissionRequestSchema }),
   z.object({
     type: z.literal("permission-resolved"),
@@ -89,3 +124,37 @@ export const AgentEventEnvelopeSchema = z.object({
   event: AgentEventSchema,
 });
 export type AgentEventEnvelope = z.infer<typeof AgentEventEnvelopeSchema>;
+
+/** SuperCode workflow progress, streamed as one live snapshot per update. */
+export const WorkflowAgentSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  phase: z.string(),
+  state: z.enum(["pending", "running", "done", "error"]),
+  tokens: z.number().default(0),
+  durationMs: z.number().default(0),
+});
+export type WorkflowAgent = z.infer<typeof WorkflowAgentSchema>;
+
+export const WorkflowStateSchema = z.object({
+  workflowId: z.string(),
+  name: z.string(),
+  state: z.enum(["planning", "running", "done", "error", "aborted"]),
+  phases: z.array(z.string()),
+  agents: z.array(WorkflowAgentSchema),
+  totalTokens: z.number().default(0),
+  costUsd: z.number().default(0),
+  log: z.array(z.string()).default([]),
+});
+export type WorkflowState = z.infer<typeof WorkflowStateSchema>;
+
+export const ArtifactSchema = z.object({
+  artifactId: z.string(),
+  title: z.string(),
+  kind: z.enum(["html", "markdown", "svg", "mermaid", "image", "code", "url"]),
+  path: z.string().optional(),
+  url: z.string().optional(),
+  content: z.string().optional(),
+  language: z.string().optional(),
+});
+export type Artifact = z.infer<typeof ArtifactSchema>;

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ChevronDown, ChevronRight, CircleAlert } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, Minimize2 } from "lucide-react";
 import type { TranscriptItem } from "@whalex/shared";
 import { useSessionStore } from "../stores/sessionStore";
 import { StreamingMarkdown } from "./StreamingMarkdown";
 import { ToolCallCard } from "./ToolCallCard";
 import { PermissionCard } from "./PermissionCard";
+import { WorkflowPanel } from "./WorkflowPanel";
 
 function Reasoning({ text }: { text: string }) {
   const { t } = useTranslation();
@@ -64,6 +65,50 @@ function Item({ item }: { item: TranscriptItem }) {
       return (
         <div className="transcript-item">
           <ToolCallCard item={item} />
+        </div>
+      );
+    case "artifact": {
+      const open = useSessionStore.getState().openArtifact;
+      return (
+        <button
+          onClick={() => open(item.artifactId)}
+          className="transcript-item my-1 flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left text-[13px] hover:border-accent"
+        >
+          <FileCode2 size={15} className="text-accent" />
+          <span className="font-medium">{item.title}</span>
+          <span className="text-[11px] text-faint">{item.artifactKind}</span>
+          <span className="ml-auto text-[11px] text-accent">미리보기 열기 →</span>
+        </button>
+      );
+    }
+    case "workflow":
+      return (
+        <div className="transcript-item">
+          <WorkflowPanel workflowId={item.workflowId} />
+        </div>
+      );
+    case "subagent":
+      return (
+        <div className="transcript-item my-1 rounded-lg border border-border bg-surface px-3 py-2 text-[12.5px]">
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
+              {item.agentType}
+            </span>
+            <span className="font-medium">{item.label}</span>
+            <span className="ml-auto text-[11px] text-faint">
+              {item.toolCount} tools · {item.tokens} tok
+            </span>
+          </div>
+          {item.result && <div className="mt-1 line-clamp-3 text-muted">{item.result}</div>}
+        </div>
+      );
+    case "compaction":
+      return (
+        <div className="transcript-item my-2 flex items-center gap-2 text-[11.5px] text-faint">
+          <div className="h-px flex-1 bg-border" />
+          <Minimize2 size={12} />
+          컨텍스트 압축됨 {item.beforePct}% → {item.afterPct}%
+          <div className="h-px flex-1 bg-border" />
         </div>
       );
     case "todos":
