@@ -93,6 +93,10 @@ export class PermissionEngine {
           return { behavior: "allow" };
         case "plan":
           if (tool.readOnly) return { behavior: "allow" };
+          // SuperCode reconnaissance runs during plan mode: the workflow tool
+          // itself only orchestrates — every tool call its agents make still
+          // routes through this engine, so writes stay blocked.
+          if (tool.name === "workflow") return { behavior: "allow" };
           return {
             behavior: "deny",
             reason: "Plan mode is active: only read-only tools are allowed.",

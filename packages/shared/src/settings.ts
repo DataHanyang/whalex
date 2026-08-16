@@ -97,6 +97,8 @@ export const SettingsSchema = z.object({
       })
       .default({}),
   ),
+  /** Mask secret-shaped strings before requests leave for the model API. */
+  redactSecrets: z.boolean().default(true),
   updateChannel: z.enum(["stable", "beta"]).default("stable"),
   /** Optional vision sidecar — DeepSeek is text-only. Empty = disabled. */
   vision: z

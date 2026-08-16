@@ -12,6 +12,7 @@ import { useUiStore } from "../stores/uiStore";
 export function PlanActions() {
   const { t } = useTranslation();
   const send = useSessionStore((s) => s.send);
+  const superCode = useSessionStore((s) => s.superCode);
   const setPermissionMode = useSessionStore((s) => s.setPermissionMode);
   const closeArtifact = useSessionStore((s) => s.closeArtifact);
   const clear = useSessionStore((s) => s.clearPlanPending);
@@ -27,7 +28,10 @@ export function PlanActions() {
         <button
           onClick={() => {
             clear();
-            setPermissionMode("default");
+            // SuperCode forces plan mode only for the planning stage; once the
+            // plan is accepted the run continues in Auto so the fleet moves at
+            // full speed (destructive commands still hard-stop for approval).
+            setPermissionMode(superCode ? "bypassPermissions" : "default");
             void send("I accept the plan. Exit plan mode and implement it now.");
           }}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white hover:opacity-90"

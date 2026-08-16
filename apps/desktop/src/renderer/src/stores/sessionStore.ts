@@ -102,6 +102,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ superCode: on });
     const id = get().activeSessionId;
     if (id) void whalex.invoke("session:command", { sessionId: id, command: on ? "supercode-on" : "supercode-off" });
+    // SuperCode always opens in plan mode: recon and the budget interview
+    // come before any write. Turning it off returns to normal approvals.
+    get().setPermissionMode(on ? "plan" : "default");
   },
   setPermissionMode(mode) {
     set({ permissionMode: mode });
@@ -197,6 +200,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       workflow: null,
       browser: { tabs: [], activeTabId: null },
       sideTab: null,
+      superCode: false,
+      goalMode: false,
+      permissionMode: "default",
     });
     void whalex.invoke("browser:hide", undefined);
     await get().refreshSessions();
@@ -417,6 +423,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             },
           ],
         }));
+        break;
+      case "supercode":
+        // Main turned SuperCode on (keyword in the prompt); mirror the toggle
+        // and enter plan mode exactly like clicking the composer switch.
+        set({ superCode: ev.on });
+        if (ev.on) get().setPermissionMode("plan");
         break;
       case "browser-navigated": {
         const tabs = ev.tabs ?? (ev.url ? [{ id: "tab1", url: ev.url, title: ev.title }] : []);

@@ -2,6 +2,7 @@ import os from "node:os";
 import type { BrowserWindow } from "electron";
 import {
   AgentLoop,
+  SUPERCODE_PROTOCOL,
   McpManager,
   OpenAICompatProvider,
   PermissionEngine,
@@ -41,6 +42,8 @@ interface HostedSession {
   superCode: boolean;
   goalMode: boolean;
   modeOverride: import("@whalex/shared").PermissionMode | null;
+  /** Abort controllers of live workflow runs; fired on session abort. */
+  workflowAborts: Set<AbortController>;
 }
 
 const CPU = os.cpus().length;
@@ -57,6 +60,7 @@ export class AgentHost {
   private flushTimer: NodeJS.Timeout | null = null;
   private artifacts = new Map<string, import("@whalex/shared").Artifact>();
   readonly mcp = new McpManager();
+  private providers = new Set<OpenAICompatProvider>();
   readonly skills = new SkillRegistry();
   /** Supplied by the plugin manager so plugin-bundled skills get scanned. */
   pluginSkillDirs: () => string[] = () => [];
@@ -173,6 +177,7 @@ export class AgentHost {
       superCode: false,
       goalMode: false,
       modeOverride: null,
+      workflowAborts: new Set(),
       loop: new AgentLoop({
         provider,
         registry,
@@ -190,12 +195,22 @@ export class AgentHost {
     return { sessionId, cwd, transcript: store.transcript() };
   }
 
+  abortWorkflows(sessionId: string): void {
+    const hosted = this.sessions.get(sessionId);
+    if (!hosted) return;
+    for (const c of hosted.workflowAborts) c.abort();
+    hosted.workflowAborts.clear();
+  }
+
   private async createProvider(): Promise<OpenAICompatProvider> {
     const s = this.settings.get();
     const ps = s.providers.find((p) => p.id === s.activeProviderId) ?? s.providers[0];
     if (!ps) throw new Error("No provider configured.");
     const apiKey = ps.apiKeyRef ? this.vault.get(ps.apiKeyRef) : null;
-    return new OpenAICompatProvider({ baseUrl: ps.baseUrl, apiKey });
+    const provider = new OpenAICompatProvider({ baseUrl: ps.baseUrl, apiKey });
+    provider.redactSecrets = s.redactSecrets;
+    this.providers.add(provider);
+    return provider;
   }
 
   setModel(sessionId: string, model: string): void {
@@ -208,11 +223,14 @@ export class AgentHost {
     for (const hosted of this.sessions.values()) {
       hosted.loop.updateTuning({ reasoningEffort: s.reasoningEffort, temperature: s.temperature });
     }
+    for (const p of this.providers) p.redactSecrets = s.redactSecrets;
   }
 
   setSuperCode(sessionId: string, on: boolean): void {
     const hosted = this.sessions.get(sessionId);
-    if (hosted) hosted.superCode = on;
+    if (!hosted) return;
+    hosted.superCode = on;
+    hosted.loop.setProtocolPrompt(on ? SUPERCODE_PROTOCOL : null);
   }
 
   setGoalMode(sessionId: string, on: boolean): void {
@@ -257,10 +275,24 @@ export class AgentHost {
     hosted.engine.setRules(hosted.modeOverride ? { ...perms, mode: hosted.modeOverride } : perms);
     hosted.loop.setModel(resolveModelInfo(model));
 
-    // SuperCode: keyword trigger or session toggle adds the workflow tool.
+    // SuperCode: the session toggle or a keyword in the text turns it on.
+    // The keyword path goes through setSuperCode too, so main state, the
+    // protocol prompt and the renderer UI all stay in sync.
     if (this.settings.get().features.superCode) {
-      const wantWorkflow = hosted.superCode || /슈퍼코드|supercode/i.test(text);
-      if (wantWorkflow) this.enableWorkflow(sessionId, hosted, model);
+      if (!hosted.superCode && /슈퍼코드|수퍼코드|supercode/i.test(text)) {
+        this.setSuperCode(sessionId, true);
+        this.emitDirect(sessionId, { type: "supercode", on: true });
+      }
+      if (hosted.superCode) {
+        this.enableWorkflow(sessionId, hosted, model);
+        // SuperCode always runs the orchestrator at the deepest reasoning
+        // level, whatever the ambient setting says.
+        if (resolveModelInfo(model).supportsReasoning) {
+          hosted.loop.updateTuning({ reasoningEffort: "max" });
+        }
+      } else {
+        hosted.loop.updateTuning({ reasoningEffort: this.settings.get().reasoningEffort });
+      }
     }
 
     // Goal mode: run autonomously toward the goal, self-evaluating completion.
@@ -290,7 +322,11 @@ export class AgentHost {
               concurrency: Math.max(4, Math.min(24, CPU * 2)),
               onUpdate: (state: WorkflowState) =>
                 this.emitDirect(sessionId, { type: "workflow-update", workflow: state }),
-              signal: new AbortController().signal,
+              signal: (() => {
+                const c = new AbortController();
+                hosted.workflowAborts.add(c);
+                return c.signal;
+              })(),
             },
             name,
           ),

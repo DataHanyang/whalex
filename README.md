@@ -213,21 +213,46 @@ scoring. Token counts come from each tool's own usage report.
 order-of-magnitude cost differences, not to rank model intelligence. Rates verified 16 Aug 2026.
 Full write-up: [docs/bench/report.html](docs/bench/report.html).</sub>
 
-## 🐳 SuperCode — many agents on one problem
+## 🐳 SuperCode — Ultracode-class orchestration at DeepSeek prices
 
-Some jobs are too wide for a single context window: auditing a whole codebase,
-weighing five designs against each other, migrating a hundred call sites. **SuperCode**
-is WhaleX's answer — the agent writes a short orchestration script, and WhaleX runs it,
-spawning a fleet of sub-agents and streaming their progress back as a live tree.
-It is deliberately a scale-first mode: a serious task decomposes into many small,
-sharply-scoped agents — dozens routinely, hundreds for big jobs (up to 400 by
-default) — with judge panels, adversarial verification and loop-until-dry rounds
-composing them into one high-confidence result. DeepSeek's pricing is what makes
-that practical: a 100-agent fleet costs cents, not dollars.
+Frontier coding agents ship an orchestration mode where the model reasons at maximum
+depth and dynamically organizes tens to hundreds of sub-agents around one problem.
+**SuperCode is that mode built on DeepSeek** — the same shape of work, at token prices
+where a large fleet costs cents. Turning it on always runs the same protocol:
 
-The point is the split of duties: **the script decides control flow, the agents decide
-content.** Loops, fan-out and merging are ordinary code, so they are deterministic and
-inspectable; the judgement calls stay with the model.
+**1 · Reconnaissance.** SuperCode starts in plan mode with reasoning pinned to Max.
+Before anything else, three explorer agents investigate the task from different angles
+in parallel — code and structure, requirements and edge cases, dependencies and risks —
+and a critic agent attacks their combined findings for gaps and assumptions.
+
+<img src="docs/screenshots/supercode-recon.png" alt="A SuperCode session starting: the Recon workflow card shows three explorer agents and one critic running, followed by the first interview question" width="820">
+
+**2 · Interview, including a budget dial.** The agent asks what genuinely needs your
+call — and always asks how much fleet you want: **Economy / Standard / Deep /
+Unlimited**. Higher levels buy parallel verification and speed; the agent will also
+tell you when a small task doesn't need them.
+
+**3 · A plan that names its fleet.** The plan opens in the side panel and must state
+the phases, roughly how many agents each phase runs, and what gets adversarially
+verified. Nothing is written until you accept.
+
+<img src="docs/screenshots/supercode-plan.png" alt="The presented plan in the side panel with Accept / Revise / Reject buttons, composer showing Pro model, Max effort, Plan mode and SuperCode active" width="900">
+
+**4 · Budget-scaled execution.** After acceptance the orchestrator runs workflow
+fleets sized to the accepted budget: one small sharply-scoped agent per file, module,
+test target or design alternative; judge panels between competing designs; dedicated
+adversarial verifiers on important artifacts; discovery loops that repeat until dry.
+The run below is real — three design concepts drafted in parallel, judged by a
+three-judge panel (interaction / visual / a11y), winner synthesized into the spec:
+
+<img src="docs/screenshots/supercode-fleet.png" alt="A completed SuperCode workflow card: phase 1 three design concepts, phase 2 a three-judge panel, phase 3 synthesis, with per-agent token counts and the judge tally in the log" width="820">
+
+The whole pictured session — max-reasoning recon, interview, planning on V4 Pro plus a
+multi-phase design fleet — used roughly half a million tokens: about **$0.30** at
+DeepSeek rates. The same orchestration pattern on frontier-model pricing is a
+double-digit dollar decision.
+
+**Under the hood** the agent writes a short orchestration script and WhaleX executes it:
 
 ```js
 // The agent writes this; WhaleX executes it.
@@ -245,35 +270,26 @@ const findings = await pipeline(
 return findings.flat().filter(f => f.real)
 ```
 
-**What the script gets**
-
 | Hook | What it does |
 |---|---|
 | `agent(prompt, opts)` | Runs a sub-agent. `schema` forces structured JSON back, `label`/`phase` place it in the progress tree. |
 | `parallel(thunks)` | Runs tasks concurrently and waits for all of them — a barrier. |
-| `pipeline(items, ...stages)` | Runs each item through every stage independently, no barrier between stages, so a fast item finishes while a slow one is still on stage one. |
+| `pipeline(items, ...stages)` | Runs each item through every stage independently, no barrier between stages. |
 | `phase(title)` | Starts a new group in the progress tree. |
 | `log(msg)` | Writes a line to the run narration. |
 
 **How it runs safely**
 
-- The script executes as an async function with **only those five hooks in scope** — no
-  `require`, no `process`, no filesystem, no network. It cannot do anything except ask
-  for agents.
-- Sub-agent tool calls still pass the **same permission engine** as the main session;
-  approvals bubble up to the same cards.
-- Hard caps on **agent count and concurrency**, plus a token budget. WhaleX shows an
-  estimate before starting — *"~12 agents, about $0.15"* — and the running cost ticks up
-  in the panel.
-- **Explicit opt-in only**: type `supercode` in your prompt, flip the composer switch, or
-  run `/supercode on`. It never triggers itself, because a fan-out costs real money.
+- The script executes with **only those five hooks in scope** — no `require`, no
+  `process`, no filesystem, no network. It cannot do anything except ask for agents.
+- Fleet agents read and write files but have no shell; **every tool call passes the
+  same permission engine** as the main session, so plan mode keeps the whole fleet
+  read-only and approvals bubble up to the same cards.
+- Hard caps on agent count (400 by default, configurable to 1,000) and concurrency,
+  plus a token budget and live cost ticking in the progress card.
+- **Explicit opt-in only**: flip the composer switch, type `supercode` in a prompt, or
+  run `/supercode on`. It never triggers itself.
 
-**Why it is practical here.** A twelve-agent adversarial review on Opus-class pricing is a
-decision you think about; on DeepSeek rates the same fan-out lands in the range of a
-coffee. Cheap tokens are what make "just run twenty agents at it" a reasonable default
-rather than an indulgence.
-
-<img src="docs/screenshots/supercode.png" alt="A SuperCode run: three agents review tetris.html in parallel, the progress card shows 4/4 done with phases and token count, and the reply merges a ranked top-3" width="900">
 
 ## 🧩 Extend it
 
@@ -318,6 +334,23 @@ Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes 
 - DeepSeek's API is **text-only** — image understanding and computer-use route through an optional vision model you connect yourself.
 - Builds aren't code-signed yet, so you'll see an OS warning on first launch.
 - This is an independent open-source project, **not** affiliated with Anthropic, OpenAI, or DeepSeek. Claude Code and Codex are trademarks of their respective owners.
+
+## 🔒 Privacy
+
+WhaleX is bring-your-own-key and sends nothing anywhere except the model endpoint you
+configure. There is no account, no telemetry, and no middleman server.
+
+- **Secret masking, on by default.** Before any request leaves your machine, WhaleX
+  masks secret-shaped strings — API keys, tokens, JWTs, private-key blocks,
+  `PASSWORD=`-style assignments — with stable placeholders, so the model can reason
+  about "the key in `.env`" without ever seeing its value. Toggle it in Settings →
+  General. The model still reads the code it works on; masking targets credentials,
+  not your source.
+- **Encrypted in transit and at rest.** All API traffic is TLS; your API key is stored
+  with the OS keychain (DPAPI on Windows) and never shown to the renderer.
+- **Fully local option.** Point the provider at any OpenAI-compatible local server
+  (e.g. Ollama at `http://localhost:11434/v1`) and nothing leaves the machine at all.
+- Session transcripts and checkpoints live in `~/.whalex/` on your disk, nowhere else.
 
 ## 💾 Installing, per OS
 
