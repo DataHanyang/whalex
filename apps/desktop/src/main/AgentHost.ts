@@ -287,6 +287,7 @@ export class AgentHost {
   ): Promise<void> {
     try {
       for await (const event of stream) this.emit(sessionId, hosted, event);
+      void this.autoTitle(sessionId, hosted);
     } catch (err) {
       this.emit(sessionId, hosted, {
         type: "error",
@@ -370,6 +371,47 @@ export class AgentHost {
   respondPermission(response: PermissionResponse): void {
     for (const hosted of this.sessions.values()) {
       if (hosted.engine.resolve(response)) return;
+    }
+  }
+
+  /**
+   * Names the session after its first exchange: a quick cheap completion
+   * writes a `title` record, which session:list surfaces in the sidebar.
+   */
+  private async autoTitle(sessionId: string, hosted: HostedSession): Promise<void> {
+    try {
+      const opts = (hosted.loop as unknown as { opts: { provider: import("@whalex/core").OpenAICompatProvider } }).opts;
+      const recs = hosted.store.effectiveRecords();
+      if (recs.some((r) => r.type === "title")) return;
+      const firstUser = recs.find((r) => r.type === "user");
+      const firstAssistant = recs.find((r) => r.type === "assistant" && r.text);
+      if (!firstUser || firstUser.type !== "user") return;
+      const controller = new AbortController();
+      let text = "";
+      for await (const d of opts.provider.streamChat({
+        model: "deepseek-v4-flash",
+        messages: [
+          {
+            role: "user",
+            content:
+              `Give a 3-6 word title for this coding session, in the user's language. ` +
+              `Output ONLY the title, no quotes.
+
+User: ${firstUser.text.slice(0, 400)}
+` +
+              `Assistant: ${(firstAssistant?.type === "assistant" ? firstAssistant.text ?? "" : "").slice(0, 300)}`,
+          },
+        ],
+        temperature: 0.3,
+        maxTokens: 24,
+        signal: controller.signal,
+      })) {
+        if (d.type === "text") text += d.text;
+      }
+      const title = text.replace(/["\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+      if (title) hosted.store.append({ type: "title", title, ts: Date.now() });
+    } catch {
+      // A missing title is not worth surfacing.
     }
   }
 
