@@ -29,6 +29,8 @@ export interface SubagentDeps {
   permissions: PermissionEngine;
   modelInfo: ModelInfo;
   temperature: number;
+  /** Passed through so sub-agents think as hard as the main session. */
+  reasoningEffort?: string;
   cwd: string;
   /** Agent types the user disabled — the tool won't offer them. */
   disabledTypes?: string[];
@@ -91,6 +93,7 @@ export function createAgentTool(deps: SubagentDeps): ToolDef<{
         session,
         modelInfo: deps.modelInfo,
         temperature: deps.temperature,
+        reasoningEffort: deps.reasoningEffort,
         extraTools: typeInfo.readOnlyOnly ? undefined : deps.extraTools,
         extraSystemPrompt: `# Subagent role
 You are a ${input.agent_type} subagent. Complete the delegated task autonomously and end with a concise summary of what you found or did — that summary is your entire return value to the calling agent. You cannot ask the user questions.`,

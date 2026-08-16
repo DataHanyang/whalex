@@ -50,6 +50,9 @@ export const HookConfigSchema = z.object({
 });
 export type HookConfig = z.infer<typeof HookConfigSchema>;
 
+export const ReasoningEffortSchema = z.enum(["none", "low", "medium", "high"]);
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
   language: z.enum(["system", "en", "ko", "zh", "ja", "fr"]).default("en"),
@@ -67,6 +70,11 @@ export const SettingsSchema = z.object({
   ]),
   defaultModel: z.string().default("deepseek-v4-flash"),
   temperature: z.number().min(0).max(2).default(0.2),
+  /**
+   * How much the model should think before answering. Sent as reasoning_effort
+   * to providers that accept it; ignored by models without a thinking mode.
+   */
+  reasoningEffort: ReasoningEffortSchema.default("medium"),
   permissions: PermissionRulesSchema.default({}),
   /** name → server entry. Superset of the project-level .mcp.json. */
   mcpServers: z.record(McpServerEntrySchema).default({}),

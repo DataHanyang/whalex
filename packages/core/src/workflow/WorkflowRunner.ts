@@ -12,6 +12,8 @@ export interface WorkflowDeps {
   permissions: PermissionEngine;
   modelInfo: ModelInfo;
   temperature: number;
+  /** Passed through so sub-agents think as hard as the main session. */
+  reasoningEffort?: string;
   cwd: string;
   extraTools?: () => ToolDef<never>[];
   maxAgents: number;
@@ -177,6 +179,7 @@ export class WorkflowRunner {
         session,
         modelInfo: this.deps.modelInfo,
         temperature: this.deps.temperature,
+        reasoningEffort: this.deps.reasoningEffort,
         extraSystemPrompt:
           "# Workflow agent\nYou are one agent in a larger orchestrated workflow. Do your assigned task using read-only tools and end with a concise, self-contained result." +
           schemaHint,

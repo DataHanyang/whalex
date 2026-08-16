@@ -27,6 +27,8 @@ export interface ChatRequest {
   tools?: ToolSpec[];
   temperature?: number;
   maxTokens?: number;
+  /** "none" | "low" | "medium" | "high" — omitted when the model has no thinking mode. */
+  reasoningEffort?: string;
   signal: AbortSignal;
 }
 

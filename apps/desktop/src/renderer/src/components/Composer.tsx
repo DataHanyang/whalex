@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, Cpu, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, AtSign, Brain, Cpu, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
 import { Picker } from "./Picker";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
@@ -73,6 +73,9 @@ export function Composer() {
   const cwd = useSessionStore((s) => s.cwd);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const models = useAppStore((s) => s.models);
+  const reasoningEffort = useAppStore((s) => s.settings?.reasoningEffort ?? "medium");
+  const updateSettings = useAppStore((s) => s.updateSettings);
+  const modelSupportsReasoning = models.find((m) => m.id === model)?.supportsReasoning ?? false;
   const openSettings = useUiStore((s) => s.openSettings);
   const newSession = useSessionStore((s) => s.startSession);
 
@@ -223,6 +226,7 @@ export function Composer() {
   };
   // Auto mode approves everything, so it is tinted as a warning; plan is
   // read-only and tinted as informational.
+  const EFFORTS = ["none", "low", "medium", "high"] as const;
   const MODE_OPTIONS = MODES.map((m) => ({
     value: m,
     tone: m === "bypassPermissions" ? ("warn" as const)
@@ -355,6 +359,19 @@ export function Composer() {
               hint: modelHint(models.find((m) => m.id === id)),
             }))}
           />
+          {modelSupportsReasoning && (
+            <Picker
+              value={reasoningEffort}
+              onChange={(v) => void updateSettings({ reasoningEffort: v as typeof reasoningEffort })}
+              title={t("composer.effortTip")}
+              icon={<Brain size={12} />}
+              options={EFFORTS.map((e) => ({
+                value: e,
+                label: t(`effort.${e}`),
+                hint: t(`effort.hint.${e}`),
+              }))}
+            />
+          )}
           <Picker
             value={permissionMode}
             onChange={(m) => setPermissionMode(m as (typeof MODES)[number])}

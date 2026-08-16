@@ -47,6 +47,12 @@ export class OpenAICompatProvider implements ProviderClient {
             max_tokens: req.maxTokens,
             stream: true,
             stream_options: { include_usage: true },
+            // Only sent when the caller asked for it: providers that don't know
+            // the field reject the whole request rather than ignoring it. Not
+            // in the SDK's type for every model, so it goes in as an extra.
+            ...((req.reasoningEffort
+              ? { reasoning_effort: req.reasoningEffort }
+              : {}) as Record<string, unknown>),
           },
           { signal: req.signal },
         );
