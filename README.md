@@ -64,7 +64,7 @@ Three ideas drive it:
 |---|---|
 | <img src="docs/screenshots/browser-use.png" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/excel.png" alt="A 12-month P&L workbook rendered as a spreadsheet artifact"> |
 | **Thinking effort — click the level, drag the slider** | **Home — pick an example or just type** |
-| <img src="docs/screenshots/effort.png" alt="Thinking-effort slider from Off to Extra"> | <img src="docs/screenshots/home.png" alt="English home screen with example prompts"> |
+| <img src="docs/screenshots/effort.png" alt="Thinking-effort slider with seven levels from Off to Max"> | <img src="docs/screenshots/home.png" alt="English home screen with example prompts"> |
 
 ## 🚀 Quick start
 
@@ -225,7 +225,7 @@ Before anything else, three explorer agents investigate the task from different 
 in parallel — code and structure, requirements and edge cases, dependencies and risks —
 and a critic agent attacks their combined findings for gaps and assumptions.
 
-<img src="docs/screenshots/supercode-recon.png" alt="A SuperCode session starting: the Recon workflow card shows three explorer agents and one critic running, followed by the first interview question" width="820">
+<img src="docs/screenshots/supercode-recon.png" alt="A SuperCode session starting: three explorer agents finished and a critic still running in the Recon workflow card, with the orchestrator narrating the protocol" width="820">
 
 **2 · Interview, including a budget dial.** The agent asks what genuinely needs your
 call — and always asks how much fleet you want: **Economy / Standard / Deep /
