@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="apps/desktop/build/icon.png" alt="Whalex" width="96" height="96">
-
-# 🐋 Whalex
+<img src="docs/logo.png" alt="Whalex" width="380">
 
 ### A local coding-agent desktop app, powered by DeepSeek
 

@@ -7,6 +7,7 @@ import { StreamingMarkdown } from "./StreamingMarkdown";
 import { ToolCallCard } from "./ToolCallCard";
 import { PermissionCard } from "./PermissionCard";
 import { WorkflowPanel } from "./WorkflowPanel";
+import logoUrl from "../assets/logo.png";
 
 function Reasoning({ text }: { text: string }) {
   const { t } = useTranslation();
@@ -150,7 +151,7 @@ function EmptyState() {
   ];
   return (
     <div className="flex h-[62vh] flex-col items-center justify-center text-center">
-      <div className="mb-1 text-3xl">🐋</div>
+      <img src={logoUrl} alt="" className="mb-1 h-12 w-12" />
       <div className="text-lg font-semibold">{t("transcript.empty.title")}</div>
       <div className="mt-2 max-w-md text-[13px] text-muted">{t("transcript.empty.subtitle")}</div>
       <div className="mt-5 flex w-full max-w-md flex-col gap-2">
