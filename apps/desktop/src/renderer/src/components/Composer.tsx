@@ -420,8 +420,10 @@ export function Composer() {
             }))}
           />
           {modelSupportsReasoning && (
+            // SuperCode pins the orchestrator to the deepest level; show that
+            // instead of the ambient setting while it's on.
             <EffortControl
-              value={reasoningEffort as EffortLevel}
+              value={superCode ? "max" : (reasoningEffort as EffortLevel)}
               onChange={(v) => void updateSettings({ reasoningEffort: v })}
             />
           )}

@@ -125,6 +125,7 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     type: z.literal("workflow-update"),
     workflow: z.lazy(() => WorkflowStateSchema),
   }),
+  z.object({ type: z.literal("supercode"), on: z.boolean() }),
   z.object({ type: z.literal("permission-request"), request: PermissionRequestSchema }),
   z.object({ type: z.literal("question-request"), request: UserQuestionSchema }),
   z.object({

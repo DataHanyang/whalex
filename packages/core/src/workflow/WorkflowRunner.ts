@@ -32,6 +32,8 @@ export interface WorkflowDeps {
 export class WorkflowRunner {
   private state: WorkflowState;
   private agentCount = 0;
+  /** Promises of agents the script spawned; awaited even if it forgot to. */
+  private inflight = new Set<Promise<unknown>>();
   private running = 0;
   private queue: Array<() => void> = [];
 
@@ -62,15 +64,26 @@ export class WorkflowRunner {
     try {
       // The script body runs in an async function with only the injected
       // hooks in scope. No require/import/process/globalThis passthrough.
+      // Shadow the reachable escape hatches (defense in depth, not a trust
+      // boundary — the model already runs permission-gated shell commands).
       const fn = new Function(
         "agent",
         "parallel",
         "pipeline",
         "phase",
         "log",
+        "process",
+        "require",
+        "globalThis",
+        "global",
         `"use strict"; return (async () => { ${script}\n })();`,
       );
       const result = await fn(api.agent, api.parallel, api.pipeline, api.phase, api.log);
+      // A script that forgot to await its fan-out would otherwise return with
+      // agents still running and an empty result; wait for them to settle.
+      while (this.inflight.size > 0) {
+        await Promise.allSettled([...this.inflight]);
+      }
       this.state.state = this.deps.signal.aborted ? "aborted" : "done";
       this.emit();
       return { ok: true, result: typeof result === "string" ? result : JSON.stringify(result, null, 2) };
@@ -98,8 +111,15 @@ export class WorkflowRunner {
       if (self.state.log.length > 200) self.state.log.shift();
       self.emit();
     };
-    const agent = (prompt: string, opts: { schema?: unknown; label?: string; phase?: string } = {}) =>
-      self.runAgent(prompt, opts);
+    const agent = (
+      prompt: string,
+      opts: { schema?: unknown; label?: string; phase?: string } = {},
+    ): Promise<unknown> => {
+      const p = self.runAgent(prompt, opts);
+      self.inflight.add(p);
+      void p.catch(() => {}).finally(() => self.inflight.delete(p));
+      return p;
+    };
     const parallel = (thunks: Array<() => Promise<unknown>>): Promise<unknown[]> =>
       Promise.all(
         thunks.map((t) =>
@@ -174,14 +194,17 @@ export class WorkflowRunner {
       const session = SessionStore.createEphemeral(this.deps.cwd);
       const loop = new AgentLoop({
         provider: this.deps.provider,
-        registry: createBuiltinRegistry({ readOnlyOnly: true, includePresent: false }),
+        // Fleet agents read and write files (every write still goes through
+        // the shared PermissionEngine — plan mode keeps them read-only), but
+        // they get no shell and no direct line to the user.
+        registry: createBuiltinRegistry({ workerTools: true, includePresent: false }),
         permissions: this.deps.permissions,
         session,
         modelInfo: this.deps.modelInfo,
         temperature: this.deps.temperature,
         reasoningEffort: this.deps.reasoningEffort,
         extraSystemPrompt:
-          "# Workflow agent\nYou are one agent in a larger orchestrated workflow. Do your assigned task using read-only tools and end with a concise, self-contained result." +
+          "# Workflow agent\nYou are one agent in a larger orchestrated workflow. Do exactly your assigned task — read what you need, write only the files your task names — and end with a concise, self-contained result." +
           schemaHint,
       });
       let text = "";
@@ -191,6 +214,18 @@ export class WorkflowRunner {
           break;
         }
         if (ev.type === "text-delta") text += ev.delta;
+        // Fleet agents have no UI surface, so an "ask" decision would hang
+        // forever. Deny it with a reason the agent can act on; runs meant to
+        // write happen in acceptEdits/auto mode where writes never ask.
+        else if (ev.type === "permission-request") {
+          this.deps.permissions.resolve({
+            id: ev.request.id,
+            behavior: "deny",
+            scope: "once",
+            message:
+              "Workflow agents cannot wait for interactive approval. Report what you would have written instead.",
+          });
+        }
       }
       const usage = loop.context.snapshot();
       record.tokens = usage.outputTokens;

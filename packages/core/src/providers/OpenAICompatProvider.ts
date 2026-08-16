@@ -1,3 +1,4 @@
+import { Redactor } from "../privacy/Redactor.js";
 import OpenAI, { APIError } from "openai";
 import { resolveModelInfo, type ModelInfo } from "@whalex/shared";
 import {
@@ -19,6 +20,14 @@ export interface OpenAICompatOptions {
  * the hosted Whalex Cloud proxy. Only the base URL and auth differ.
  */
 export class OpenAICompatProvider implements ProviderClient {
+  /**
+   * Masks secret-shaped strings (keys, tokens, private keys) in every
+   * outbound message. On by default; Settings → General can turn it off.
+   * Session-stable placeholders keep the conversation coherent.
+   */
+  redactSecrets = true;
+  private redactor = new Redactor();
+
   private client: OpenAI;
 
   constructor(opts: OpenAICompatOptions) {
@@ -41,7 +50,9 @@ export class OpenAICompatProvider implements ProviderClient {
         stream = await this.client.chat.completions.create(
           {
             model: req.model,
-            messages: req.messages as never,
+            messages: (this.redactSecrets
+              ? this.redactor.redactMessages(req.messages)
+              : req.messages) as never,
             tools: req.tools && req.tools.length > 0 ? (req.tools as never) : undefined,
             temperature: req.temperature,
             max_tokens: req.maxTokens,

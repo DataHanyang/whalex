@@ -72,6 +72,12 @@ function GeneralTab() {
         </select>
       </Row>
       <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">{t("settings.features")}</div>
+      <Row label={t("settings.privacy.redact")}>
+        <ToggleSwitch
+          checked={settings.redactSecrets}
+          onChange={(v) => void update({ redactSecrets: v })}
+        />
+      </Row>
       {(
         [
           ["subagents", "settings.feature.subagents"],

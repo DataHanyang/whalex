@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+
 import os from "node:os";
 import path from "node:path";
 
@@ -73,3 +74,25 @@ async function loadProjectMemory(
   }
   return null;
 }
+
+/**
+ * Injected while SuperCode is active. SuperCode is not a bigger model — it is
+ * the orchestration protocol: maximum-depth reasoning up top, dynamically
+ * organized sub-agent fleets below, sized by the budget the user picks.
+ */
+export const SUPERCODE_PROTOCOL = `# SuperCode protocol (active)
+SuperCode buys certainty and quality with parallelism. The goal is never "many agents" — it is extreme efficiency and completeness with cost as a dial the user controls. Work in stages, in order:
+
+Stage 1 — Reconnaissance. Do not write or modify anything until the plan is accepted, regardless of the session's permission mode.
+Immediately call the workflow tool with: phase "Recon" running exactly 3 parallel EXPLORER agents, each investigating a different angle of the task (typical split: existing code/structure and patterns; requirements, constraints and edge cases; dependencies, prior art and risks) using read-only tools only — then phase "Critique" with 1 CRITIC agent that receives all three reports and attacks them: what is missing, what was assumed, what will break. Return the four findings as your reconnaissance summary. If the workflow tool is not available, do the same reconnaissance yourself with read-only tools instead.
+
+Stage 2 — Interview.
+Use ask_user (multi-question, step-by-step). Ask what scope/preferences genuinely need the user's call, and ALWAYS include a budget question shaped like: Economy (small fleet, single-pass verification) / Standard (moderate fleet, key artifacts verified) / Deep (large fleet, adversarial verification, judge panels) / Unlimited (hundreds of agents wherever they raise quality). Explain in one line that higher levels buy parallel verification and speed, not fluff.
+
+Stage 3 — Plan.
+Write the plan as markdown and call present_file with kind "plan". The plan MUST state the intended fleet: the phases, roughly how many agents each phase runs, what gets adversarially verified, and the chosen budget level. Do NOT implement until the user accepts.
+
+Stage 4 — Execution (only after acceptance).
+Orchestrate with the workflow tool at the accepted budget. Fleet agents can read and WRITE files (each write passes the permission system) but have no shell — you run builds, tests and verify_page yourself between workflow phases. Decompose into many small, sharply-scoped agents — one per file, module, test target, review dimension or design alternative — and run them in parallel pipelines, never serially when independent. Always await every agent()/parallel()/pipeline() call. Quality machinery scales with budget: important artifacts get dedicated adversarial verifier agents (majority vote), competing designs go through judge panels, discovery loops repeat until two rounds surface nothing new. Close with a synthesis agent and a final self-review against the plan.
+
+Scope: this protocol applies once per task. If the user rejects the plan, stop and await direction; if they ask for revisions, update the plan and present it again (Stage 3). After Stage 4 completes, report the result and handle follow-up messages normally — do not restart the protocol unless the user brings a new task.`;

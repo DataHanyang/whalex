@@ -89,6 +89,16 @@ export class AgentLoop {
     this.steerQueue.push(text);
   }
 
+  /** Extra protocol section (e.g. SuperCode) appended to the system prompt. */
+  private protocolPrompt: string | null = null;
+
+  setProtocolPrompt(text: string | null): void {
+    if (text !== this.protocolPrompt) {
+      this.protocolPrompt = text;
+      this.systemPrompt = null; // rebuild on next run
+    }
+  }
+
   /** Live-apply settings changes; the next completion picks them up. */
   updateTuning(t: { reasoningEffort?: string; temperature?: number }): void {
     if (t.reasoningEffort !== undefined)
@@ -196,6 +206,16 @@ export class AgentLoop {
       .join("\n");
   }
 
+  private async ensureSystemPrompt(cwd: string): Promise<string> {
+    if (this.systemPrompt !== null) return this.systemPrompt;
+    const base = await buildSystemPrompt(cwd);
+    const parts = [base];
+    if (this.opts.extraSystemPrompt) parts.push(this.opts.extraSystemPrompt);
+    if (this.protocolPrompt) parts.push(this.protocolPrompt);
+    this.systemPrompt = parts.join("\n\n");
+    return this.systemPrompt;
+  }
+
   private drainSteerQueue(session: AgentLoopOptions["session"]): void {
     while (this.steerQueue.length > 0) {
       const text = this.steerQueue.shift()!;
@@ -212,12 +232,7 @@ export class AgentLoop {
     const session = this.opts.session;
 
     try {
-      if (this.systemPrompt === null) {
-        const base = await buildSystemPrompt(session.cwd);
-        this.systemPrompt = this.opts.extraSystemPrompt
-          ? `${base}\n\n${this.opts.extraSystemPrompt}`
-          : base;
-      }
+      await this.ensureSystemPrompt(session.cwd);
       session.append({ type: "user", id: randomUUID(), text: userText, ts: Date.now() });
       this.context.addPending(userText);
       await this.hooks().run({
@@ -230,6 +245,9 @@ export class AgentLoop {
 
       let truncationRetries = 0;
       for (let round = 0; round < MAX_ROUNDS; round++) {
+        // A live protocol/SuperCode toggle invalidates the prompt mid-turn;
+        // rebuild before the next completion instead of streaming null.
+        const systemPrompt = await this.ensureSystemPrompt(session.cwd);
         this.drainSteerQueue(session);
         const messageId = randomUUID();
         yield { type: "message-start", messageId };
@@ -240,7 +258,7 @@ export class AgentLoop {
           const stream = this.opts.provider.streamChat({
             model: this.opts.modelInfo.id,
             messages: [
-              { role: "system", content: this.systemPrompt },
+              { role: "system", content: systemPrompt },
               ...session.messages(),
             ],
             tools: this.opts.modelInfo.supportsTools ? this.toolSpecs() : undefined,

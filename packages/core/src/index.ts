@@ -7,6 +7,7 @@ export * from "./agent/Hooks.js";
 export * from "./agent/ToolCallAssembler.js";
 export * from "./agent/ContextManager.js";
 export * from "./agent/SystemPrompt.js";
+export * from "./privacy/Redactor.js";
 export * from "./agent/Compactor.js";
 export * from "./permissions/PermissionEngine.js";
 export * from "./session/SessionStore.js";
