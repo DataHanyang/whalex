@@ -98,7 +98,7 @@ Every write or command is gated by a **permission card** unless you switch modes
 
 ## 📊 Measured against Codex and Claude Code
 
-Same prompts, same Windows machine, all three CLIs running full-auto. Tokens come from each
+Five tasks, same prompts, all three CLIs running full-auto on the same Windows machine. Tokens come from each
 tool's own usage report; cost is computed from published rates. Artifacts were **rendered in a
 real browser engine** to confirm they work — not just that a file was written.
 
@@ -136,24 +136,31 @@ real browser engine** to confirm they work — not just that a file was written.
   <td align="right"><b>$0.003</b></td><td align="right">$0.214</td><td align="right">$0.187</td>
 </tr>
 <tr>
-  <th align="left">All four</th>
-  <th align="right">16m 00s</th><th align="right">25m 49s</th><th align="right">43m 55s</th>
-  <th align="right">$0.087</th><th align="right">$5.07<br><sub>58×</sub></th><th align="right">~$12.70<br><sub>145×</sub></th>
+  <td align="left"><b>Spreadsheet formula engine</b><br><sub>parser · error propagation · circular refs · 71 hidden cases · all three scored 100%</sub></td>
+  <td align="right">—<sup>†</sup></td><td align="right">11m 56s</td><td align="right">6m 39s</td>
+  <td align="right"><b>$0.048</b></td><td align="right">$2.23</td><td align="right">$1.40</td>
+</tr>
+<tr>
+  <th align="left">All five</th>
+  <th align="right">—</th><th align="right">37m 45s</th><th align="right">50m 34s</th>
+  <th align="right">$0.135</th><th align="right">$7.30<br><sub>54×</sub></th><th align="right">~$14.10<br><sub>104×</sub></th>
 </tr>
 </tbody>
 </table>
 
 ```
-Total cost, all four tasks (USD)
+Total cost, all five tasks (USD)
 
-Whalex      ▏$0.09
-Codex       ███████████▏$5.07     58× more
-Claude Code ████████████████████████████▏$12.70  145× more
+Whalex      ▏$0.14
+Codex       ███████████████▏$7.30     54× more
+Claude Code █████████████████████████████▏$14.10  104× more
 ```
 
-Only the LeetCode task has an objective score — all three got every hidden test right, which is
-why the table reports time and cost instead of a meaningless row of 100%s. The three visual tasks
-are judged by rendering them (below), not by a number.
+Two tasks carry an objective score, and **all three agents scored 100% on both** — including the
+spreadsheet engine, which wants a real parser, error propagation, circular-reference detection and
+dependency-ordered recalculation across 71 hidden cases. That is the honest headline: on a
+well-specified task these agents all produce correct work, so the table reports time and cost
+rather than a column of identical 100%s. The visual tasks are judged by rendering them (below).
 
 DeepSeek's per-token price is what opens the gap: **$0.435/$0.87** per 1M in/out against
 **$5/$25** (Opus 5) and **$5/$30** (GPT-5.6 Sol).
@@ -184,6 +191,9 @@ flying from the track, seamless loop."</sub>
 the train never appeared. That failure is exactly why `verify_page` exists: the agent now renders
 its own page in a browser engine, sees "only 0.1% of the frame changes", and fixes it. The run in
 the table is the one that used it.
+**†** The Whalex spreadsheet figure comes from a completed run on a second machine; the attempt on
+this one was still self-testing when it hit a 25-minute cap, so its wall-clock time is not
+comparable and is left out.
 **\*** Claude Code's Earth run was still refining when it hit a 25-minute cap, so its cost is an
 estimate — tokens from the session transcript, scaled by the Opus/Haiku mix ratio measured on the
 locomotive task; its artifact was finished and scores 100%. Codex's Windows sandbox helper failed
