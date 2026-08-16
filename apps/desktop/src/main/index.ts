@@ -38,6 +38,11 @@ if (process.env.WHALEX_CDP_PORT) {
 
 // Single-instance lock so protocol deep links (auth callback) route to the
 // running window instead of spawning a second process.
+// A second window for side-by-side sessions: WHALEX_INSTANCE isolates the
+// Electron userData (and its single-instance lock); ~/.whalex stays shared.
+if (process.env.WHALEX_INSTANCE) {
+  app.setPath("userData", path.join(app.getPath("userData"), `instance-${process.env.WHALEX_INSTANCE}`));
+}
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 }

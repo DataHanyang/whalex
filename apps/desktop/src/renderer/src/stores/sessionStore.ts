@@ -102,8 +102,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ superCode: on });
     const id = get().activeSessionId;
     if (id) void whalex.invoke("session:command", { sessionId: id, command: on ? "supercode-on" : "supercode-off" });
-    // SuperCode always opens in plan mode: recon and the budget interview
-    // come before any write. Turning it off returns to normal approvals.
+    // SuperCode always opens in plan mode with the strongest model: recon
+    // and the budget interview come before any write. Turning it off returns
+    // to normal approvals (the model stays wherever it is).
+    if (on) get().setModel("deepseek-v4-pro");
     get().setPermissionMode(on ? "plan" : "default");
   },
   setPermissionMode(mode) {
@@ -426,9 +428,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         break;
       case "supercode":
         // Main turned SuperCode on (keyword in the prompt); mirror the toggle
-        // and enter plan mode exactly like clicking the composer switch.
+        // and enter plan mode on the strongest model, exactly like clicking
+        // the composer switch.
         set({ superCode: ev.on });
-        if (ev.on) get().setPermissionMode("plan");
+        if (ev.on) {
+          get().setModel("deepseek-v4-pro");
+          get().setPermissionMode("plan");
+        }
         break;
       case "browser-navigated": {
         const tabs = ev.tabs ?? (ev.url ? [{ id: "tab1", url: ev.url, title: ev.title }] : []);
