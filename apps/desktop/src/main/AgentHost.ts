@@ -44,6 +44,9 @@ interface HostedSession {
   modeOverride: import("@whalex/shared").PermissionMode | null;
   /** Abort controllers of live workflow runs; fired on session abort. */
   workflowAborts: Set<AbortController>;
+  /** Outstanding interactive requests, replayed when the UI reattaches. */
+  pendingQuestion: import("@whalex/shared").UserQuestion | null;
+  pendingPermission: import("@whalex/shared").PermissionRequest | null;
   /** Agent-result cache shared by every workflow run in this session. */
   workflowCache: Map<string, unknown>;
 }
@@ -117,7 +120,23 @@ export class AgentHost {
   async start(
     cwd: string,
     resumeSessionId?: string,
-  ): Promise<{ sessionId: string; cwd: string; transcript: TranscriptItem[] }> {
+  ): Promise<{ sessionId: string; cwd: string; transcript: TranscriptItem[]; running?: boolean }> {
+    // Reattach: switching back to a session this process is already hosting
+    // must NOT create a second loop over the same file — the original keeps
+    // running and the UI just catches up from the transcript + live events.
+    if (resumeSessionId) {
+      const live = this.sessions.get(resumeSessionId);
+      if (live) {
+        this.activeSessionForBrowser = resumeSessionId;
+        queueMicrotask(() => this.replayPending(resumeSessionId, live));
+        return {
+          sessionId: resumeSessionId,
+          cwd: live.store.cwd,
+          transcript: live.store.transcript(),
+          running: live.loop.isRunning,
+        };
+      }
+    }
     let store: SessionStore | null = null;
     if (resumeSessionId) store = await SessionStore.load(cwd, resumeSessionId);
     store ??= SessionStore.create(cwd);
@@ -181,6 +200,8 @@ export class AgentHost {
       modeOverride: null,
       workflowAborts: new Set(),
       workflowCache: new Map(),
+      pendingQuestion: null,
+      pendingPermission: null,
       loop: new AgentLoop({
         provider,
         registry,
@@ -192,6 +213,7 @@ export class AgentHost {
         extraSystemPrompt: this.skills.catalog(),
         extraTools: () => this.mcp.toolDefs(),
         hooks: this.hooks,
+        autoCompact: s.autoCompact,
       }),
     };
     this.sessions.set(sessionId, hosted);
@@ -492,6 +514,9 @@ User: ${firstUser.text.slice(0, 400)}
   /** Routes an ask_user answer to whichever session is waiting on it. */
   answerQuestion(id: string, answer: string): void {
     for (const hosted of this.sessions.values()) {
+      if (hosted.pendingQuestion?.id === id) hosted.pendingQuestion = null;
+    }
+    for (const hosted of this.sessions.values()) {
       if (hosted.loop.answerQuestion(id, answer)) return;
     }
   }
@@ -507,6 +532,22 @@ User: ${firstUser.text.slice(0, 400)}
     void this.mcp.disposeAll();
   }
 
+  /** Re-send the state a reattaching renderer needs to resume the picture. */
+  private replayPending(sessionId: string, hosted: HostedSession): void {
+    if (hosted.loop.isRunning) {
+      this.emitDirect(sessionId, { type: "status", state: "thinking" });
+    }
+    if (hosted.pendingQuestion) {
+      this.emitDirect(sessionId, { type: "question-request", request: hosted.pendingQuestion });
+    }
+    if (hosted.pendingPermission) {
+      this.emitDirect(sessionId, { type: "permission-request", request: hosted.pendingPermission });
+    }
+    if (hosted.superCode) {
+      this.emitDirect(sessionId, { type: "supercode", on: true });
+    }
+  }
+
   private emit(sessionId: string, hosted: HostedSession, event: AgentEvent): void {
     if (event.type === "artifact") {
       this.artifacts.set(event.artifactId, {
@@ -518,6 +559,13 @@ User: ${firstUser.text.slice(0, 400)}
         content: event.content,
         language: event.language,
       });
+    }
+    if (event.type === "question-request") hosted.pendingQuestion = event.request;
+    else if (event.type === "permission-request") hosted.pendingPermission = event.request;
+    else if (event.type === "permission-resolved") hosted.pendingPermission = null;
+    else if (event.type === "done") {
+      hosted.pendingQuestion = null;
+      hosted.pendingPermission = null;
     }
     this.queue.push({ sessionId, seq: hosted.seq++, event });
     if (event.type === "permission-request" || event.type === "done" || event.type === "error") {

@@ -99,6 +99,7 @@ export const IPC_INVOKE = {
       sessionId: z.string(),
       cwd: z.string(),
       transcript: z.array(TranscriptItemSchema),
+      running: z.boolean().optional(),
     }),
   },
   "session:send": {

@@ -191,7 +191,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       cwd,
       activeSessionId: res.sessionId,
       transcript: res.transcript,
-      status: "idle",
+      status: res.running ? "thinking" : "idle",
       usage: null,
       todos: [],
       pendingPermission: null,
@@ -225,6 +225,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         : { status: "thinking" as const, turnStartedAt: Date.now(), lastTurnMs: null }),
     }));
     await whalex.invoke("session:send", { sessionId: activeSessionId, text, model });
+    // The new session should appear in the sidebar immediately, not only
+    // after the (possibly long) first turn finishes.
+    if (!steering) void get().refreshSessions();
   },
 
   async abort() {
