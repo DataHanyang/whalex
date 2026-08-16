@@ -195,7 +195,7 @@ flying from the track, seamless loop."</sub>
 
 <sub>"Create a realistic 3D HTML animation of the Earth."</sub>
 
-| 🐋 WhaleX · **$0.035** | Codex · $1.34 | Claude Code |
+| 🐋 WhaleX · **$0.035** | Codex · $1.34 | Claude Code · ~$7.23\* |
 |---|---|---|
 | <img src="docs/bench/gif/whalex-earth.gif" alt="WhaleX 3D Earth"> | <img src="docs/bench/gif/codex-earth.gif" alt="Codex 3D Earth"> | <img src="docs/bench/gif/claude-earth.gif" alt="Claude Code 3D Earth"> |
 
