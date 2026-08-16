@@ -269,7 +269,7 @@ decision you think about; on DeepSeek rates the same fan-out lands in the range 
 coffee. Cheap tokens are what make "just run twenty agents at it" a reasonable default
 rather than an indulgence.
 
-<img src="docs/screenshots/supercode.png" alt="SuperCode progress tree with phases and per-agent status" width="720">
+<img src="docs/screenshots/supercode.png" alt="A SuperCode run: three agents review tetris.html in parallel, the progress card shows 4/4 done with phases and token count, and the reply merges a ranked top-3" width="900">
 
 ## 🧩 Extend it
 
