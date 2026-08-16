@@ -416,16 +416,16 @@ export class AgentHost {
             beforePct: res.beforePct,
             afterPct: res.afterPct,
           });
-          return { handled: true, message: `컨텍스트를 압축했습니다: ${res.beforePct}% → ${res.afterPct}%` };
+          return { handled: true, message: `Context compacted: ${res.beforePct}% → ${res.afterPct}%` };
         }
-        return { handled: true, message: `압축 실패: ${res.error ?? "unknown"}` };
+        return { handled: true, message: `Compaction failed: ${res.error ?? "unknown"}` };
       }
       case "supercode-on":
         this.setSuperCode(sessionId, true);
-        return { handled: true, message: "슈퍼코드 모드 ON" };
+        return { handled: true, message: "SuperCode mode ON" };
       case "supercode-off":
         this.setSuperCode(sessionId, false);
-        return { handled: true, message: "슈퍼코드 모드 OFF" };
+        return { handled: true, message: "SuperCode mode OFF" };
       default:
         return { handled: false };
     }

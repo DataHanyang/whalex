@@ -18,37 +18,37 @@ export interface McpPreset {
 export const MCP_PRESETS: McpPreset[] = [
   {
     name: "filesystem",
-    description: "작업 폴더의 파일을 읽고 쓰는 표준 파일시스템 서버",
+    description: "Standard filesystem server that reads and writes files in the working folder",
     category: "core",
     config: { type: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "{cwd}"], env: {} },
   },
   {
     name: "memory",
-    description: "세션 간 유지되는 지식 그래프 메모리",
+    description: "Knowledge-graph memory that persists across sessions",
     category: "core",
     config: { type: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-memory"], env: {} },
   },
   {
     name: "sequential-thinking",
-    description: "복잡한 문제를 단계적으로 사고하도록 돕는 도구",
+    description: "Helps reason through complex problems step by step",
     category: "reasoning",
     config: { type: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-sequential-thinking"], env: {} },
   },
   {
     name: "fetch",
-    description: "웹 페이지를 가져와 마크다운으로 변환",
+    description: "Fetches web pages and converts them to Markdown",
     category: "web",
     config: { type: "stdio", command: "npx", args: ["-y", "@kazuph/mcp-fetch"], env: {} },
   },
   {
     name: "everything",
-    description: "MCP 기능을 모두 시연하는 레퍼런스 서버 (테스트용)",
+    description: "Reference server demonstrating every MCP capability (for testing)",
     category: "dev",
     config: { type: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-everything"], env: {} },
   },
   {
     name: "github",
-    description: "GitHub 이슈·PR·저장소 (GITHUB_TOKEN 필요)",
+    description: "GitHub issues, PRs and repositories (needs GITHUB_TOKEN)",
     category: "dev",
     requiresSetup: true,
     config: {
@@ -60,7 +60,7 @@ export const MCP_PRESETS: McpPreset[] = [
   },
   {
     name: "playwright",
-    description: "Playwright로 브라우저 자동화 (별도 브라우저 유즈)",
+    description: "Browser automation via Playwright (separate from built-in browser use)",
     category: "web",
     config: { type: "stdio", command: "npx", args: ["-y", "@playwright/mcp"], env: {} },
   },

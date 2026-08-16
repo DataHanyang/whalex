@@ -10,15 +10,14 @@ files:
 asarUnpack:
   - "**/node_modules/@vscode/ripgrep/**"
   - "**/node_modules/@nut-tree-fork/**"
+# Code signing: with a certificate (WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD env or
+# azureSignOptions) electron-builder signs automatically. Without one we keep
+# signAndEditExecutable false to avoid rcedit/winCodeSign symlink issues on CI.
 win:
   target:
     - nsis
   icon: build/icon.png
-  # 코드 서명: 인증서가 있으면(WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD env 또는
-  # azureSignOptions) electron-builder가 자동 서명. 없으면 미서명 빌드를 위해
-  # signAndEditExecutable을 false로 두어 rcedit/winCodeSign 심링크 이슈 회피.
   #
-  # 권장(1.0): Azure Trusted Signing (~$10/월, 즉시 SmartScreen 신뢰)
   # azureSignOptions:
   #   publisherName: "<Your Org>"
   #   endpoint: "https://eus.codesigning.azure.net"
@@ -32,8 +31,6 @@ mac:
     - zip
   category: public.app-category.developer-tools
   hardenedRuntime: true
-  # notarize: Apple Developer($99/yr) 필요. APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/
-  # APPLE_TEAM_ID env가 있으면 electron-builder가 자동 공증.
   # notarize: true
 linux:
   # AppImage is the universal single-file build; add deb when fpm metadata
@@ -48,8 +45,6 @@ nsis:
   perMachine: false
   shortcutName: WhaleX
   deleteAppDataOnUninstall: false
-# 자동 업데이트 피드 (OSS 에디션, GitHub Releases).
-# 계정 이름을 바꾸면 owner를 새 이름으로 갱신하세요 (빌드 시점에 고정됨).
 publish:
   provider: github
   owner: leejoong
