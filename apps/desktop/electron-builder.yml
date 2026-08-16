@@ -52,5 +52,5 @@ nsis:
 # 계정 이름을 바꾸면 owner를 새 이름으로 갱신하세요 (빌드 시점에 고정됨).
 publish:
   provider: github
-  owner: DataHanyang
+  owner: leejoong
   repo: whalex

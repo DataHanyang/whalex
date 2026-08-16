@@ -32,7 +32,7 @@ What it does:
 
 It's BYOK (your own DeepSeek API key), MIT-licensed, and runs on Windows/macOS/Linux.
 
-Repo: https://github.com/DataHanyang/whalex
+Repo: https://github.com/leejoong/whalex
 
 Honest notes: DeepSeek's API is text-only, so image/computer-use go through an optional vision model you connect separately. The Windows installer isn't code-signed yet, so SmartScreen will warn on first run.
 
@@ -59,7 +59,7 @@ Claude Code · Codex의 워크플로를 DeepSeek로 쓰고 싶어서 만든 Elec
 
 BYOK(내 DeepSeek 키 연결), MIT 라이선스, Windows/macOS/Linux 지원.
 
-저장소: https://github.com/DataHanyang/whalex
+저장소: https://github.com/leejoong/whalex
 
 솔직한 참고: DeepSeek API는 텍스트 전용이라 이미지/컴퓨터 유즈는 별도 비전 모델을 연결해야 동작합니다. Windows 설치본은 아직 코드 서명 전이라 첫 실행 시 SmartScreen 경고가 뜹니다.
 
@@ -72,7 +72,7 @@ BYOK(내 DeepSeek 키 연결), MIT 라이선스, Windows/macOS/Linux 지원.
 Reads, edits & runs code in your folder. Live preview of what it builds. Browser use, sub-agents, goal mode, MCP, checkpoints/rewind.
 
 BYOK · MIT · Win/mac/Linux
-→ github.com/DataHanyang/whalex
+→ github.com/leejoong/whalex
 
 ---
 
