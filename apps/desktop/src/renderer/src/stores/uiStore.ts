@@ -20,6 +20,8 @@ interface UiState {
   artifactCollapsed: boolean;
   /** Text pushed into the composer by another surface (e.g. plan Revise). */
   composerDraft: string | null;
+  /** Side-panel width in px, draggable via the divider. */
+  artifactWidth: number;
   mcpStatus: McpStatus[];
   updateStatus: UpdateStatus;
   openSettings(tab?: SettingsTab): void;
@@ -28,6 +30,7 @@ interface UiState {
   closeRewind(): void;
   toggleArtifactCollapsed(): void;
   setComposerDraft(text: string | null): void;
+  setArtifactWidth(px: number): void;
   listen(): void;
 }
 
@@ -36,6 +39,7 @@ export const useUiStore = create<UiState>((set) => ({
   settingsTab: "general",
   artifactCollapsed: false,
   composerDraft: null,
+  artifactWidth: 560,
   rewindOpen: false,
   mcpStatus: [],
   updateStatus: { state: "idle" },
@@ -57,6 +61,9 @@ export const useUiStore = create<UiState>((set) => ({
   },
   setComposerDraft(text) {
     set({ composerDraft: text });
+  },
+  setArtifactWidth(px) {
+    set({ artifactWidth: Math.max(340, Math.min(940, px)) });
   },
   listen() {
     whalex.on("mcp:status", (statuses) => set({ mcpStatus: statuses }));

@@ -29,6 +29,23 @@ export function AppShell() {
   const rewindOpen = useUiStore((s) => s.rewindOpen);
   const artifactCollapsed = useUiStore((s) => s.artifactCollapsed);
   const toggleArtifactCollapsed = useUiStore((s) => s.toggleArtifactCollapsed);
+  const artifactWidth = useUiStore((s) => s.artifactWidth);
+  const setArtifactWidth = useUiStore((s) => s.setArtifactWidth);
+
+  // Drag the divider to resize the side panel; listeners live on the window
+  // so the drag survives leaving the 4px handle.
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const onMove = (ev: MouseEvent) => setArtifactWidth(window.innerWidth - ev.clientX);
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
   const closeRewind = useUiStore((s) => s.closeRewind);
 
   // Esc aborts a running turn (unless a permission card owns the key).
@@ -64,13 +81,20 @@ export function AppShell() {
           )}
           <Composer />
         </main>
+        {(browserActive || (activeArtifactId && !artifactCollapsed)) && (
+          <div
+            onMouseDown={startResize}
+            className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-accent"
+            title="Drag to resize"
+          />
+        )}
         {browserActive && (
-          <div className="w-[46%] min-w-[360px] max-w-[720px] shrink-0">
+          <div className="shrink-0" style={{ width: artifactWidth }}>
             <BrowserPanel />
           </div>
         )}
         {!browserActive && activeArtifactId && !artifactCollapsed && (
-          <div className="w-[46%] min-w-[360px] max-w-[720px] shrink-0">
+          <div className="shrink-0" style={{ width: artifactWidth }}>
             <ArtifactPanel />
           </div>
         )}

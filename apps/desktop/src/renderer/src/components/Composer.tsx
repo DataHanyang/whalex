@@ -359,7 +359,7 @@ export function Composer() {
             ))}
           </div>
         )}
-        <div className="flex items-center gap-2 px-3 pt-2">
+        <div className="flex items-center px-3 pt-2">
           <button
             type="button"
             onClick={async () => {
@@ -367,29 +367,11 @@ export function Composer() {
               if (res.path) void newSession(res.path);
             }}
             title={cwd ?? ""}
-            className="flex min-w-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted hover:bg-surface-2"
+            className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] text-faint hover:bg-surface-2 hover:text-muted"
           >
-            <FolderOpen size={12} className="shrink-0" />
-            <span className="max-w-[220px] truncate">{cwd ? (cwd.split(/[\/]/).pop() ?? cwd) : t("sidebar.changeFolder")}</span>
+            <FolderOpen size={11} className="shrink-0" />
+            <span className="max-w-[240px] truncate">{cwd ? (cwd.split(/[\/]/).pop() ?? cwd) : t("sidebar.changeFolder")}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            title={t("composer.attach")}
-            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted hover:bg-surface-2"
-          >
-            <Paperclip size={12} />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onAttach(f);
-              e.target.value = "";
-            }}
-          />
         </div>
         <textarea
           ref={taRef}
@@ -406,7 +388,25 @@ export function Composer() {
           disabled={!!pendingPermission}
           className="block w-full resize-none bg-transparent px-4 pb-1 pt-3 text-[13.5px] outline-none placeholder:text-faint disabled:opacity-50"
         />
-        <div className="flex items-center gap-2 px-3 pb-2.5 pt-1">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 px-3 pb-2.5 pt-1">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            title={t("composer.attach")}
+            className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border border-border text-muted hover:bg-surface-2"
+          >
+            <Paperclip size={13} />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onAttach(f);
+              e.target.value = "";
+            }}
+          />
           <Picker
             value={model}
             onChange={setModel}
