@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LogIn } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
 import { whalex } from "../lib/ipc";
+import logoUrl from "../assets/logo.png";
 
 /**
  * Cloud edition sign-in gate. Opens the hosted OAuth page in the browser;
@@ -24,9 +25,7 @@ export function LoginScreen() {
       <div className="titlebar-drag h-10 shrink-0" />
       <div className="flex flex-1 items-center justify-center px-6">
         <div className="w-full max-w-sm text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-3xl">
-            🐋
-          </div>
+          <img src={logoUrl} alt="" className="mx-auto mb-5 h-16 w-16" />
           <h1 className="text-2xl font-bold">{t("login.title")}</h1>
           <p className="mx-auto mt-3 max-w-xs text-[13.5px] text-muted">{t("login.subtitle")}</p>
           <button

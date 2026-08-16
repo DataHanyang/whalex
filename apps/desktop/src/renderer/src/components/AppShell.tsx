@@ -10,6 +10,7 @@ import { SettingsModal } from "./SettingsModal";
 import { UpdateToast } from "./UpdateToast";
 import { RewindDialog } from "./RewindDialog";
 import { useUiStore } from "../stores/uiStore";
+import logoUrl from "../assets/logo.png";
 
 export function AppShell() {
   const status = useSessionStore((s) => s.status);
@@ -34,7 +35,8 @@ export function AppShell() {
   return (
     <div className="flex h-full flex-col">
       <div className="titlebar-drag flex h-10 shrink-0 items-center border-b border-border bg-surface px-4">
-        <span className="text-[13px] font-semibold tracking-tight">🐋 Whalex</span>
+        <img src={logoUrl} alt="" className="mr-1.5 h-5 w-5" />
+        <span className="text-[13px] font-semibold tracking-tight">Whalex</span>
       </div>
       <div className="flex min-h-0 flex-1">
         <Sidebar />

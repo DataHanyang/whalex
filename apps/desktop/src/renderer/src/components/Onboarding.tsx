@@ -5,6 +5,7 @@ import { DEEPSEEK_PROVIDER_ID } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { whalex } from "../lib/ipc";
+import logoUrl from "../assets/logo.png";
 
 type Step = "welcome" | "apiKey" | "folder";
 
@@ -57,9 +58,7 @@ export function Onboarding() {
         <div className="w-full max-w-md">
           {step === "welcome" && (
             <div className="text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent text-3xl">
-                🐋
-              </div>
+              <img src={logoUrl} alt="" className="mx-auto mb-5 h-16 w-16" />
               <h1 className="text-2xl font-bold">{t("onboarding.welcome.title")}</h1>
               <p className="mx-auto mt-3 max-w-sm text-[13.5px] text-muted">
                 {t("onboarding.welcome.subtitle")}
