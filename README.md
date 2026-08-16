@@ -213,31 +213,6 @@ discount in effect. Full write-up: [docs/bench/report.html](docs/bench/report.ht
 - **Hooks** — run shell commands on `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `Stop`; a `PreToolUse` hook can block a tool.
 - **Feature toggles** — turn sub-agents, SuperCode, browser use, web fetch on/off in Settings.
 
-## 🆚 How it compares
-
-| Feature | **Whalex** | Claude Code | Codex |
-|---|:---:|:---:|:---:|
-| Local file &amp; shell control | ✅ | ✅ | ✅ |
-| Permission modes (incl. Plan) | ✅ | ✅ | ◐ |
-| MCP · Skills · Plugins | ✅ | ✅ | – |
-| Sub-agents · multi-agent | ✅ | ✅ | ◐ |
-| Goal loop | ✅ | – | ✅ |
-| Artifact / browser preview | ✅ | ✅ | ◐ |
-| Checkpoints · rewind · Hooks | ✅ | ✅ | – |
-| **Model** | **DeepSeek** | Claude | GPT |
-
-## 🏗 Architecture
-
-```mermaid
-flowchart LR
-    S["@whalex/shared<br/><sub>types · zod · IPC</sub>"] --> C
-    C["@whalex/core<br/><sub>agent loop · tools · MCP<br/>sessions · workflow<br/>(Electron-free)</sub>"] --> D["apps/desktop<br/><sub>Electron · React · Tailwind</sub>"]
-    C --> L["packages/cli<br/><sub>headless harness · CI</sub>"]
-    C --> W["Whalex Cloud<br/><sub>subscription proxy (future)</sub>"]
-```
-
-The agent **core** has no UI dependency, so the desktop app, CLI harness, tests, and a future hosted edition all reuse it unchanged.
-
 ## 🌐 Languages
 
 UI ships in **English** (default), **한국어**, **中文**, **日本語**, and **Français** — switch in Settings → Language (or **System** to follow your OS).
