@@ -5,10 +5,10 @@ import { z } from "zod";
 import { toolError, type ToolDef } from "./Tool.js";
 
 const PresentInput = z.object({
-  path: z.string().optional().describe("Path to a file to render (html/md/svg/image/csv)"),
+  path: z.string().optional().describe("Path to a file to render (html/md/svg/image/xlsx/pptx)"),
   content: z.string().optional().describe("Inline content to render instead of a file"),
   kind: z
-    .enum(["html", "markdown", "svg", "mermaid", "image", "code"])
+    .enum(["html", "markdown", "svg", "mermaid", "image", "code", "spreadsheet", "slides"])
     .describe("How to render the artifact"),
   title: z.string().describe("Short title shown on the artifact tab"),
   language: z.string().optional().describe("Language for code artifacts"),
@@ -23,7 +23,8 @@ export const presentFileTool: ToolDef<z.infer<typeof PresentInput>> = {
   name: "present_file",
   description:
     "Show a result to the user in the preview panel: render an HTML page, " +
-    "markdown doc, SVG, Mermaid diagram, image, or code. Use this after " +
+    "markdown doc, SVG, Mermaid diagram, image, code, an Excel workbook " +
+    "(kind: spreadsheet) or a PowerPoint deck (kind: slides). Use this after " +
     "creating something visual so the user can see it without leaving Whalex. " +
     "Provide either a file path or inline content.",
   schema: PresentInput,
@@ -43,6 +44,11 @@ export const presentFileTool: ToolDef<z.infer<typeof PresentInput>> = {
             const buf = await fs.readFile(absPath);
             const ext = path.extname(absPath).slice(1) || "png";
             content = `data:image/${ext};base64,${buf.toString("base64")}`;
+          } else if (input.kind === "spreadsheet" || input.kind === "slides") {
+            // Office files are zip containers — binary, so they travel base64
+            // and the renderer parses them client-side.
+            const buf = await fs.readFile(absPath);
+            content = buf.toString("base64");
           } else {
             content = await fs.readFile(absPath, "utf8");
           }

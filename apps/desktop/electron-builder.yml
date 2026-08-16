@@ -1,5 +1,5 @@
 appId: app.whalex.desktop
-productName: Whalex
+productName: WhaleX
 electronVersion: 33.4.11
 directories:
   buildResources: build
@@ -42,11 +42,11 @@ linux:
     - AppImage
   category: Development
   icon: build/icon.png
-  maintainer: Whalex
+  maintainer: WhaleX
 nsis:
   oneClick: true
   perMachine: false
-  shortcutName: Whalex
+  shortcutName: WhaleX
   deleteAppDataOnUninstall: false
 # 자동 업데이트 피드 (OSS 에디션, GitHub Releases).
 # 계정 이름을 바꾸면 owner를 새 이름으로 갱신하세요 (빌드 시점에 고정됨).

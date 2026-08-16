@@ -5,9 +5,9 @@ import { initReactI18next } from "react-i18next";
 // by dropping another resource object here with the same keys.
 const en = {
   translation: {
-    "app.name": "Whalex",
+    "app.name": "WhaleX",
     // onboarding
-    "onboarding.welcome.title": "Welcome to Whalex",
+    "onboarding.welcome.title": "Welcome to WhaleX",
     "onboarding.welcome.subtitle":
       "A DeepSeek-powered coding agent that reads, edits, and runs code on your machine.",
     "onboarding.welcome.start": "Get started",
@@ -22,9 +22,9 @@ const en = {
     "onboarding.apiKey.skip": "Set up later",
     "onboarding.folder.title": "Choose a working folder",
     "onboarding.folder.subtitle":
-      "Whalex can read and edit files in this folder. Every change runs only after your approval.",
+      "WhaleX can read and edit files in this folder. Every change runs only after your approval.",
     "onboarding.folder.pick": "Choose folder...",
-    "onboarding.folder.finish": "Start Whalex",
+    "onboarding.folder.finish": "Start WhaleX",
     "onboarding.next": "Next",
     "onboarding.back": "Back",
     // sidebar
@@ -200,7 +200,7 @@ const en = {
     "settings.update.download": "Download",
     "settings.update.restart": "Restart to update",
     // login (cloud edition)
-    "login.title": "Whalex Cloud",
+    "login.title": "WhaleX Cloud",
     "login.subtitle": "Sign in with your subscription to use it without an API key.",
     "login.button": "Sign in",
   },
@@ -208,7 +208,7 @@ const en = {
 
 const ko = {
   translation: {
-    "app.name": "Whalex",
+    "app.name": "WhaleX",
     "onboarding.welcome.title": "Whalex에 오신 것을 환영합니다",
     "onboarding.welcome.subtitle":
       "DeepSeek 기반 코딩 에이전트 — 내 컴퓨터에서 코드를 읽고, 고치고, 실행합니다.",
@@ -226,7 +226,7 @@ const ko = {
     "onboarding.folder.subtitle":
       "Whalex가 이 폴더의 파일을 읽고 수정할 수 있습니다. 모든 변경은 승인 후 실행됩니다.",
     "onboarding.folder.pick": "폴더 선택...",
-    "onboarding.folder.finish": "Whalex 시작",
+    "onboarding.folder.finish": "WhaleX 시작",
     "onboarding.next": "다음",
     "onboarding.back": "이전",
     "sidebar.newSession": "새 세션",
@@ -381,7 +381,7 @@ const ko = {
     "settings.update.check": "업데이트 확인",
     "settings.update.download": "다운로드",
     "settings.update.restart": "재시작하여 업데이트",
-    "login.title": "Whalex Cloud",
+    "login.title": "WhaleX Cloud",
     "login.subtitle": "구독 계정으로 로그인하면 API 키 없이 바로 사용할 수 있습니다.",
     "login.button": "로그인",
   },
@@ -389,8 +389,8 @@ const ko = {
 
 const zh = {
   translation: {
-    "app.name": "Whalex",
-    "onboarding.welcome.title": "欢迎使用 Whalex",
+    "app.name": "WhaleX",
+    "onboarding.welcome.title": "欢迎使用 WhaleX",
     "onboarding.welcome.subtitle": "由 DeepSeek 驱动的编码智能体，在你的电脑上读取、修改并运行代码。",
     "onboarding.welcome.start": "开始使用",
     "onboarding.language": "语言",
@@ -403,9 +403,9 @@ const zh = {
     "onboarding.apiKey.success": "已连接 — 可用模型 {{count}} 个",
     "onboarding.apiKey.skip": "稍后设置",
     "onboarding.folder.title": "选择工作文件夹",
-    "onboarding.folder.subtitle": "Whalex 可以读取并修改此文件夹中的文件。每次更改都会在你批准后执行。",
+    "onboarding.folder.subtitle": "WhaleX 可以读取并修改此文件夹中的文件。每次更改都会在你批准后执行。",
     "onboarding.folder.pick": "选择文件夹...",
-    "onboarding.folder.finish": "启动 Whalex",
+    "onboarding.folder.finish": "启动 WhaleX",
     "onboarding.next": "下一步",
     "onboarding.back": "上一步",
     "sidebar.newSession": "新会话",
@@ -559,7 +559,7 @@ const zh = {
     "settings.update.check": "检查更新",
     "settings.update.download": "下载",
     "settings.update.restart": "重启以更新",
-    "login.title": "Whalex Cloud",
+    "login.title": "WhaleX Cloud",
     "login.subtitle": "使用订阅账户登录，无需 API 密钥即可使用。",
     "login.button": "登录",
   },
@@ -567,8 +567,8 @@ const zh = {
 
 const ja = {
   translation: {
-    "app.name": "Whalex",
-    "onboarding.welcome.title": "Whalex へようこそ",
+    "app.name": "WhaleX",
+    "onboarding.welcome.title": "WhaleX へようこそ",
     "onboarding.welcome.subtitle": "DeepSeek 搭載のコーディングエージェント。あなたのPCでコードを読み、編集し、実行します。",
     "onboarding.welcome.start": "はじめる",
     "onboarding.language": "言語",
@@ -581,9 +581,9 @@ const ja = {
     "onboarding.apiKey.success": "接続成功 — 利用可能なモデル {{count}} 個",
     "onboarding.apiKey.skip": "後で設定する",
     "onboarding.folder.title": "作業フォルダを選択",
-    "onboarding.folder.subtitle": "Whalex はこのフォルダのファイルを読み書きできます。すべての変更は承認後に実行されます。",
+    "onboarding.folder.subtitle": "WhaleX はこのフォルダのファイルを読み書きできます。すべての変更は承認後に実行されます。",
     "onboarding.folder.pick": "フォルダを選択...",
-    "onboarding.folder.finish": "Whalex を開始",
+    "onboarding.folder.finish": "WhaleX を開始",
     "onboarding.next": "次へ",
     "onboarding.back": "戻る",
     "sidebar.newSession": "新しいセッション",
@@ -737,7 +737,7 @@ const ja = {
     "settings.update.check": "アップデートを確認",
     "settings.update.download": "ダウンロード",
     "settings.update.restart": "再起動して更新",
-    "login.title": "Whalex Cloud",
+    "login.title": "WhaleX Cloud",
     "login.subtitle": "サブスクリプションアカウントでログインすると、API キーなしで利用できます。",
     "login.button": "ログイン",
   },
@@ -745,8 +745,8 @@ const ja = {
 
 const fr = {
   translation: {
-    "app.name": "Whalex",
-    "onboarding.welcome.title": "Bienvenue sur Whalex",
+    "app.name": "WhaleX",
+    "onboarding.welcome.title": "Bienvenue sur WhaleX",
     "onboarding.welcome.subtitle": "Un agent de codage propulsé par DeepSeek qui lit, modifie et exécute du code sur votre machine.",
     "onboarding.welcome.start": "Commencer",
     "onboarding.language": "Langue",
@@ -759,9 +759,9 @@ const fr = {
     "onboarding.apiKey.success": "Connecté — {{count}} modèles disponibles",
     "onboarding.apiKey.skip": "Configurer plus tard",
     "onboarding.folder.title": "Choisir un dossier de travail",
-    "onboarding.folder.subtitle": "Whalex peut lire et modifier les fichiers de ce dossier. Chaque changement s'exécute après votre approbation.",
+    "onboarding.folder.subtitle": "WhaleX peut lire et modifier les fichiers de ce dossier. Chaque changement s'exécute après votre approbation.",
     "onboarding.folder.pick": "Choisir un dossier...",
-    "onboarding.folder.finish": "Démarrer Whalex",
+    "onboarding.folder.finish": "Démarrer WhaleX",
     "onboarding.next": "Suivant",
     "onboarding.back": "Retour",
     "sidebar.newSession": "Nouvelle session",
@@ -915,7 +915,7 @@ const fr = {
     "settings.update.check": "Vérifier les mises à jour",
     "settings.update.download": "Télécharger",
     "settings.update.restart": "Redémarrer pour mettre à jour",
-    "login.title": "Whalex Cloud",
+    "login.title": "WhaleX Cloud",
     "login.subtitle": "Connectez-vous avec votre abonnement pour l'utiliser sans clé API.",
     "login.button": "Se connecter",
   },
