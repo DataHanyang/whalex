@@ -64,6 +64,32 @@ export const MCP_PRESETS: McpPreset[] = [
     category: "web",
     config: { type: "stdio", command: "npx", args: ["-y", "@playwright/mcp"], env: {} },
   },
+  {
+    name: "excel",
+    description: "Read and write .xlsx workbooks — sheets, ranges, formulas",
+    category: "office",
+    config: { type: "stdio", command: "npx", args: ["-y", "@negokaz/excel-mcp-server"], env: {} },
+  },
+  {
+    name: "powerpoint",
+    description: "Build and edit .pptx decks — slides, text, images, charts",
+    category: "office",
+    // Python-based; uvx fetches it on first run the way npx does for node.
+    config: { type: "stdio", command: "uvx", args: ["office-powerpoint-mcp-server"], env: {} },
+    requiresSetup: true,
+  },
+  {
+    name: "gmail",
+    description: "Read, search and send Gmail — OAuth on first run",
+    category: "office",
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@gongrzhe/server-gmail-autoauth-mcp"],
+      env: {},
+    },
+    requiresSetup: true,
+  },
 ];
 
 /** Fill {cwd} placeholders in a preset config. */

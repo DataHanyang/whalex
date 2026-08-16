@@ -4,6 +4,7 @@ import { useSessionStore } from "../stores/sessionStore";
 import { useUiStore } from "../stores/uiStore";
 import { StreamingMarkdown } from "./StreamingMarkdown";
 import { CodeBlock } from "./CodeBlock";
+import { SpreadsheetView, SlidesView } from "./OfficeViews";
 import { whalex } from "../lib/ipc";
 
 const VIEWPORTS = { desktop: "100%", tablet: "768px", mobile: "375px" } as const;
@@ -129,6 +130,8 @@ export function ArtifactPanel() {
           <div className="flex justify-center p-4" dangerouslySetInnerHTML={{ __html: active.content }} />
         )}
         {active.kind === "mermaid" && active.content && <MermaidView content={active.content} />}
+        {active.kind === "spreadsheet" && active.content && <SpreadsheetView base64={active.content} />}
+        {active.kind === "slides" && active.content && <SlidesView base64={active.content} />}
         {active.kind === "image" && active.content && (
           <div className="flex justify-center p-4">
             <img src={active.content} alt={active.title} className="max-w-full" />

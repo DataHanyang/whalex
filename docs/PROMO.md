@@ -1,4 +1,4 @@
-# Promo copy for Whalex
+# Promo copy for WhaleX
 
 Ready-to-paste blurbs for different channels. Swap the download/link line once a
 release is published.
@@ -7,15 +7,15 @@ release is published.
 
 ## One-liner
 
-**Whalex — an open-source, local coding agent desktop app powered by DeepSeek.** Like Claude Code / Codex, but bring your own DeepSeek key.
+**WhaleX — an open-source, local coding agent desktop app powered by DeepSeek.** Like Claude Code / Codex, but bring your own DeepSeek key.
 
 ---
 
 ## Hacker News / Reddit (English)
 
-**Show HN: Whalex – a local coding-agent desktop app powered by DeepSeek**
+**Show HN: WhaleX – a local coding-agent desktop app powered by DeepSeek**
 
-I wanted Claude Code's workflow but running on DeepSeek, so I built Whalex — an Electron desktop app where a DeepSeek agent reads, edits, and runs code in a folder on your machine, and shows you what it built in a live preview.
+I wanted Claude Code's workflow but running on DeepSeek, so I built WhaleX — an Electron desktop app where a DeepSeek agent reads, edits, and runs code in a folder on your machine, and shows you what it built in a live preview.
 
 What it does:
 
@@ -40,7 +40,7 @@ Honest notes: DeepSeek's API is text-only, so image/computer-use go through an o
 
 ## GeekNews / 커뮤니티 (한국어)
 
-**Whalex — DeepSeek로 구동되는 오픈소스 로컬 코딩 에이전트**
+**WhaleX — DeepSeek로 구동되는 오픈소스 로컬 코딩 에이전트**
 
 Claude Code · Codex의 워크플로를 DeepSeek로 쓰고 싶어서 만든 Electron 데스크톱 앱입니다. DeepSeek 에이전트가 내 폴더에서 코드를 읽고·고치고·실행하고, 만든 걸 앱 안 미리보기로 바로 보여줍니다.
 
@@ -67,7 +67,7 @@ BYOK(내 DeepSeek 키 연결), MIT 라이선스, Windows/macOS/Linux 지원.
 
 ## X / Twitter (English)
 
-🐋 Whalex — a local coding agent for your desktop, powered by DeepSeek.
+🐋 WhaleX — a local coding agent for your desktop, powered by DeepSeek.
 
 Reads, edits & runs code in your folder. Live preview of what it builds. Browser use, sub-agents, goal mode, MCP, checkpoints/rewind.
 

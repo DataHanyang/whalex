@@ -39,7 +39,7 @@ export function AppShell() {
     <div className="flex h-full flex-col">
       <div className="titlebar-drag flex h-10 shrink-0 items-center border-b border-border bg-surface px-4">
         <img src={logoUrl} alt="" className="mr-1.5 h-5 w-5" />
-        <span className="text-[13px] font-semibold tracking-tight">Whalex</span>
+        <span className="text-[13px] font-semibold tracking-tight">WhaleX</span>
       </div>
       <div className="flex min-h-0 flex-1">
         <Sidebar />
