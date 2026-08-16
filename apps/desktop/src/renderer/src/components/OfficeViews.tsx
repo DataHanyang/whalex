@@ -52,15 +52,33 @@ export function SpreadsheetView({ base64 }: { base64: string }) {
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <table className="min-w-full border-collapse text-[12px]">
+          <thead>
+            <tr>
+              <th className="sticky top-0 z-10 w-10 border border-border bg-surface-2 px-1.5 text-[10.5px] font-normal text-faint" />
+              {(shown[0] ?? []).map((_, c) => (
+                <th
+                  key={c}
+                  className="sticky top-0 z-10 border border-border bg-surface-2 px-2 py-1 text-center text-[10.5px] font-normal tracking-wide text-faint"
+                >
+                  {XLSX.utils.encode_col(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {shown.map((row, r) => (
-              <tr key={r} className={r === 0 ? "bg-surface-2 font-medium" : ""}>
-                <td className="sticky left-0 border border-border bg-surface-2 px-1.5 text-right text-[10.5px] text-faint">
+              <tr key={r} className={r === 0 ? "bg-accent-soft font-semibold" : r % 2 ? "bg-surface-2/40" : ""}>
+                <td className="sticky left-0 border border-border bg-surface-2 px-1.5 text-right text-[10.5px] tabular-nums text-faint">
                   {r + 1}
                 </td>
                 {row.map((cell, c) => (
-                  <td key={c} className="whitespace-nowrap border border-border px-2 py-0.5">
-                    {String(cell)}
+                  <td
+                    key={c}
+                    className={`whitespace-nowrap border border-border px-2.5 py-1 ${
+                      typeof cell === "number" ? "text-right tabular-nums" : ""
+                    }`}
+                  >
+                    {typeof cell === "number" ? cell.toLocaleString() : String(cell)}
                   </td>
                 ))}
               </tr>

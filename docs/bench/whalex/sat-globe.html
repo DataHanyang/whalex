@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sat-Globe — Live Satellite Constellation</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000208;
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    color: #eaf6ff;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #loading {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 45%, #04121f 0%, #000208 70%);
+    color: #9fd8ff;
+    font-size: 13px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    transition: opacity 0.8s ease;
+    pointer-events: none;
+    z-index: 5;
+  }
+  #loading.hidden { opacity: 0; }
+
+  #hud {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    min-width: 230px;
+    background: rgba(5, 13, 24, 0.62);
+    border: 1px solid rgba(126, 186, 255, 0.22);
+    border-radius: 12px;
+    padding: 13px 15px 14px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    pointer-events: none;
+    user-select: none;
+    z-index: 2;
+  }
+  #hud h1 {
+    margin: 0 0 3px;
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #bfe6ff;
+  }
+  #hud .sub {
+    margin: 0 0 10px;
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    color: #7fa6c7;
+  }
+  #hud .counts {
+    margin: 0 0 9px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #6f94b4;
+  }
+  #hud ul { list-style: none; margin: 0; padding: 0; }
+  #hud li {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: nowrap;
+  }
+  #hud .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex: 0 0 auto;
+    box-shadow: 0 0 7px currentColor;
+  }
+  #hud .name { letter-spacing: 0.03em; }
+  #hud .alt {
+    margin-left: auto;
+    padding-left: 18px;
+    color: #9fb9d1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #caption {
+    position: fixed;
+    left: 16px;
+    bottom: 12px;
+    font-size: 10px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: #4f7a9e;
+    pointer-events: none;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud">
+    <h1>Live Satellite Constellation</h1>
+    <p class="sub">Earth · NASA Blue Marble + Black Marble</p>
+    <p class="counts">8 Satellites · 4 Ground Stations</p>
+    <ul id="satList"></ul>
+  </div>
+
+  <div id="caption">Drag to inspect · Fading lines show recent ground tracks</div>
+  <div id="loading">Loading Earth Textures…</div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ---- Constants ---------------------------------------------------------
+    const DEG = Math.PI / 180;
+    const EARTH_RADIUS = 10;
+    const CAM_DIST = 32;
+    const TRAIL_LIFE = 6.0;
+    const TRAIL_MAX = 420;
+    const EARTH_ROT_SPEED = (Math.PI * 2) / 120; // one turn per 120 s
+
+    const DAY_URL   = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/textures/planets/earth_atmos_2048.jpg';
+    const NIGHT_URL = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/textures/planets/earth_lights_2048.png';
+    const SPEC_URL  = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/textures/planets/earth_specular_2048.jpg';
+
+    const SAT_DATA = [
+      { name: 'AURORA-1',   color: '#5ec8ff', inc: 55, raan:  20, phase:   0, altitudeKm:  412 },
+      { name: 'NYX-7',      color: '#ff9f5e', inc: 72, raan:  85, phase:  40, altitudeKm:  538 },
+      { name: 'HELIOS-2',   color: '#ffd24a', inc: 98, raan: 150, phase:  95, altitudeKm:  612 },
+      { name: 'KESTREL-4',  color: '#8ee08a', inc: 63, raan: 215, phase: 160, altitudeKm:  467 },
+      { name: 'ORION-9',    color: '#c792ff', inc: 82, raan: 275, phase: 220, altitudeKm: 1220 },
+      { name: 'VEGA-5',     color: '#5effd4', inc: 47, raan: 330, phase: 285, altitudeKm:  455 },
+      { name: 'ZEPHYR-3',   color: '#ff7d9c', inc: 90, raan: 120, phase: 330, altitudeKm:  780 },
+      { name: 'ATLAS-6',    color: '#7da4ff', inc: 60, raan: 250, phase: 200, altitudeKm:  350 }
+    ];
+
+    const STATIONS = [
+      { name: 'KOUROU',     lat:   5.2, lon:  -52.7 },
+      { name: 'WHITE SANDS', lat: 32.4, lon: -106.4 },
+      { name: 'TANEGASHIMA', lat: 30.4, lon:  131.0 },
+      { name: 'MALINDI',    lat:  -2.9, lon:   40.1 }
+    ];
+
+    // ---- Renderer / scene / camera ----------------------------------------
+    const appEl = document.getElementById('app');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    appEl.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000208);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 6.5, CAM_DIST);
+    camera.lookAt(0, 0, 0);
+
+    const worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+
+    const earthGroup = new THREE.Group();       // spins on its own axis
+    worldGroup.add(earthGroup);
+
+    const spaceGroup = new THREE.Group();       // satellites + orbit rings (inertial)
+    worldGroup.add(spaceGroup);
+
+    // ---- Small helpers ------------------------------------------------------
+    function hexToRgb(hex) {
+      const n = parseInt(hex.slice(1), 16);
+      return {
+        r: ((n >> 16) & 255) / 255,
+        g: ((n >> 8) & 255) / 255,
+        b: (n & 255) / 255
+      };
+    }
+
+    function makeGlowTexture(r, g, b) {
+      const size = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+      grad.addColorStop(0.00, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.14, `rgba(${r},${g},${b},0.95)`);
+      grad.addColorStop(0.42, `rgba(${r},${g},${b},0.30)`);
+      grad.addColorStop(1.00, `rgba(${r},${g},${b},0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeLabelTexture(text, color) {
+      const font = '700 54px "Segoe UI", system-ui, Arial, sans-serif';
+      const measCtx = document.createElement('canvas').getContext('2d');
+      measCtx.font = font;
+      const width = Math.ceil(measCtx.measureText(text).width) + 30;
+      const height = 80;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.font = font;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur = 7;
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = 'rgba(0,0,0,0.88)';
+      ctx.strokeText(text, width / 2, height / 2);
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = color;
+      ctx.fillText(text, width / 2, height / 2);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      return { tex, width, height };
+    }
+
+    function orbitalPoint(radius, inc, raan, theta) {
+      // Circle in the XZ plane, then rotate by inclination (around X) and RAAN (around Y).
+      const x0 = radius * Math.cos(theta);
+      const y0 = 0;
+      const z0 = radius * Math.sin(theta);
+
+      const cosI = Math.cos(inc);
+      const sinI = Math.sin(inc);
+      const y1 = y0 * cosI - z0 * sinI;
+      const z1 = y0 * sinI + z0 * cosI;
+
+      const cosO = Math.cos(raan);
+      const sinO = Math.sin(raan);
+      return new THREE.Vector3(
+        x0 * cosO + z1 * sinO,
+        y1,
+        -x0 * sinO + z1 * cosO
+      );
+    }
+
+    function latLonToVec3(lat, lon, radius) {
+      const phi = lat * DEG;
+      const theta = (lon + 180) * DEG;
+      return new THREE.Vector3(
+        -radius * Math.cos(phi) * Math.cos(theta),
+         radius * Math.sin(phi),
+         radius * Math.cos(phi) * Math.sin(theta)
+      );
+    }
+
+    // ---- Stars --------------------------------------------------------------
+    const starTexture = makeGlowTexture(255, 255, 255);
+    const starCount = 2600;
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+    const starColor = new THREE.Color();
+
+    for (let i = 0; i < starCount; i++) {
+      const u = Math.random() * 2 - 1;
+      const th = Math.random() * Math.PI * 2;
+      const s = Math.sqrt(1 - u * u);
+      const r = 260 + Math.random() * 260;
+      starPositions[i * 3]     = r * s * Math.cos(th);
+      starPositions[i * 3 + 1] = r * u;
+      starPositions[i * 3 + 2] = r * s * Math.sin(th);
+
+      const t = Math.random();
+      if (t < 0.68)      starColor.setRGB(0.85, 0.92, 1.00);
+      else if (t < 0.85) starColor.setRGB(1.00, 0.93, 0.80);
+      else if (t < 0.95) starColor.setRGB(0.70, 0.80, 1.00);
+      else               starColor.setRGB(1.00, 0.85, 0.75);
+
+      starColors[i * 3]     = starColor.r;
+      starColors[i * 3 + 1] = starColor.g;
+      starColors[i * 3 + 2] = starColor.b;
+    }
+
+    const starGeometry = new THREE.BufferGeometry();
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    const starMaterial = new THREE.PointsMaterial({
+      size: 1.7,
+      map: starTexture,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true
+    });
+    worldGroup.add(new THREE.Points(starGeometry, starMaterial));
+
+    // ---- Earth ---------------------------------------------------------------
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.setCrossOrigin('anonymous');
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    const dayTex = textureLoader.load(DAY_URL);
+    dayTex.colorSpace = THREE.SRGBColorSpace;
+    dayTex.anisotropy = maxAniso;
+
+    const nightTex = textureLoader.load(NIGHT_URL);
+    nightTex.colorSpace = THREE.SRGBColorSpace;
+    nightTex.anisotropy = maxAniso;
+
+    const specTex = textureLoader.load(SPEC_URL);
+    specTex.anisotropy = maxAniso;
+
+    const earthUniforms = {
+      uDayMap:          { value: dayTex },
+      uNightMap:        { value: nightTex },
+      uSpecularMap:     { value: specTex },
+      uLightDir:        { value: new THREE.Vector3(0.55, 0.28, 0.82).normalize() },
+      uCameraPos:       { value: camera.position },
+      uAmbient:         { value: 0.10 },
+      uDiffuse:         { value: 0.92 },
+      uNightStrength:   { value: 1.15 },
+      uSpecularStrength:{ value: 0.10 },
+      uShininess:       { value: 22.0 }
+    };
+
+    const earthMaterial = new THREE.ShaderMaterial({
+      uniforms: earthUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
+
+        void main() {
+          vUv = uv;
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uDayMap;
+        uniform sampler2D uNightMap;
+        uniform sampler2D uSpecularMap;
+        uniform vec3 uLightDir;
+        uniform vec3 uCameraPos;
+        uniform float uAmbient;
+        uniform float uDiffuse;
+        uniform float uNightStrength;
+        uniform float uSpecularStrength;
+        uniform float uShininess;
+
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
+
+        vec3 linearToSRGB(vec3 c) {
+          return pow(max(c, 0.0), vec3(1.0 / 2.2));
+        }
+
+        void main() {
+          vec3 N = normalize(vNormalW);
+          vec3 L = normalize(uLightDir);
+          vec3 V = normalize(uCameraPos - vWorldPos);
+
+          float ndl = dot(N, L);
+
+          vec3 day   = texture2D(uDayMap, vUv).rgb;
+          vec3 night = texture2D(uNightMap, vUv).rgb;
+          float specMask = texture2D(uSpecularMap, vUv).r;
+
+          // Soft daylight with a small amount of ambient fill.
+          float dayLight = uAmbient + uDiffuse * max(ndl, 0.0);
+          vec3 color = day * dayLight;
+
+          // Night lights fade in only on the dark side, crossing the terminator smoothly.
+          float nightMix = 1.0 - smoothstep(-0.15, 0.25, ndl);
+          color += night * nightMix * uNightStrength;
+
+          // Subtle Blinn-Phong specular. Low strength + moderate shininess = no white blowout.
+          vec3 H = normalize(L + V);
+          float ndh = max(dot(N, H), 0.0);
+          float spec = pow(ndh, uShininess) * uSpecularStrength * specMask;
+          color += vec3(spec);
+
+          // Gentle clamp keeps the brightest ocean glint controlled.
+          color = min(color, vec3(1.0));
+
+          gl_FragColor = vec4(linearToSRGB(color), 1.0);
+        }
+      `
+    });
+
+    const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS, 128, 128), earthMaterial);
+    earthMesh.renderOrder = 0;
+    earthGroup.add(earthMesh);
+
+    // ---- Subtle atmosphere rim ----------------------------------------------
+    const atmosphereUniforms = {
+      uColor:     { value: new THREE.Vector3(0.28, 0.55, 1.0) },
+      uIntensity: { value: 0.85 },
+      uCameraPos: { value: camera.position }
+    };
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      uniforms: atmosphereUniforms,
+      vertexShader: `
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPos = worldPos.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float uIntensity;
+        uniform vec3 uCameraPos;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
+
+        void main() {
+          vec3 N = normalize(vNormalW);
+          vec3 V = normalize(uCameraPos - vWorldPos);
+          float rim = pow(1.0 - abs(dot(N, V)), 3.2);
+          float alpha = rim * uIntensity;
+          gl_FragColor = vec4(uColor * alpha, alpha);
+        }
+      `,
+      side: THREE.BackSide,
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.AdditiveBlending
+    });
+    const atmosphereMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_RADIUS * 1.055, 96, 96), atmosphereMaterial);
+    atmosphereMesh.renderOrder = 6;
+    earthGroup.add(atmosphereMesh);
+
+    // ---- Satellites, orbit rings, ground tracks ------------------------------
+    const sats = [];
+
+    SAT_DATA.forEach((d) => {
+      const rgb = hexToRgb(d.color);
+      const orbitRadius = EARTH_RADIUS + 1.15 + (d.altitudeKm / 1400) * 1.6;
+      const periodSec = 20 + (d.altitudeKm / 1300) * 12;
+      const rate = (Math.PI * 2) / periodSec;
+      const incRad = d.inc * DEG;
+      const raanRad = d.raan * DEG;
+
+      // Orbit ring (inertial reference circle)
+      const ringPoints = [];
+      const ringSegments = 240;
+      for (let i = 0; i < ringSegments; i++) {
+        ringPoints.push(orbitalPoint(orbitRadius, incRad, raanRad, (i / ringSegments) * Math.PI * 2));
+      }
+      const ringGeometry = new THREE.BufferGeometry().setFromPoints(ringPoints);
+      const ringMaterial = new THREE.LineBasicMaterial({
+        color: new THREE.Color(d.color),
+        transparent: true,
+        opacity: 0.20,
+        depthWrite: false
+      });
+      const ring = new THREE.LineLoop(ringGeometry, ringMaterial);
+      ring.renderOrder = 1;
+      spaceGroup.add(ring);
+
+      // Glowing marker
+      const glowTex = makeGlowTexture(Math.round(rgb.r * 255), Math.round(rgb.g * 255), Math.round(rgb.b * 255));
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: glowTex,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.AdditiveBlending
+      }));
+      glow.scale.setScalar(0.55);
+      glow.renderOrder = 3;
+
+      // Name label
+      const labelData = makeLabelTexture(d.name, d.color);
+      const label = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: labelData.tex,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true
+      }));
+      const labelH = 0.95;
+      label.scale.set(labelH * (labelData.width / labelData.height), labelH, 1);
+      label.position.set(0, 0.95, 0);
+      label.renderOrder = 4;
+
+      const group = new THREE.Group();
+      group.add(glow);
+      group.add(label);
+      spaceGroup.add(group);
+
+      // Fading ground track (a Points trail that sticks to the rotating surface)
+      const trailGeometry = new THREE.BufferGeometry();
+      const trailPositions = new Float32Array(TRAIL_MAX * 3);
+      const trailAlphas = new Float32Array(TRAIL_MAX);
+      trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+      trailGeometry.setAttribute('alpha', new THREE.BufferAttribute(trailAlphas, 1));
+      trailGeometry.setDrawRange(0, 0);
+
+      const trailMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Vector3(rgb.r, rgb.g, rgb.b) },
+          uSize:  { value: 0.55 }
+        },
+        vertexShader: `
+          attribute float alpha;
+          varying float vAlpha;
+          uniform float uSize;
+          void main() {
+            vAlpha = alpha;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = uSize * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          varying float vAlpha;
+          uniform vec3 uColor;
+          void main() {
+            vec2 p = gl_PointCoord - 0.5;
+            float d = length(p);
+            float a = smoothstep(0.5, 0.06, d) * vAlpha;
+            gl_FragColor = vec4(uColor, a);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.AdditiveBlending
+      });
+      const trail = new THREE.Points(trailGeometry, trailMaterial);
+      trail.renderOrder = 2;
+      earthGroup.add(trail);
+
+      sats.push({
+        data: d,
+        group,
+        rate,
+        orbitRadius,
+        incRad,
+        raanRad,
+        trail,
+        trailGeometry,
+        trailPoints: []
+      });
+    });
+
+    // ---- Ground stations -------------------------------------------------------
+    const stationGlowTex = makeGlowTexture(90, 255, 160);
+    const stationCoreTex = makeGlowTexture(220, 255, 235);
+    const stations = STATIONS.map((st, i) => {
+      const group = new THREE.Group();
+      const pos = latLonToVec3(st.lat, st.lon, EARTH_RADIUS * 1.006);
+      group.position.copy(pos);
+
+      const haloMat = new THREE.SpriteMaterial({
+        map: stationGlowTex,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.AdditiveBlending
+      });
+      const halo = new THREE.Sprite(haloMat);
+      halo.scale.setScalar(1.05);
+      halo.renderOrder = 3;
+      group.add(halo);
+
+      const coreMat = new THREE.SpriteMaterial({
+        map: stationCoreTex,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.AdditiveBlending
+      });
+      const core = new THREE.Sprite(coreMat);
+      core.scale.setScalar(0.42);
+      core.renderOrder = 4;
+      group.add(core);
+
+      earthGroup.add(group);
+      return { group, halo, core, haloMat, coreMat, phase: i * 1.7 };
+    });
+
+    // ---- HUD --------------------------------------------------------------------
+    const satListEl = document.getElementById('satList');
+    [...SAT_DATA]
+      .sort((a, b) => a.altitudeKm - b.altitudeKm)
+      .forEach((s) => {
+        const li = document.createElement('li');
+        li.innerHTML =
+          `<span class="dot" style="background:${s.color};color:${s.color}"></span>` +
+          `<span class="name">${s.name}</span>` +
+          `<span class="alt">${s.altitudeKm.toLocaleString('en-US')} km</span>`;
+        satListEl.appendChild(li);
+      });
+
+    // ---- Pointer look-around ------------------------------------------------------
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
+    let targetPitch = 0;
+    let targetYaw = 0;
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      targetYaw += dx * 0.005;
+      targetPitch += dy * 0.005;
+      targetPitch = Math.max(-1.25, Math.min(1.25, targetPitch));
+    });
+    window.addEventListener('pointerup', () => { dragging = false; });
+    window.addEventListener('pointercancel', () => { dragging = false; });
+
+    // ---- Animation loop -------------------------------------------------------------
+    const clock = new THREE.Clock();
+    let firstFrameDone = false;
+
+    function updateTrails(dt) {
+      const rotY = earthGroup.rotation.y;
+      const c = Math.cos(-rotY);
+      const s = Math.sin(-rotY);
+
+      sats.forEach((sat) => {
+        const worldPos = sat.group.position; // world-group-local satellite position
+        const dir = worldPos.clone().normalize();
+
+        // Convert the satellite direction into Earth-local space (undo the Earth spin).
+        const localDir = new THREE.Vector3(
+          dir.x * c + dir.z * s,
+          dir.y,
+          -dir.x * s + dir.z * c
+        ).multiplyScalar(EARTH_RADIUS * 1.008);
+
+        sat.trailPoints.push({ p: localDir, life: 0 });
+
+        for (let j = 0; j < sat.trailPoints.length; j++) {
+          sat.trailPoints[j].life += dt;
+        }
+        while (sat.trailPoints.length && sat.trailPoints[0].life > TRAIL_LIFE) {
+          sat.trailPoints.shift();
+        }
+
+        const posAttr = sat.trailGeometry.getAttribute('position');
+        const alphaAttr = sat.trailGeometry.getAttribute('alpha');
+        const count = Math.min(sat.trailPoints.length, TRAIL_MAX);
+
+        for (let j = 0; j < TRAIL_MAX; j++) {
+          if (j < count) {
+            const tp = sat.trailPoints[j];
+            posAttr.array[j * 3]     = tp.p.x;
+            posAttr.array[j * 3 + 1] = tp.p.y;
+            posAttr.array[j * 3 + 2] = tp.p.z;
+            alphaAttr.array[j] = Math.pow(1 - tp.life / TRAIL_LIFE, 1.7) * 0.85;
+          } else {
+            posAttr.array[j * 3]     = 0;
+            posAttr.array[j * 3 + 1] = 0;
+            posAttr.array[j * 3 + 2] = 0;
+            alphaAttr.array[j]       = 0;
+          }
+        }
+
+        posAttr.needsUpdate = true;
+        alphaAttr.needsUpdate = true;
+        sat.trailGeometry.setDrawRange(0, count);
+      });
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const t = clock.getElapsedTime();
+
+      // Smooth continuous Earth spin.
+      earthGroup.rotation.y += EARTH_ROT_SPEED * dt;
+
+      // Update satellite positions.
+      sats.forEach((sat) => {
+        const theta = sat.data.phase * DEG + sat.rate * t;
+        sat.group.position.copy(orbitalPoint(sat.orbitRadius, sat.incRad, sat.raanRad, theta));
+      });
+
+      updateTrails(dt);
+
+      // Pulse ground stations.
+      stations.forEach((st) => {
+        const wave = 0.5 + 0.5 * Math.sin(t * 3.0 + st.phase);
+        st.halo.scale.setScalar(0.85 + 0.45 * wave);
+        st.haloMat.opacity = 0.35 + 0.45 * wave;
+        st.core.scale.setScalar(0.32 + 0.18 * wave);
+        st.coreMat.opacity = 0.75 + 0.25 * wave;
+      });
+
+      // Smooth pointer look-around.
+      worldGroup.rotation.y += (targetYaw - worldGroup.rotation.y) * 0.08;
+      worldGroup.rotation.x += (targetPitch - worldGroup.rotation.x) * 0.08;
+
+      earthUniforms.uCameraPos.value.copy(camera.position);
+      atmosphereUniforms.uCameraPos.value.copy(camera.position);
+
+      renderer.render(scene, camera);
+
+      if (!firstFrameDone) {
+        firstFrameDone = true;
+        const loading = document.getElementById('loading');
+        if (loading) loading.classList.add('hidden');
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Fade the loading screen shortly after first paint even if a texture is slow.
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading) loading.classList.add('hidden');
+    }, 3500);
+
+    animate();
+  </script>
+</body>
+</html>

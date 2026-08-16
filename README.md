@@ -17,13 +17,31 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 
 <br>
 
-<img src="docs/screenshots/hero.png" alt="WhaleX opening an Excel workbook as a live spreadsheet artifact in its preview panel" width="900">
+<img src="docs/screenshots/hero.png" alt="Live satellite constellation over a NASA-textured Earth, built by WhaleX from one prompt" width="900">
 
-<sub><em>Office automation, live: the agent finds the workbook, opens it as a real spreadsheet artifact — sheet tabs and all — and reports back. Excel and PowerPoint viewers ship built in.</em></sub>
+<sub><em>Built by WhaleX from a single prompt and self-verified with its own <code>verify_page</code> tool: a NASA-textured Earth with a live 8-satellite constellation, orbit tracks, altitude HUD and ground stations. About four cents of DeepSeek tokens.</em></sub>
 
 </div>
 
 ---
+
+## 🐳 What is WhaleX?
+
+WhaleX is an open-source **coding-agent desktop app in the mould of Claude Code and Codex,
+running on your own DeepSeek API key**. You point it at a folder and talk to it; it reads,
+writes and runs code there, opens what it built in a live preview, and asks before doing
+anything risky.
+
+Three ideas drive it:
+
+1. **Local-first.** Everything happens on your machine — your files, your shell, your key
+   (stored with OS-level encryption). No account, no telemetry, no middleman.
+2. **Verify, don't hope.** The agent renders its own HTML in a real browser engine, reads
+   consoles and DOMs, and measures whether an animation actually moves before calling a job
+   done.
+3. **Cheap enough to be bold.** DeepSeek tokens cost 1–2% of frontier rates, so agent fleets
+   (SuperCode), goal loops and heavy iteration are everyday tools rather than splurges —
+   the [benchmark below](#-measured-against-codex-and-claude-code) puts numbers on it.
 
 ## ✨ What it does
 
@@ -42,25 +60,20 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 
 ## 📸 In action
 
-| Browser use — opens Tetris, reads the DOM, checks the console | Permission card — every risky call asks first |
+| Browser use — searches Google, reads the results back | Excel artifact — a workbook rendered with sheet tabs |
 |---|---|
-| <img src="docs/screenshots/browser-use.png" alt="Agent navigates to tetris.html, reads the page and verifies no console errors"> | <img src="docs/screenshots/permissions.png" alt="Inline permission card asking to open a local file in the browser"> |
+| <img src="docs/screenshots/browser-use.png" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/excel.png" alt="A 12-month P&L workbook rendered as a spreadsheet artifact"> |
 | **Thinking effort — click the level, drag the slider** | **Home — pick an example or just type** |
 | <img src="docs/screenshots/effort.png" alt="Thinking-effort slider from Off to Extra"> | <img src="docs/screenshots/home.png" alt="English home screen with example prompts"> |
 
 ## 🚀 Quick start
 
-### Download a build
+### Install
 
-Grab the installer for your OS from **[Releases](https://github.com/DataHanyang/whalex/releases)**:
-
-| OS | File | Notes |
-|---|---|---|
-| **Windows** | `Whalex-Setup-0.1.0.exe` | Unsigned → SmartScreen warns on first run. Click **More info → Run anyway**. |
-| **Linux** | `Whalex-0.1.0.AppImage` | `chmod +x` then run. |
-| **macOS** | `Whalex-0.1.0-mac.zip` | Unsigned/unnotarized — right-click → **Open** to bypass Gatekeeper. |
-
-Then launch it and follow the onboarding: **paste your [DeepSeek API key](https://platform.deepseek.com/api_keys) → pick a folder → go.**
+Grab your OS installer from **[Releases](https://github.com/DataHanyang/whalex/releases)** —
+step-by-step instructions per OS are [at the bottom of this page](#-installing-per-os).
+Then launch it: **paste your [DeepSeek API key](https://platform.deepseek.com/api_keys) →
+pick a folder → go.**
 
 ### Or build from source
 
@@ -302,6 +315,44 @@ Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes 
 - DeepSeek's API is **text-only** — image understanding and computer-use route through an optional vision model you connect yourself.
 - Builds aren't code-signed yet, so you'll see an OS warning on first launch.
 - This is an independent open-source project, **not** affiliated with Anthropic, OpenAI, or DeepSeek. Claude Code and Codex are trademarks of their respective owners.
+
+## 💾 Installing, per OS
+
+### Windows
+1. Download **`WhaleX-Setup-0.1.0.exe`** from [Releases](https://github.com/DataHanyang/whalex/releases).
+2. Run it. SmartScreen will warn because the build is unsigned — click **More info → Run anyway**.
+3. The app installs per-user (no admin rights needed) and creates Start-menu and desktop shortcuts.
+4. First launch: paste your DeepSeek API key, pick a working folder, choose a permission mode.
+5. Updates arrive in-app — a toast appears, one click restarts into the new version.
+
+### macOS (Apple Silicon)
+1. Download **`WhaleX-0.1.0-arm64-mac.zip`** and unzip it.
+2. Drag **WhaleX.app** into **Applications**.
+3. The app is unsigned/un-notarised, so plain double-click is blocked: **right-click → Open → Open**
+   (needed only once). On newer macOS you may instead need **System Settings → Privacy & Security →
+   "Open Anyway"**.
+4. First launch: key → folder → go, same as Windows.
+
+### Linux
+1. Download **`WhaleX-0.1.0.AppImage`**.
+2. Make it executable and run:
+   ```bash
+   chmod +x WhaleX-0.1.0.AppImage
+   ./WhaleX-0.1.0.AppImage
+   ```
+3. If your distro lacks FUSE 2 (`libfuse.so.2` error): install `libfuse2`, or run with
+   `--appimage-extract-and-run`.
+4. Optional: use [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) for a menu
+   entry and desktop integration.
+
+### From source (all platforms)
+```bash
+git clone https://github.com/DataHanyang/whalex && cd whalex
+pnpm install
+pnpm dev                              # run the app in dev mode
+pnpm --filter @whalex/desktop dist    # or build an installer
+```
+Requirements: **Node ≥ 20**, **pnpm 9**, a **DeepSeek API key**.
 
 ## 📄 License
 
