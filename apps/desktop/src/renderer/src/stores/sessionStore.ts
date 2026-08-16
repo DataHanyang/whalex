@@ -25,6 +25,9 @@ interface SessionState {
   todos: Todo[];
   pendingPermission: PermissionRequest | null;
   pendingQuestion: import("@whalex/shared").UserQuestion | null;
+  /** A plan artifact is awaiting the user's Accept / Revise / Reject. */
+  planPending: boolean;
+  clearPlanPending(): void;
   answerQuestion(id: string, answer: string): void;
   lastError: { code: string; message: string } | null;
   model: string;
@@ -70,6 +73,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   todos: [],
   pendingPermission: null,
   pendingQuestion: null,
+  planPending: false,
   lastError: null,
   model: "deepseek-v4-flash",
   superCode: false,
@@ -183,6 +187,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     await whalex.invoke("permission:respond", res);
   },
 
+  clearPlanPending() {
+    set({ planPending: false });
+  },
   answerQuestion(id, answer) {
     void whalex.invoke("question:respond", { id, answer });
     set({ pendingQuestion: null });
@@ -269,6 +276,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set({ todos: ev.todos });
         break;
       case "artifact":
+        if (ev.kind === "plan") set({ planPending: true });
         set((s) => ({
           artifacts: [
             ...s.artifacts.filter((a) => a.artifactId !== ev.artifactId),
@@ -423,6 +431,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }));
         break;
       case "done":
+        // Pick up the auto-generated session title shortly after the turn.
+        setTimeout(() => void get().refreshSessions(), 2500);
         set((s) => ({
           status: "idle",
           pendingPermission: null,

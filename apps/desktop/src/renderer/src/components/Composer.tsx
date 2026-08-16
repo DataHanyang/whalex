@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, Cpu, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, AtSign, Cpu, FolderOpen, Paperclip, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
 import { Picker } from "./Picker";
 import { EffortControl, type EffortLevel } from "./EffortControl";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
@@ -78,6 +78,33 @@ export function Composer() {
   const updateSettings = useAppStore((s) => s.updateSettings);
   const modelSupportsReasoning = models.find((m) => m.id === model)?.supportsReasoning ?? false;
   const openSettings = useUiStore((s) => s.openSettings);
+  const composerDraft = useUiStore((s) => s.composerDraft);
+  const setComposerDraft = useUiStore((s) => s.setComposerDraft);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Another surface (plan Revise) pushed text here: adopt it and take focus.
+  useEffect(() => {
+    if (composerDraft === null) return;
+    setText(composerDraft);
+    setComposerDraft(null);
+    requestAnimationFrame(() => {
+      const ta = taRef.current;
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }
+    });
+  }, [composerDraft, setComposerDraft]);
+
+  const onAttach = (file: File) => {
+    if (file.type.startsWith("image/")) {
+      readImageFile(file);
+      return;
+    }
+    // Non-image files ride along as a path mention the tools can read.
+    const p = (file as File & { path?: string }).path;
+    if (p) setText((t0) => (t0 ? `${t0} @${p}` : `@${p}`));
+  };
   const newSession = useSessionStore((s) => s.startSession);
 
   const running = status !== "idle";
@@ -332,6 +359,38 @@ export function Composer() {
             ))}
           </div>
         )}
+        <div className="flex items-center gap-2 px-3 pt-2">
+          <button
+            type="button"
+            onClick={async () => {
+              const res = await whalex.invoke("dialog:pickFolder", undefined);
+              if (res.path) void newSession(res.path);
+            }}
+            title={cwd ?? ""}
+            className="flex min-w-0 items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted hover:bg-surface-2"
+          >
+            <FolderOpen size={12} className="shrink-0" />
+            <span className="max-w-[220px] truncate">{cwd ? (cwd.split(/[\/]/).pop() ?? cwd) : t("sidebar.changeFolder")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            title={t("composer.attach")}
+            className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted hover:bg-surface-2"
+          >
+            <Paperclip size={12} />
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onAttach(f);
+              e.target.value = "";
+            }}
+          />
+        </div>
         <textarea
           ref={taRef}
           value={text}

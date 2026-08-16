@@ -18,6 +18,8 @@ interface UiState {
   rewindOpen: boolean;
   /** Artifact panel folded to a rail so the transcript gets the width back. */
   artifactCollapsed: boolean;
+  /** Text pushed into the composer by another surface (e.g. plan Revise). */
+  composerDraft: string | null;
   mcpStatus: McpStatus[];
   updateStatus: UpdateStatus;
   openSettings(tab?: SettingsTab): void;
@@ -25,6 +27,7 @@ interface UiState {
   openRewind(): void;
   closeRewind(): void;
   toggleArtifactCollapsed(): void;
+  setComposerDraft(text: string | null): void;
   listen(): void;
 }
 
@@ -32,6 +35,7 @@ export const useUiStore = create<UiState>((set) => ({
   settingsOpen: false,
   settingsTab: "general",
   artifactCollapsed: false,
+  composerDraft: null,
   rewindOpen: false,
   mcpStatus: [],
   updateStatus: { state: "idle" },
@@ -50,6 +54,9 @@ export const useUiStore = create<UiState>((set) => ({
   },
   toggleArtifactCollapsed() {
     set((s) => ({ artifactCollapsed: !s.artifactCollapsed }));
+  },
+  setComposerDraft(text) {
+    set({ composerDraft: text });
   },
   listen() {
     whalex.on("mcp:status", (statuses) => set({ mcpStatus: statuses }));

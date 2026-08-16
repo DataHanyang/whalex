@@ -43,16 +43,8 @@ export function Sidebar() {
     <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
       <div className="px-3 pb-2.5 pt-3">
         <button
-          onClick={() => void changeFolder()}
-          className="flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-[12.5px] text-muted hover:bg-surface-2"
-          title={cwd ?? ""}
-        >
-          <FolderOpen size={14} className="shrink-0" />
-          <span className="min-w-0 truncate">{folderName || t("sidebar.changeFolder")}</span>
-        </button>
-        <button
           onClick={newSession}
-          className="mt-2 flex w-full items-center gap-2 rounded-md bg-accent px-3 py-2 text-[12.5px] font-medium text-white hover:bg-accent-hover"
+          className="flex w-full items-center gap-2 rounded-md bg-accent px-3 py-2 text-[12.5px] font-medium text-white hover:bg-accent-hover"
         >
           <Plus size={14} />
           {t("sidebar.newSession")}

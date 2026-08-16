@@ -10,6 +10,7 @@ import { SettingsModal } from "./SettingsModal";
 import { UpdateToast } from "./UpdateToast";
 import { RewindDialog } from "./RewindDialog";
 import { QuestionCard } from "./QuestionCard";
+import { PlanActions } from "./PlanActions";
 import { useUiStore } from "../stores/uiStore";
 import logoUrl from "../assets/logo.png";
 import { PanelLeftOpen } from "lucide-react";
@@ -19,6 +20,10 @@ export function AppShell() {
   const abort = useSessionStore((s) => s.abort);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
+  const planPending = useSessionStore((s) => s.planPending);
+  const sessions = useSessionStore((s) => s.sessions);
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const sessionTitle = sessions.find((x) => x.sessionId === activeSessionId)?.title ?? "";
   const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
   const browserActive = useSessionStore((s) => s.browser.active);
   const rewindOpen = useUiStore((s) => s.rewindOpen);
@@ -46,10 +51,15 @@ export function AppShell() {
       <div className="flex min-h-0 flex-1">
         <Sidebar />
         <main className="flex min-w-0 flex-1 flex-col">
+          {sessionTitle && (
+            <div className="flex h-8 shrink-0 items-center justify-center border-b border-border text-[12px] font-medium text-muted">
+              <span className="max-w-[70%] truncate">{sessionTitle}</span>
+            </div>
+          )}
           <Transcript />
-          {pendingQuestion && (
+          {(pendingQuestion || planPending) && (
             <div className="mx-auto w-full max-w-4xl px-6">
-              <QuestionCard request={pendingQuestion} />
+              {pendingQuestion ? <QuestionCard request={pendingQuestion} /> : <PlanActions />}
             </div>
           )}
           <Composer />
