@@ -145,8 +145,8 @@ export class AgentLoop {
   async *runGoal(goal: string, maxIterations = 12): AsyncGenerator<AgentEvent> {
     this.goalStop = false;
     let prompt =
-      `다음 목표를 스스로 달성해줘. 완료될 때까지 필요한 모든 단계를 수행하고, ` +
-      `각 단계 결과를 확인해가며 진행해.\n\n목표: ${goal}`;
+      `Work toward this goal autonomously. Perform every step needed until it is ` +
+      `complete, checking the result of each step as you go.\n\nGoal: ${goal}`;
     for (let i = 0; i < maxIterations; i++) {
       yield* this.run(prompt);
       if (this.goalStop) return;
@@ -161,7 +161,7 @@ export class AgentLoop {
       };
       if (check.done) return;
       prompt =
-        `아직 목표가 완료되지 않았어. 남은 작업을 이어서 진행해줘.\n\n목표: ${goal}\n남은 것: ${check.remaining}`;
+        `The goal is not complete yet. Continue with the remaining work.\n\nGoal: ${goal}\nRemaining: ${check.remaining}`;
     }
   }
 
@@ -177,8 +177,8 @@ export class AgentLoop {
           {
             role: "user",
             content:
-              `목표: ${goal}\n\n지금까지의 작업 요약:\n${this.recentWork()}\n\n` +
-              `이 목표가 완전히 달성되었는지 판단해줘. JSON만 출력: {"done": true/false, "remaining": "남은 작업 한 줄"}`,
+              `Goal: ${goal}\n\nSummary of the work so far:\n${this.recentWork()}\n\n` +
+              `Judge whether this goal is fully achieved. Output JSON only: {"done": true/false, "remaining": "one line of remaining work"}`,
           },
         ],
         temperature: 0,
@@ -188,14 +188,14 @@ export class AgentLoop {
         if (delta.type === "text") text += delta.text;
       }
     } catch {
-      return { done: false, remaining: "평가 실패" };
+      return { done: false, remaining: "evaluation failed" };
     }
     try {
       const m = /\{[\s\S]*\}/.exec(text);
       const parsed = JSON.parse(m ? m[0] : text) as { done?: boolean; remaining?: string };
       return { done: !!parsed.done, remaining: parsed.remaining ?? "" };
     } catch {
-      return { done: /done|완료|끝/i.test(text), remaining: text.slice(0, 200) };
+      return { done: /done|complete|finished/i.test(text), remaining: text.slice(0, 200) };
     }
   }
 

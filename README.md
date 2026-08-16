@@ -13,8 +13,6 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 [![Made with DeepSeek](https://img.shields.io/badge/model-DeepSeek-4d6bfe)](https://platform.deepseek.com)
 [![i18n](https://img.shields.io/badge/i18n-EN·KO·中文·日本語·FR-4d6bfe)](#-languages)
 
-**English** · [한국어](#-한국어-요약)
-
 <br>
 
 <img src="docs/screenshots/hero.png" alt="ORBITAL - a real-time tracker of 10,961 satellites on a night-lights 3D Earth with an ISS telemetry panel, built end-to-end by a WhaleX SuperCode fleet from one prompt" width="900">
@@ -328,7 +326,7 @@ return findings.flat().filter(f => f.real)
 
 ## 🌐 Languages
 
-UI ships in **English** (default), **한국어**, **中文**, **日本語**, and **Français** — switch in Settings → Language (or **System** to follow your OS).
+UI ships in **English** (default), **Korean**, **Chinese**, **Japanese**, and **French** — switch in Settings → Language (or **System** to follow your OS).
 
 ## 🧪 Development
 
@@ -422,18 +420,3 @@ Requirements: **Node ≥ 20**, **pnpm 9**, a **DeepSeek API key**.
 MIT — see [LICENSE](LICENSE).
 
 ---
-
-<a name="-한국어-요약"></a>
-
-## 🇰🇷 한국어 요약
-
-**WhaleX** — DeepSeek로 구동되는 오픈소스 **로컬 코딩 에이전트 데스크톱 앱**입니다. Claude Code · Codex처럼 내 폴더에서 코드를 읽고·고치고·실행하고, 만든 걸 앱 안 미리보기로 바로 확인합니다. 내 DeepSeek 키만 연결하면 됩니다(BYOK).
-
-- **로컬 제어** · **아티팩트 미리보기** · **자가 검증(verify_page)** · **브라우저 유즈** · **서브에이전트** · **목표 모드** · **MCP/Skills/플러그인** · **체크포인트/되돌리기** · **Hooks** · **비전 브리지** · **자동 업데이트**
-- **슈퍼코드(SuperCode)** — 한 컨텍스트에 안 담기는 큰 일(코드베이스 전수 감사, 설계안 비교, 대량 마이그레이션)에 에이전트 여러 개를 한꺼번에 투입합니다. 에이전트가 짧은 오케스트레이션 스크립트를 쓰면 Whalex가 그걸 실행해 서브에이전트를 팬아웃하고 진행 상황을 트리로 보여줍니다. **제어 흐름(반복·분기·병합)은 코드가, 판단은 모델이** 맡는 구조라 결과가 결정적이고 들여다보기 쉽습니다. 스크립트는 주입된 5개 훅(`agent` `parallel` `pipeline` `phase` `log`)만 쓸 수 있고 파일·네트워크 접근이 없으며, 서브에이전트의 도구 호출도 같은 권한 시스템을 거칩니다. 에이전트 수·동시성·토큰 예산에 상한이 있고 시작 전 예상 비용을 보여줍니다. **명시적으로 켤 때만 동작**합니다(프롬프트에 `supercode`, 컴포저 스위치, `/supercode on`)
-- 권한 모드(확인/편집자동/플랜/자동)는 **Shift+Tab**으로 전환
-- UI 5개 언어: **English · 한국어 · 中文 · 日本語 · Français**
-- 설치: [Releases](https://github.com/leejoong/whalex/releases)에서 OS별 설치본 다운로드 → 앱 실행 → DeepSeek 키 입력 → 폴더 선택
-- 소스 빌드: `pnpm install && pnpm dev` (저장소 루트에서)
-
-> 참고: DeepSeek API는 텍스트 전용이라 이미지/컴퓨터 유즈는 별도 비전 모델 연결 시 동작합니다. 설치본은 아직 미서명이라 첫 실행 시 OS 경고가 뜹니다.
