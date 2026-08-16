@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Brain } from "lucide-react";
 
-export const EFFORT_LEVELS = ["none", "low", "medium", "high"] as const;
+export const EFFORT_LEVELS = ["none", "low", "medium", "high", "extra"] as const;
 export type EffortLevel = (typeof EFFORT_LEVELS)[number];
 
 interface Props {
@@ -10,38 +11,91 @@ interface Props {
 }
 
 /**
- * Thinking effort as a segmented control rather than a menu: the levels are an
- * ordered scale, and you nearly always want the one next to where you are — so
- * showing all four and letting a single click land on any of them beats opening
- * a dropdown to move one step.
+ * Thinking effort: the composer shows only the level you are on, and clicking
+ * it opens a slider you drag across the scale. Five buttons sitting in the
+ * composer at all times was too much furniture for a control you touch rarely,
+ * and the levels are ordered, so a track reads better than a row of choices.
  */
 export function EffortControl({ value, onChange }: Props) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const index = Math.max(0, EFFORT_LEVELS.indexOf(value));
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation(); // Esc closes the slider, not the running turn
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }, [open]);
+
   return (
-    <div
-      className="flex items-center gap-0.5 rounded-md border border-border px-1 py-[3px]"
-      title={t("composer.effortTip")}
-    >
-      <Brain size={12} className="mr-0.5 shrink-0 text-faint" />
-      {EFFORT_LEVELS.map((lvl) => {
-        const active = lvl === value;
-        return (
-          <button
-            key={lvl}
-            type="button"
-            onClick={() => onChange(lvl)}
-            aria-pressed={active}
-            title={t(`effort.hint.${lvl}`)}
-            className={`rounded px-1.5 py-[1px] text-[11px] leading-4 transition-colors ${
-              active
-                ? "bg-accent-soft font-medium text-accent"
-                : "text-faint hover:bg-surface-2 hover:text-muted"
-            }`}
-          >
-            {t(`effort.short.${lvl}`)}
-          </button>
-        );
-      })}
+    <div ref={wrap} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={t("composer.effortTip")}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] transition-colors ${
+          open ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"
+        }`}
+      >
+        <Brain size={12} />
+        {t(`effort.short.${value}`)}
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-label={t("composer.effortTip")}
+          className="absolute bottom-full left-0 z-50 mb-1.5 w-[264px] rounded-xl border border-border bg-surface p-3 shadow-lg"
+        >
+          <div className="mb-0.5 flex items-baseline justify-between">
+            <span className="text-[12.5px] font-medium">{t(`effort.${value}`)}</span>
+            <span className="text-[11px] text-faint">{t("composer.effortTip")}</span>
+          </div>
+          <p className="mb-2.5 text-[11px] leading-snug text-faint">{t(`effort.hint.${value}`)}</p>
+
+          <input
+            type="range"
+            min={0}
+            max={EFFORT_LEVELS.length - 1}
+            step={1}
+            value={index}
+            onChange={(e) => onChange(EFFORT_LEVELS[Number(e.target.value)] ?? "medium")}
+            aria-valuetext={t(`effort.${value}`)}
+            className="effort-range w-full"
+          />
+
+          <div className="mt-1 flex justify-between">
+            {EFFORT_LEVELS.map((lvl, i) => (
+              <button
+                key={lvl}
+                type="button"
+                onClick={() => onChange(lvl)}
+                className={`-mx-1 px-1 text-[10.5px] transition-colors ${
+                  i === index ? "font-medium text-accent" : "text-faint hover:text-muted"
+                }`}
+              >
+                {t(`effort.short.${lvl}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

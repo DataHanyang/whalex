@@ -50,7 +50,7 @@ export const HookConfigSchema = z.object({
 });
 export type HookConfig = z.infer<typeof HookConfigSchema>;
 
-export const ReasoningEffortSchema = z.enum(["none", "low", "medium", "high"]);
+export const ReasoningEffortSchema = z.enum(["none", "low", "medium", "high", "extra"]);
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
 export const SettingsSchema = z.object({
