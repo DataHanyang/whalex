@@ -7,9 +7,9 @@
 Like **Claude Code** / **Codex** — but it runs on your own DeepSeek key.
 Reads, edits and runs code in a folder on your machine, and shows you what it built in a live preview.
 
-[![Release](https://img.shields.io/github/v/release/DataHanyang/whalex?include_prereleases&label=release&color=4d6bfe)](https://github.com/DataHanyang/whalex/releases)
+[![Release](https://img.shields.io/github/v/release/leejoong/whalex?include_prereleases&label=release&color=4d6bfe)](https://github.com/leejoong/whalex/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-4d6bfe.svg)](LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4d6bfe)](https://github.com/DataHanyang/whalex/releases)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4d6bfe)](https://github.com/leejoong/whalex/releases)
 [![Made with DeepSeek](https://img.shields.io/badge/model-DeepSeek-4d6bfe)](https://platform.deepseek.com)
 [![i18n](https://img.shields.io/badge/i18n-EN·KO·中文·日本語·FR-4d6bfe)](#-languages)
 
@@ -70,7 +70,7 @@ Three ideas drive it:
 
 ### Install
 
-Grab your OS installer from **[Releases](https://github.com/DataHanyang/whalex/releases)** —
+Grab your OS installer from **[Releases](https://github.com/leejoong/whalex/releases)** —
 step-by-step instructions per OS are [at the bottom of this page](#-installing-per-os).
 Then launch it: **paste your [DeepSeek API key](https://platform.deepseek.com/api_keys) →
 pick a folder → go.**
@@ -78,7 +78,7 @@ pick a folder → go.**
 ### Or build from source
 
 ```bash
-git clone https://github.com/DataHanyang/whalex && cd whalex
+git clone https://github.com/leejoong/whalex && cd whalex
 pnpm install
 pnpm dev        # launch the desktop app (run from the repo root)
 ```
@@ -382,7 +382,7 @@ configure. There is no account, no telemetry, and no middleman server.
 ## 💾 Installing, per OS
 
 ### Windows
-1. Download **`WhaleX-Setup-0.1.0.exe`** from [Releases](https://github.com/DataHanyang/whalex/releases).
+1. Download **`WhaleX-Setup-0.1.0.exe`** from [Releases](https://github.com/leejoong/whalex/releases).
 2. Run it. SmartScreen will warn because the build is unsigned — click **More info → Run anyway**.
 3. The app installs per-user (no admin rights needed) and creates Start-menu and desktop shortcuts.
 4. First launch: paste your DeepSeek API key, pick a working folder, choose a permission mode.
@@ -410,7 +410,7 @@ configure. There is no account, no telemetry, and no middleman server.
 
 ### From source (all platforms)
 ```bash
-git clone https://github.com/DataHanyang/whalex && cd whalex
+git clone https://github.com/leejoong/whalex && cd whalex
 pnpm install
 pnpm dev                              # run the app in dev mode
 pnpm --filter @whalex/desktop dist    # or build an installer
@@ -433,7 +433,7 @@ MIT — see [LICENSE](LICENSE).
 - **슈퍼코드(SuperCode)** — 한 컨텍스트에 안 담기는 큰 일(코드베이스 전수 감사, 설계안 비교, 대량 마이그레이션)에 에이전트 여러 개를 한꺼번에 투입합니다. 에이전트가 짧은 오케스트레이션 스크립트를 쓰면 Whalex가 그걸 실행해 서브에이전트를 팬아웃하고 진행 상황을 트리로 보여줍니다. **제어 흐름(반복·분기·병합)은 코드가, 판단은 모델이** 맡는 구조라 결과가 결정적이고 들여다보기 쉽습니다. 스크립트는 주입된 5개 훅(`agent` `parallel` `pipeline` `phase` `log`)만 쓸 수 있고 파일·네트워크 접근이 없으며, 서브에이전트의 도구 호출도 같은 권한 시스템을 거칩니다. 에이전트 수·동시성·토큰 예산에 상한이 있고 시작 전 예상 비용을 보여줍니다. **명시적으로 켤 때만 동작**합니다(프롬프트에 `supercode`, 컴포저 스위치, `/supercode on`)
 - 권한 모드(확인/편집자동/플랜/자동)는 **Shift+Tab**으로 전환
 - UI 5개 언어: **English · 한국어 · 中文 · 日本語 · Français**
-- 설치: [Releases](https://github.com/DataHanyang/whalex/releases)에서 OS별 설치본 다운로드 → 앱 실행 → DeepSeek 키 입력 → 폴더 선택
+- 설치: [Releases](https://github.com/leejoong/whalex/releases)에서 OS별 설치본 다운로드 → 앱 실행 → DeepSeek 키 입력 → 폴더 선택
 - 소스 빌드: `pnpm install && pnpm dev` (저장소 루트에서)
 
 > 참고: DeepSeek API는 텍스트 전용이라 이미지/컴퓨터 유즈는 별도 비전 모델 연결 시 동작합니다. 설치본은 아직 미서명이라 첫 실행 시 OS 경고가 뜹니다.
