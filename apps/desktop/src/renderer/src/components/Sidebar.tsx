@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FolderOpen, MessageSquare, Plus, Settings, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore } from "../stores/uiStore";
@@ -22,6 +23,7 @@ export function Sidebar() {
   const cwd = useSessionStore((s) => s.cwd);
   const startSession = useSessionStore((s) => s.startSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
+  const [pendingDelete, setPendingDelete] = useState<{ sessionId: string; cwd: string; title: string } | null>(null);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const openSettings = useUiStore((s) => s.openSettings);
 
@@ -71,7 +73,7 @@ export function Sidebar() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(t("sidebar.deleteConfirm"))) void deleteSession(s.sessionId, s.cwd);
+                  setPendingDelete({ sessionId: s.sessionId, cwd: s.cwd, title: s.title });
                 }}
                 className="shrink-0 text-faint opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
                 title={t("sidebar.delete")}
@@ -92,6 +94,41 @@ export function Sidebar() {
         <Settings size={14} />
         {t("sidebar.settings")}
       </button>
+      {pendingDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setPendingDelete(null)}
+        >
+          <div
+            className="w-[340px] rounded-xl border border-border bg-surface p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-1 flex items-center gap-2 text-[13.5px] font-semibold">
+              <Trash2 size={15} className="text-danger" />
+              {t("sidebar.delete")}
+            </div>
+            <p className="mb-1 truncate text-[12.5px] text-muted">{pendingDelete.title}</p>
+            <p className="mb-3 text-[12px] text-faint">{t("sidebar.deleteConfirm")}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] text-muted hover:bg-surface-2"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  void deleteSession(pendingDelete.sessionId, pendingDelete.cwd);
+                  setPendingDelete(null);
+                }}
+                className="rounded-lg bg-danger px-3 py-1.5 text-[12.5px] font-medium text-white hover:opacity-90"
+              >
+                {t("sidebar.delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
