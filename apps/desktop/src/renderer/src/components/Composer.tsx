@@ -288,7 +288,7 @@ export function Composer() {
   const modelOptions = models.length > 0 ? models.map((m) => m.id) : [model];
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 pb-5 pt-1">
+    <div className="mx-auto w-full max-w-4xl px-6 pb-5 pt-1">
       <div
         className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong"
         onDrop={onDrop}
@@ -386,7 +386,7 @@ export function Composer() {
           </button>
           <button
             onClick={() => setSuperCode(!superCode)}
-            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${superCode ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"}`}
+            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${superCode ? "supercode-on" : "border-border text-muted hover:bg-surface-2"}`}
             title={t("composer.superCodeTip")}
           >
             <Sparkles size={12} />

@@ -48,7 +48,7 @@ export function AppShell() {
         <main className="flex min-w-0 flex-1 flex-col">
           <Transcript />
           {pendingQuestion && (
-            <div className="mx-auto w-full max-w-3xl px-6">
+            <div className="mx-auto w-full max-w-4xl px-6">
               <QuestionCard request={pendingQuestion} />
             </div>
           )}

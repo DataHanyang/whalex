@@ -1,14 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { Bot, Check, ChevronDown, ChevronRight, Loader2, Sparkles, X } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
-
-const STATE_DOT: Record<string, string> = {
-  pending: "bg-faint",
-  running: "bg-accent",
-  done: "bg-ok",
-  error: "bg-danger",
-};
 
 /** Live SuperCode progress tree: phases → agents, with token/cost counters. */
 export function WorkflowPanel({ workflowId }: { workflowId: string }) {
@@ -48,20 +41,62 @@ export function WorkflowPanel({ workflowId }: { workflowId: string }) {
       </button>
       {open && (
         <div className="border-t border-accent/30 px-3 py-2">
-          {phases.map((phase) => (
-            <div key={phase || "_"} className="mb-2 last:mb-0">
-              {phase && <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">{phase}</div>}
-              {(byPhase.get(phase) ?? []).map((a) => (
-                <div key={a.id} className="flex items-center gap-2 py-0.5">
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATE_DOT[a.state]}`} />
-                  <span className="truncate text-[12px]">{a.label}</span>
-                  <div className="flex-1" />
-                  {a.tokens > 0 && <span className="text-[10.5px] text-faint">{a.tokens} tok</span>}
-                  {a.durationMs > 0 && (
-                    <span className="text-[10.5px] text-faint">{(a.durationMs / 1000).toFixed(0)}s</span>
-                  )}
+          {phases.map((phase, pi) => (
+            <div key={phase || "_"} className="mb-3 last:mb-1">
+              {phase && (
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-accent-soft text-[9px] font-bold text-accent">
+                    {pi + 1}
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-faint">{phase}</span>
+                  <span className="h-px flex-1 bg-accent/20" />
                 </div>
-              ))}
+              )}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1.5">
+                {(byPhase.get(phase) ?? []).map((a) => (
+                  <div
+                    key={a.id}
+                    className={`rounded-lg border bg-surface px-2.5 py-2 ${
+                      a.state === "running"
+                        ? "agent-running"
+                        : a.state === "done"
+                          ? "border-ok/40"
+                          : a.state === "error"
+                            ? "border-danger/50"
+                            : "border-border opacity-60"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                          a.state === "running"
+                            ? "bg-accent-soft text-accent"
+                            : a.state === "done"
+                              ? "bg-ok/15 text-ok"
+                              : a.state === "error"
+                                ? "bg-danger/15 text-danger"
+                                : "bg-surface-2 text-faint"
+                        }`}
+                      >
+                        {a.state === "running" ? (
+                          <Loader2 size={11} className="animate-spin" />
+                        ) : a.state === "done" ? (
+                          <Check size={11} />
+                        ) : a.state === "error" ? (
+                          <X size={11} />
+                        ) : (
+                          <Bot size={11} />
+                        )}
+                      </span>
+                      <span className="truncate text-[11.5px] font-medium">{a.label}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between text-[10px] tabular-nums text-faint">
+                      <span>{a.tokens > 0 ? `${a.tokens.toLocaleString()} tok` : " "}</span>
+                      <span>{a.durationMs > 0 ? `${(a.durationMs / 1000).toFixed(0)}s` : ""}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
           {workflow.log.length > 0 && (

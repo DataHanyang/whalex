@@ -585,16 +585,20 @@ export class AgentLoop {
     // tool result. Aborting the turn resolves every pending question.
     if (call.name === "ask_user") {
       const q = rawArgs as {
-        question?: string;
-        options?: Array<{ label: string; description?: string }>;
-        multi_select?: boolean;
+        questions?: Array<{
+          question?: string;
+          options?: Array<{ label: string; description?: string }>;
+          multi_select?: boolean;
+        }>;
       };
       const request = {
         id: call.id,
-        question: q.question ?? "",
-        options: q.options ?? [],
+        questions: (q.questions ?? []).map((item) => ({
+          question: item.question ?? "",
+          options: item.options ?? [],
+          multiSelect: !!item.multi_select,
+        })),
         allowOther: true,
-        multiSelect: !!q.multi_select,
       };
       yield { type: "question-request", request };
       const answer = await new Promise<string>((resolve) => {

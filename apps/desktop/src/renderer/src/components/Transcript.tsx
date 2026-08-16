@@ -205,7 +205,7 @@ export function Transcript() {
   return (
     <div className="relative min-h-0 flex-1">
       <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-6 pb-6 pt-6">
+        <div className="mx-auto max-w-4xl px-6 pb-6 pt-6">
           {transcript.length === 0 ? (
             <EmptyState />
           ) : (

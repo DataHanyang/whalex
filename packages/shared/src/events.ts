@@ -36,12 +36,16 @@ export type AgentErrorCode = z.infer<typeof AgentErrorCodeSchema>;
  */
 export const UserQuestionSchema = z.object({
   id: z.string(),
-  question: z.string(),
-  options: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+  /** 1-4 questions, walked through one at a time in the card. */
+  questions: z.array(
+    z.object({
+      question: z.string(),
+      options: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+      multiSelect: z.boolean().default(false),
+    }),
+  ),
   /** Free-text answers allowed alongside the options. */
   allowOther: z.boolean().default(true),
-  /** Checkboxes + submit instead of one-click choice. */
-  multiSelect: z.boolean().default(false),
 });
 export type UserQuestion = z.infer<typeof UserQuestionSchema>;
 
