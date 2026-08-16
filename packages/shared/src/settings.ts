@@ -50,7 +50,11 @@ export const HookConfigSchema = z.object({
 });
 export type HookConfig = z.infer<typeof HookConfigSchema>;
 
-export const ReasoningEffortSchema = z.enum(["none", "low", "medium", "high", "extra"]);
+export const ReasoningEffortSchema = z.preprocess(
+  // Early builds stored "extra"; DeepSeek's scale calls that tier "max".
+  (v) => (v === "extra" ? "max" : v),
+  z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]),
+);
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
 export const SettingsSchema = z.object({
