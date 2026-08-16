@@ -256,12 +256,12 @@ double-digit dollar decision.
 current real-time positions and info of satellites on a 3D Earth. Find and connect
 real live data sources yourself. Take great care with the UI/UX."* — to two fresh
 sessions on the same model (V4 Pro), same procedure (plan → accept → auto). The
-SuperCode run is the hero image at the top of this page; the solo run built the
-dashboard below. Both shipped genuinely excellent, fully-verified trackers — the
+SuperCode run's tracker is also the hero image at the top of this page. Both shipped genuinely excellent, fully-verified trackers — the
 difference was how they got there:
 
-| | SuperCode (Deep budget) | Solo agent |
+| | 🚀 **SuperCode (Deep budget)** | 🧑‍🚀 **Solo agent** |
 |---|---|---|
+| Result | <img src="docs/screenshots/hero.png" alt="SuperCode fleet's tracker: 10,961 satellites with an ISS telemetry panel, source-freshness chips and altitude histogram" width="420"> | <img src="docs/screenshots/orbital-b.png" alt="Solo agent's tracker: 16,084 satellites color-coded by category with orbit-regime filters" width="420"> |
 | Active working time | **64 min** | 93 min |
 | Tool calls / file writes | 348 / 96 | 294 / 74 |
 | Satellites rendered | 10,961 (curated groups) | 16,084 (full catalog) |
@@ -273,8 +273,6 @@ difference was how they got there:
 <sub>*Upper bound at $0.435/$0.87 per 1M tokens with no cache discount — DeepSeek's
 automatic context caching bills repeated prefixes at a fraction of list, so the
 real figure is far lower. Frontier column: the same token volume at $5/$25.</sub>
-
-<img src="docs/screenshots/orbital-b.png" alt="The solo run's tracker: 16,084 satellites color-coded by category with orbit-regime filters on a 3D Earth" width="820">
 
 The fleet finished a third faster and verified along more axes at once; the solo
 agent went deeper on fewer threads. What makes either affordable enough to run
