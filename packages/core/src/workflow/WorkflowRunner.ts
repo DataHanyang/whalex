@@ -92,7 +92,15 @@ export class WorkflowRunner {
       }
       this.state.state = this.deps.signal.aborted ? "aborted" : "done";
       this.emit();
-      return { ok: true, result: typeof result === "string" ? result : JSON.stringify(result, null, 2) };
+      // A script with no return statement must still yield a string result —
+      // JSON.stringify(undefined) is undefined and would crash the caller.
+      const text =
+        typeof result === "string"
+          ? result
+          : result === undefined
+            ? `Workflow completed: ${this.state.agents.length} agents ran (${this.state.agents.filter((a) => a.state === "done").length} done).`
+            : JSON.stringify(result, null, 2);
+      return { ok: true, result: text };
     } catch (err) {
       this.state.state = "error";
       this.emit();

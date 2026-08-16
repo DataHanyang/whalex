@@ -747,7 +747,7 @@ interface ExtractedArtifact {
 }
 
 function extractArtifact(output: string): ExtractedArtifact | null {
-  if (!output.startsWith(ARTIFACT_MARKER)) return null;
+  if (typeof output !== "string" || !output.startsWith(ARTIFACT_MARKER)) return null;
   try {
     return JSON.parse(output.slice(ARTIFACT_MARKER.length)) as ExtractedArtifact;
   } catch {
