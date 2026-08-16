@@ -103,10 +103,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const id = get().activeSessionId;
     if (id) void whalex.invoke("session:command", { sessionId: id, command: on ? "supercode-on" : "supercode-off" });
     // SuperCode always opens in plan mode with the strongest model: recon
-    // and the budget interview come before any write. Turning it off returns
-    // to normal approvals (the model stays wherever it is).
+    // and the budget interview come before any write. Re-enabling it on a
+    // session whose plan was already presented must NOT drag the run back
+    // into plan mode — that blocked a mid-execution session once.
     if (on) get().setModel("deepseek-v4-pro");
-    get().setPermissionMode(on ? "plan" : "default");
+    const planDone = get().transcript.some((t) => t.kind === "artifact" && t.artifactKind === "plan");
+    get().setPermissionMode(on ? (planDone ? "bypassPermissions" : "plan") : "default");
   },
   setPermissionMode(mode) {
     set({ permissionMode: mode });
