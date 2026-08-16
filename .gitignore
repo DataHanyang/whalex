@@ -8,3 +8,7 @@ release/
 .env.*
 .DS_Store
 Thumbs.db
+
+# Agent browsing artifacts
+.playwright-mcp/
+orbital-*.png
