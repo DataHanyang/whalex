@@ -434,16 +434,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           ],
         }));
         break;
-      case "supercode":
-        // Main turned SuperCode on (keyword in the prompt); mirror the toggle
-        // and enter plan mode on the strongest model, exactly like clicking
-        // the composer switch.
+      case "supercode": {
+        // Fired on keyword activation AND on reattach replay. Mirror the flag
+        // and model, but only enter plan mode when the plan stage hasn't
+        // happened yet — replaying this on a mid-execution session used to
+        // drag it back into read-only plan mode.
         set({ superCode: ev.on });
         if (ev.on) {
           get().setModel("deepseek-v4-pro");
-          get().setPermissionMode("plan");
+          const planDone = get().transcript.some(
+            (t) => t.kind === "artifact" && t.artifactKind === "plan",
+          );
+          if (!planDone) get().setPermissionMode("plan");
         }
         break;
+      }
       case "browser-navigated": {
         const tabs = ev.tabs ?? (ev.url ? [{ id: "tab1", url: ev.url, title: ev.title }] : []);
         const activeTabId = ev.activeTabId ?? tabs.at(-1)?.id ?? null;
