@@ -59,7 +59,16 @@ export function Sidebar() {
         {sessions.length === 0 && (
           <div className="px-2 py-3 text-[12px] text-faint">{t("sidebar.empty")}</div>
         )}
-        {sessions.map((s) => (
+        {[...new Set(sessions.map((x) => x.cwd))].map((groupCwd) => (
+          <div key={groupCwd}>
+            <div
+              className="flex items-center gap-1.5 px-2 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-faint"
+              title={groupCwd}
+            >
+              <FolderOpen size={10} />
+              {groupCwd.split(/[\\/]/).pop()}
+            </div>
+            {sessions.filter((x) => x.cwd === groupCwd).map((s) => (
           <div
             key={s.sessionId}
             onClick={() => void startSession(s.cwd, s.sessionId)}
@@ -84,6 +93,8 @@ export function Sidebar() {
             <span className="mt-0.5 pl-[18px] text-[11px] text-faint">
               {timeAgo(s.updatedAt, i18n.language)}
             </span>
+          </div>
+            ))}
           </div>
         ))}
       </div>
