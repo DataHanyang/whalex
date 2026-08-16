@@ -1,81 +1,96 @@
-# Promo copy for WhaleX
+# WhaleX 홍보 킷 (v0.2.0)
 
-Ready-to-paste blurbs for different channels. Swap the download/link line once a
-release is published.
-
----
-
-## One-liner
-
-**WhaleX — an open-source, local coding agent desktop app powered by DeepSeek.** Like Claude Code / Codex, but bring your own DeepSeek key.
+바로 붙여넣기용 초안. 채널별 톤 맞춤. 게시는 계정 주인이 직접.
 
 ---
 
-## Hacker News / Reddit (English)
+## 1) Hacker News — Show HN
 
-**Show HN: WhaleX – a local coding-agent desktop app powered by DeepSeek**
+**Title:**
+Show HN: WhaleX – Claude Code-style agent on your own DeepSeek key (1/50th cost)
 
-I wanted Claude Code's workflow but running on DeepSeek, so I built WhaleX — an Electron desktop app where a DeepSeek agent reads, edits, and runs code in a folder on your machine, and shows you what it built in a live preview.
+**Body:**
+I built an open-source coding-agent desktop app that works like Claude Code or Codex, but runs on your own DeepSeek API key.
 
-What it does:
+Why: DeepSeek V4 costs $0.435/$0.87 per 1M tokens vs $5/$25+ for frontier models. I wanted to know whether the agent-harness patterns (plan mode, permission gates, MCP, skills, sub-agent fleets) survive the model swap. They mostly do.
 
-- Local tools: read / write / edit files, run PowerShell/bash, glob, grep, web fetch
-- Permission modes (Ask / Auto-edit / Plan / Auto), inline approval cards
-- Artifact preview panel — renders HTML/SVG/Mermaid/Markdown the agent creates
-- Browser use — the agent opens and reads pages via the DOM (works around DeepSeek being text-only)
-- Sub-agents + "SuperCode" multi-agent fan-out
-- Goal mode (Codex-style loop that self-evaluates until the goal is met)
-- MCP servers (one-click presets), Skills, plugins, Hooks
-- Checkpoints + `/rewind` to restore files and conversation
-- Vision bridge: paste an image → a vision model describes it → injected into context
-- Auto-update, English/Korean UI
+Numbers from a five-task head-to-head on one machine (same prompts, full-auto, artifacts verified in a real browser engine): WhaleX $0.135 total vs Codex $7.30 vs Claude Code ~$14.10. All three scored 100% on the two objectively-scored tasks — on well-specified work the gap is cost and time, not correctness. Full method + raw numbers in the repo.
 
-It's BYOK (your own DeepSeek API key), MIT-licensed, and runs on Windows/macOS/Linux.
+The fun part is SuperCode: an Ultracode-style orchestration mode. Toggle it and the session auto-switches to the strongest model at max reasoning, runs a 3-explorer+1-critic recon fleet, interviews you (including how much budget to spend), presents a plan, then executes with parallel agent fleets — judge panels, adversarial verification. The README hero image is a real-time tracker of 10,961 satellites it built end-to-end from one prompt. Same brief to a solo agent took 45% longer; both cost single-digit dollars where the same token volume at frontier rates would be $120–290.
 
-Repo: https://github.com/leejoong/whalex
+Windows/macOS/Linux builds on the releases page (unsigned for now — checksums attached). Privacy: BYOK, zero telemetry, and secret-shaped strings (keys, tokens) are masked before any request leaves your machine.
 
-Honest notes: DeepSeek's API is text-only, so image/computer-use go through an optional vision model you connect separately. The Windows installer isn't code-signed yet, so SmartScreen will warn on first run.
+https://github.com/leejoong/whalex
+
+Honest caveats: DeepSeek is weaker than frontier models at underspecified tasks; builds are unsigned; one run per benchmark task (order-of-magnitude comparison, not a model ranking). Happy to answer anything.
 
 ---
 
-## GeekNews / 커뮤니티 (한국어)
+## 2) Reddit — r/LocalLLaMA
 
-**WhaleX — DeepSeek로 구동되는 오픈소스 로컬 코딩 에이전트**
+**Title:** WhaleX: open-source Claude Code alternative that runs on your DeepSeek key — benchmarked at 1/50th the cost, with a multi-agent "SuperCode" mode
 
-Claude Code · Codex의 워크플로를 DeepSeek로 쓰고 싶어서 만든 Electron 데스크톱 앱입니다. DeepSeek 에이전트가 내 폴더에서 코드를 읽고·고치고·실행하고, 만든 걸 앱 안 미리보기로 바로 보여줍니다.
+**Body:**
+Desktop app (Electron, MIT) with the full agent-harness kit: streaming tool calls, plan mode with Accept/Revise/Reject, permission system, MCP servers, Claude Code-compatible skills (installs straight from anthropics/skills or any GitHub repo), checkpoints/rewind, in-app multi-tab browser, and auto-updates.
 
-주요 기능:
+The headline feature is SuperCode — hundreds-of-agents orchestration on DeepSeek pricing. It always starts in plan mode: recon fleet (3 explorers + 1 critic) → interview incl. a budget dial (Economy/Standard/Deep/Unlimited) → plan that names its fleet → full-auto execution with judge panels and adversarial verification. One prompt produced a live tracker of 10,961 satellites (hero image in the repo); the identical prompt to a solo agent shipped comparable quality 45% slower.
 
-- 로컬 도구: 파일 읽기/쓰기/편집, PowerShell·bash 실행, glob/grep, 웹 가져오기
-- 권한 모드(확인/편집 자동/플랜/자동) + 인라인 승인 카드
-- 아티팩트 미리보기 — 만든 HTML·SVG·Mermaid·마크다운을 앱에서 렌더
-- 브라우저 유즈 — DOM 기반으로 페이지를 열고 읽음(텍스트 전용 모델의 한계 우회)
-- 서브에이전트 + 슈퍼코드(멀티 에이전트 팬아웃)
-- 목표 모드 — 목표를 주면 완료까지 자율 반복(코덱스 스타일)
-- MCP 서버(원클릭 프리셋) · Skills · 플러그인 · Hooks
-- 체크포인트 + `/rewind`로 파일·대화 복원
-- 비전 브리지: 이미지 붙여넣기 → 비전 모델 설명 → 컨텍스트 주입
-- 자동 업데이트, 영어/한국어 UI
+Cost reality check from our five-task benchmark: $0.135 total vs $7.30 (Codex) / ~$14.10 (Claude Code). BYOK, no telemetry, secrets masked before requests leave the machine. Works with any OpenAI-compatible endpoint, so local models via Ollama work too.
 
-BYOK(내 DeepSeek 키 연결), MIT 라이선스, Windows/macOS/Linux 지원.
-
-저장소: https://github.com/leejoong/whalex
-
-솔직한 참고: DeepSeek API는 텍스트 전용이라 이미지/컴퓨터 유즈는 별도 비전 모델을 연결해야 동작합니다. Windows 설치본은 아직 코드 서명 전이라 첫 실행 시 SmartScreen 경고가 뜹니다.
+https://github.com/leejoong/whalex — feedback and issues very welcome.
 
 ---
 
-## X / Twitter (English)
+## 3) X / Twitter 스레드 (EN)
 
-🐋 WhaleX — a local coding agent for your desktop, powered by DeepSeek.
+1/ Claude Code costs add up. DeepSeek tokens cost 1/50th. So I built WhaleX — an open-source coding-agent desktop app that runs the same workflows on your own DeepSeek key. 🐋
 
-Reads, edits & runs code in your folder. Live preview of what it builds. Browser use, sub-agents, goal mode, MCP, checkpoints/rewind.
+2/ Five-task benchmark, same prompts, same machine, full-auto:
+WhaleX $0.135 · Codex $7.30 · Claude Code ~$14.10
+Both scored tasks: all three hit 100%. The gap on specified work is cost, not correctness.
 
-BYOK · MIT · Win/mac/Linux
-→ github.com/leejoong/whalex
+3/ The flagship mode is SuperCode — Ultracode-class orchestration. Recon fleet → budget interview → plan → parallel agent fleets with judge panels + adversarial verification. This tracker of 10,961 live satellites came from ONE prompt: [히어로 이미지 첨부]
+
+4/ Same prompt, solo agent: excellent result too — 45% slower. Fleet ~57M tokens ≤$26 list (real bill far lower with caching). Same volume at frontier rates: ~$290. That's the whole thesis: cheap tokens make fleets a default, not a splurge.
+
+5/ Win/mac/Linux. BYOK, zero telemetry, secrets masked before anything leaves your machine. MIT.
+https://github.com/leejoong/whalex
 
 ---
 
-## Tags
+## 4) X / Twitter 스레드 (KR)
 
-`deepseek` `coding-agent` `electron` `desktop-app` `ai-agent` `mcp` `open-source` `byok` `llm`
+1/ 클로드 코드 토큰비가 부담돼서 만들었습니다. WhaleX — 내 DeepSeek 키로 도는 오픈소스 코딩 에이전트 데스크톱 앱. 같은 워크플로를 1/50 가격으로. 🐋
+
+2/ 동일 프롬프트 5개 과제 실측: WhaleX $0.135 vs Codex $7.30 vs Claude Code ~$14.10. 채점 가능한 과제는 셋 다 100점 — 명세가 정확하면 차이는 정확도가 아니라 비용과 시간입니다.
+
+3/ 간판 기능은 슈퍼코드(SuperCode): 정찰 함대(탐색3+비평1) → 예산 인터뷰 → 계획 승인 → 병렬 함대 실행(심사 패널·적대적 검증). 프롬프트 한 줄로 나온 실시간 인공위성 10,961개 트래커: [히어로 이미지]
+
+4/ 같은 프롬프트를 단일 에이전트에게 주면? 품질은 훌륭한데 45% 느립니다. 함대 ~5,700만 토큰이 정가 상한 $26 — 같은 볼륨을 프론티어 단가로 돌리면 ~$290. 싼 토큰이 함대를 '기본값'으로 만듭니다.
+
+5/ 윈도우/맥/리눅스. BYOK, 텔레메트리 없음, 키·토큰은 요청 전 마스킹. MIT 라이선스.
+https://github.com/leejoong/whalex
+
+---
+
+## 5) GeekNews (news.hada.io) 제출
+
+**제목:** WhaleX — 내 DeepSeek 키로 돌리는 오픈소스 Claude Code 대안 (5과제 실측 1/50 비용)
+
+**요약(본문):**
+Claude Code/Codex 스타일의 코딩 에이전트 데스크톱 앱입니다. BYOK(자기 API 키), Electron, MIT.
+
+- 플랜 모드(수락/수정/거절), 권한 시스템, MCP, Claude Code 호환 스킬, 체크포인트/되돌리기, 내장 멀티탭 브라우저, 자동 업데이트
+- 슈퍼코드: 울트라코드급 멀티에이전트 오케스트레이션 — 정찰 함대, 예산 인터뷰, 심사 패널, 적대적 검증. 프롬프트 하나로 실시간 위성 10,961개 트래커를 끝까지 만들어낸 게 README 대표 이미지입니다
+- 5과제 동일 프롬프트 실측: $0.135 vs Codex $7.30 vs Claude Code ~$14.10 (채점 과제는 셋 다 100%)
+- 프라이버시: 텔레메트리 없음, 시크릿(키·토큰) 요청 전 자동 마스킹, Ollama 등 로컬 엔드포인트 지원
+
+https://github.com/leejoong/whalex
+
+---
+
+## 게시 팁
+- Show HN은 화·수 오전(미국 동부) 게시가 노출에 유리
+- 첫 1시간 댓글 응대가 랭킹에 결정적 — 게시 직후 대기
+- X 스레드 3번 트윗에 hero.png 첨부 (저장소 docs/screenshots/hero.png)
+- 스크린샷·데이터 질문 대비: docs/bench/report.html 링크 준비
