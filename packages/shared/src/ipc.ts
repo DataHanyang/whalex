@@ -120,6 +120,10 @@ export const IPC_INVOKE = {
     req: z.object({ sessionId: z.string(), on: z.boolean() }),
     res: z.void(),
   },
+  "session:setModel": {
+    req: z.object({ sessionId: z.string(), model: z.string() }),
+    res: z.void(),
+  },
   "mcp:enablePreset": {
     req: z.object({ name: z.string(), cwd: z.string() }),
     res: z.void(),
@@ -171,6 +175,14 @@ export const IPC_INVOKE = {
     req: z.object({ cwd: z.string().optional() }),
     res: z.array(SkillInfoSchema),
   },
+  "skills:install": {
+    req: z.object({ source: z.string() }),
+    res: z.object({
+      ok: z.boolean(),
+      installed: z.array(z.string()),
+      error: z.string().optional(),
+    }),
+  },
   "plugins:install": {
     req: z.object({ source: z.enum(["local", "git"]), location: z.string() }),
     res: z.object({ ok: z.boolean(), name: z.string().optional(), error: z.string().optional() }),
@@ -209,6 +221,18 @@ export const IPC_INVOKE = {
   },
   "browser:hide": {
     req: z.void(),
+    res: z.void(),
+  },
+  "browser:navigate": {
+    req: z.object({ url: z.string() }),
+    res: z.void(),
+  },
+  "browser:selectTab": {
+    req: z.object({ tabId: z.string() }),
+    res: z.void(),
+  },
+  "browser:closeTab": {
+    req: z.object({ tabId: z.string() }),
     res: z.void(),
   },
   "vision:test": {

@@ -1,5 +1,6 @@
 import { app, dialog, ipcMain, shell, type BrowserWindow } from "electron";
 import { OpenAICompatProvider, SessionStore, VisionBridge, searchFiles } from "@whalex/core";
+import { installSkills } from "./SkillInstaller.js";
 import {
   IPC_INVOKE,
   type IpcInvokeChannel,
@@ -59,7 +60,11 @@ export function registerIpc(deps: {
     "auth:signOut": () => {
       auth.signOut();
     },
-    "settings:update": (req) => settings.update(req),
+    "settings:update": (req) => {
+      const out = settings.update(req);
+      host.applyLiveSettings();
+      return out;
+    },
     "secrets:set": (req) => {
       vault.set(req.ref, req.value);
     },
@@ -87,6 +92,7 @@ export function registerIpc(deps: {
     "session:setGoalMode": (req) => {
       host.setGoalMode(req.sessionId, req.on);
     },
+    "session:setModel": (req) => host.setModel(req.sessionId, req.model),
     "mcp:enablePreset": (req) => host.enablePreset(req.name, req.cwd),
     "permission:respond": (req) => {
       host.respondPermission(req);
@@ -101,8 +107,9 @@ export function registerIpc(deps: {
     "files:search": (req) => searchFiles(req.cwd, req.query, req.limit),
     "mcp:status": () => host.mcp.statuses(),
     "mcp:restart": (req) => host.restartMcp(req.name),
+    "skills:install": (req) => installSkills(req.source),
     "skills:list": async (req) => {
-      if (req.cwd) await host.skills.scan(req.cwd);
+      if (req.cwd) await host.skills.scan(req.cwd, plugins.skillDirs());
       return host.skills.list();
     },
     "plugins:install": (req) => plugins.install(req.source, req.location),
@@ -118,6 +125,15 @@ export function registerIpc(deps: {
     },
     "browser:setBounds": (req) => {
       browser.setBounds(req);
+    },
+    "browser:navigate": (req) => {
+      void browser.navigate(req.url);
+    },
+    "browser:selectTab": (req) => {
+      browser.selectTab(req.tabId);
+    },
+    "browser:closeTab": (req) => {
+      browser.closeTab(req.tabId);
     },
     "browser:hide": () => {
       browser.hide();

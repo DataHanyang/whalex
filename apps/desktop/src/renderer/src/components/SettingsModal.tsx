@@ -185,6 +185,29 @@ function ModelsTab() {
       </Row>
       <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">{t("settings.vision.title")}</div>
       <div className="mb-2 text-[11.5px] text-faint">{t("settings.vision.desc")}</div>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {(
+          [
+            // DeepSeek's own API is text-only; these serve DeepSeek-family VLMs
+            // over the same OpenAI-compatible protocol (bring your own key).
+            ["DeepSeek-VL2 · SiliconFlow", "https://api.siliconflow.com/v1", "deepseek-ai/deepseek-vl2"],
+            ["DeepSeek-OCR-2 · Novita", "https://api.novita.ai/openai", "deepseek/deepseek-ocr-2"],
+            ["Ollama (local · free)", "http://localhost:11434/v1", "qwen2.5vl"],
+          ] as const
+        ).map(([label, baseUrl, model]) => (
+          <button
+            key={label}
+            onClick={() => void update({ vision: { ...settings.vision, baseUrl, model } })}
+            className={`rounded-md border px-2 py-1 text-[11px] transition-colors ${
+              settings.vision.baseUrl === baseUrl && settings.vision.model === model
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-border text-muted hover:bg-surface-2"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <Row label={t("settings.vision.baseUrl")}>
         <input
           value={settings.vision.baseUrl}
@@ -383,11 +406,45 @@ function SkillsTab() {
   const { t } = useTranslation();
   const cwd = useAppStore((s) => s.settings)?.defaultCwd;
   const [skills, setSkills] = useState<SkillInfo[]>([]);
-  useEffect(() => {
-    void whalex.invoke("skills:list", { cwd }).then(setSkills);
-  }, [cwd]);
+  const [source, setSource] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const refresh = () => void whalex.invoke("skills:list", { cwd }).then(setSkills);
+  useEffect(refresh, [cwd]);
+
+  const install = async () => {
+    setBusy(true);
+    setMsg("");
+    const res = await whalex.invoke("skills:install", { source: source.trim() });
+    setBusy(false);
+    if (res.ok) {
+      setSource("");
+      setMsg(t("settings.skills.installed", { names: res.installed.join(", ") }));
+      refresh();
+    } else {
+      setMsg(res.error ?? "");
+    }
+  };
+
   return (
     <div>
+      <div className="mb-2 flex items-center gap-2">
+        <input
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          placeholder={t("settings.skills.sourcePlaceholder")}
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2.5 py-1.5 font-mono text-[11.5px] outline-none focus:border-accent"
+        />
+        <button
+          onClick={() => void install()}
+          disabled={busy || !source.trim()}
+          className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+        >
+          {busy ? "…" : t("settings.skills.install")}
+        </button>
+      </div>
+      {msg && <div className="mb-2 text-[11.5px] text-muted">{msg}</div>}
       <div className="mb-3 text-[12px] text-muted">{t("settings.skills.hint")}</div>
       {skills.length === 0 && (
         <div className="py-4 text-[12.5px] text-faint">{t("settings.skills.empty")}</div>

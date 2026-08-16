@@ -108,7 +108,8 @@ export function Composer() {
   const newSession = useSessionStore((s) => s.startSession);
 
   const running = status !== "idle";
-  const canSend = (text.trim().length > 0 || !!image) && !running && !pendingPermission && !describing;
+  // Sending while a run is active is allowed — it steers the running agent.
+  const canSend = (text.trim().length > 0 || !!image) && !pendingPermission && !describing;
 
   const readImageFile = (file: File) => {
     const reader = new FileReader();

@@ -75,6 +75,13 @@ export class PluginManager {
     try {
       return JSON.parse(await fs.readFile(path.join(dir, "plugin.json"), "utf8"));
     } catch {
+      // fall through to the Claude Code plugin layout
+    }
+    try {
+      return JSON.parse(
+        await fs.readFile(path.join(dir, ".claude-plugin", "plugin.json"), "utf8"),
+      );
+    } catch {
       return null;
     }
   }

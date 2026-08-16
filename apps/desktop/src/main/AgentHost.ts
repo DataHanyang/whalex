@@ -58,6 +58,8 @@ export class AgentHost {
   private artifacts = new Map<string, import("@whalex/shared").Artifact>();
   readonly mcp = new McpManager();
   readonly skills = new SkillRegistry();
+  /** Supplied by the plugin manager so plugin-bundled skills get scanned. */
+  pluginSkillDirs: () => string[] = () => [];
   private hooks: HookManager;
 
   getArtifact(id: string): import("@whalex/shared").Artifact | null {
@@ -85,9 +87,20 @@ export class AgentHost {
     this.computer = controller;
   }
 
-  notifyBrowserNavigated(url: string, title: string): void {
+  notifyBrowserNavigated(
+    url: string,
+    title: string,
+    tabs?: Array<{ id: string; url: string; title: string }>,
+    activeTabId?: string | null,
+  ): void {
     if (this.activeSessionForBrowser) {
-      this.emitDirect(this.activeSessionForBrowser, { type: "browser-navigated", url, title });
+      this.emitDirect(this.activeSessionForBrowser, {
+        type: "browser-navigated",
+        url,
+        title,
+        tabs,
+        activeTabId,
+      });
     }
   }
 
@@ -103,7 +116,7 @@ export class AgentHost {
     if (resumeSessionId) store = await SessionStore.load(cwd, resumeSessionId);
     store ??= SessionStore.create(cwd);
 
-    await this.skills.scan(cwd);
+    await this.skills.scan(cwd, this.pluginSkillDirs());
     const s = this.settings.get();
     const engine = new PermissionEngine(s.permissions, {
       persistRule: (rule) => this.settings.addAllowRule(rule),
@@ -185,6 +198,18 @@ export class AgentHost {
     return new OpenAICompatProvider({ baseUrl: ps.baseUrl, apiKey });
   }
 
+  setModel(sessionId: string, model: string): void {
+    this.sessions.get(sessionId)?.loop.setModel(resolveModelInfo(model));
+  }
+
+  /** Push updated tuning (effort/temperature) into every live session. */
+  applyLiveSettings(): void {
+    const s = this.settings.get();
+    for (const hosted of this.sessions.values()) {
+      hosted.loop.updateTuning({ reasoningEffort: s.reasoningEffort, temperature: s.temperature });
+    }
+  }
+
   setSuperCode(sessionId: string, on: boolean): void {
     const hosted = this.sessions.get(sessionId);
     if (hosted) hosted.superCode = on;
@@ -221,7 +246,13 @@ export class AgentHost {
   send(sessionId: string, text: string, model: string): void {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) throw new Error(`Unknown session: ${sessionId}`);
-    if (hosted.loop.isRunning) throw new Error("Session is already running.");
+    if (hosted.loop.isRunning) {
+      // Mid-run input becomes steering: the loop injects it before the next
+      // round, and a model switch applies to the next completion too.
+      hosted.loop.setModel(resolveModelInfo(model));
+      hosted.loop.steer(text);
+      return;
+    }
     const perms = this.settings.get().permissions;
     hosted.engine.setRules(hosted.modeOverride ? { ...perms, mode: hosted.modeOverride } : perms);
     hosted.loop.setModel(resolveModelInfo(model));
@@ -256,7 +287,7 @@ export class AgentHost {
               cwd: hosted.store.cwd,
               extraTools: () => this.mcp.toolDefs(),
               maxAgents: s.superCode.maxAgents,
-              concurrency: Math.max(2, Math.min(16, CPU - 2)),
+              concurrency: Math.max(4, Math.min(24, CPU * 2)),
               onUpdate: (state: WorkflowState) =>
                 this.emitDirect(sessionId, { type: "workflow-update", workflow: state }),
               signal: new AbortController().signal,
@@ -346,7 +377,7 @@ export class AgentHost {
       { name: "supercode", description: "슈퍼코드 멀티에이전트 모드 토글", source: "builtin" },
       { name: "help", description: "도움말", source: "builtin" },
     ];
-    if (cwd) await this.skills.scan(cwd);
+    if (cwd) await this.skills.scan(cwd, this.pluginSkillDirs());
     const skillCommands: SlashCommand[] = this.skills.list().map((s) => ({
       name: s.name,
       description: s.description,

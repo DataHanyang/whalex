@@ -82,6 +82,20 @@ export class AgentLoop {
     return this.running;
   }
 
+  /** Messages typed while the loop is running; injected before the next round. */
+  private steerQueue: string[] = [];
+
+  steer(text: string): void {
+    this.steerQueue.push(text);
+  }
+
+  /** Live-apply settings changes; the next completion picks them up. */
+  updateTuning(t: { reasoningEffort?: string; temperature?: number }): void {
+    if (t.reasoningEffort !== undefined)
+      (this.opts as { reasoningEffort?: string }).reasoningEffort = t.reasoningEffort;
+    if (t.temperature !== undefined) this.opts.temperature = t.temperature;
+  }
+
   setModel(modelInfo: ModelInfo): void {
     this.opts.modelInfo = modelInfo;
     this.context.setModel(modelInfo);
@@ -182,6 +196,14 @@ export class AgentLoop {
       .join("\n");
   }
 
+  private drainSteerQueue(session: AgentLoopOptions["session"]): void {
+    while (this.steerQueue.length > 0) {
+      const text = this.steerQueue.shift()!;
+      session.append({ type: "user", id: randomUUID(), text, ts: Date.now() });
+      this.context.addPending(text);
+    }
+  }
+
   async *run(userText: string): AsyncGenerator<AgentEvent> {
     if (this.running) throw new Error("Agent is already running for this session.");
     this.running = true;
@@ -208,6 +230,7 @@ export class AgentLoop {
 
       let truncationRetries = 0;
       for (let round = 0; round < MAX_ROUNDS; round++) {
+        this.drainSteerQueue(session);
         const messageId = randomUUID();
         yield { type: "message-start", messageId };
 
@@ -303,6 +326,13 @@ export class AgentLoop {
                 "with additional edit_file calls.",
               ts: Date.now(),
             });
+            yield { type: "status", state: "thinking" };
+            continue;
+          }
+          if (this.steerQueue.length > 0) {
+            // The user typed while the model was finishing — treat it as the
+            // next prompt of the same run instead of stopping.
+            this.drainSteerQueue(session);
             yield { type: "status", state: "thinking" };
             continue;
           }
