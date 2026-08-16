@@ -124,6 +124,10 @@ export const IPC_INVOKE = {
     req: z.object({ name: z.string(), cwd: z.string() }),
     res: z.void(),
   },
+  "question:respond": {
+    req: z.object({ id: z.string(), answer: z.string() }),
+    res: z.void(),
+  },
   "permission:respond": {
     req: PermissionResponseSchema,
     res: z.void(),

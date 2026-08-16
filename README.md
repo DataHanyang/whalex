@@ -150,12 +150,12 @@ real browser engine** to confirm they work — not just that a file was written.
 </tr>
 <tr>
   <td align="left"><b>Spreadsheet formula engine</b><br><sub>parser · error propagation · circular refs · 71 hidden cases · all three scored 100%</sub></td>
-  <td align="right">—<sup>†</sup></td><td align="right">11m 56s</td><td align="right">6m 39s</td>
+  <td align="right"><b>8m 34s</b><sup>†</sup></td><td align="right">11m 56s</td><td align="right">6m 39s</td>
   <td align="right"><b>$0.048</b></td><td align="right">$2.23</td><td align="right">$1.40</td>
 </tr>
 <tr>
   <th align="left">All five</th>
-  <th align="right">—</th><th align="right">37m 45s</th><th align="right">50m 34s</th>
+  <th align="right">32m 49s</th><th align="right">37m 45s</th><th align="right">50m 34s</th>
   <th align="right">$0.135</th><th align="right">$7.30<br><sub>54×</sub></th><th align="right">~$14.10<br><sub>104×</sub></th>
 </tr>
 </tbody>
@@ -204,9 +204,8 @@ flying from the track, seamless loop."</sub>
 the train never appeared. That failure is exactly why `verify_page` exists: the agent now renders
 its own page in a browser engine, sees "only 0.1% of the frame changes", and fixes it. The run in
 the table is the one that used it.
-**†** The WhaleX spreadsheet figure comes from a completed run on a second machine; the attempt on
-this one was still self-testing when it hit a 25-minute cap, so its wall-clock time is not
-comparable and is left out.
+**†** The WhaleX spreadsheet figures come from a completed run on a second machine; the attempt on
+the benchmark machine was still self-testing when it hit a 25-minute cap.
 **\*** Claude Code's Earth run was still refining when it hit a 25-minute cap, so its cost is an
 estimate — tokens from the session transcript, scaled by the Opus/Haiku mix ratio measured on the
 locomotive task; its artifact was finished and scores 100%. Codex's Windows sandbox helper failed

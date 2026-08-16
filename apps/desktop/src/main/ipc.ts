@@ -91,6 +91,9 @@ export function registerIpc(deps: {
     "permission:respond": (req) => {
       host.respondPermission(req);
     },
+    "question:respond": (req) => {
+      host.answerQuestion(req.id, req.answer);
+    },
     "session:command": (req) => host.command(req.sessionId, req.command, req.args),
     "checkpoint:list": (req) => host.listCheckpoints(req.sessionId),
     "checkpoint:rewind": (req) => host.rewind(req.sessionId, req.boundary),

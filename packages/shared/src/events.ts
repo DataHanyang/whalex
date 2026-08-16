@@ -34,6 +34,17 @@ export type AgentErrorCode = z.infer<typeof AgentErrorCodeSchema>;
  * Electron main relays them over IPC; the renderer folds them into the
  * transcript; SessionStore persists a subset as JSONL records.
  */
+export const UserQuestionSchema = z.object({
+  id: z.string(),
+  question: z.string(),
+  options: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+  /** Free-text answers allowed alongside the options. */
+  allowOther: z.boolean().default(true),
+  /** Checkboxes + submit instead of one-click choice. */
+  multiSelect: z.boolean().default(false),
+});
+export type UserQuestion = z.infer<typeof UserQuestionSchema>;
+
 export const AgentEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("message-start"), messageId: z.string() }),
   z.object({ type: z.literal("text-delta"), messageId: z.string(), delta: z.string() }),
@@ -107,6 +118,7 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     workflow: z.lazy(() => WorkflowStateSchema),
   }),
   z.object({ type: z.literal("permission-request"), request: PermissionRequestSchema }),
+  z.object({ type: z.literal("question-request"), request: UserQuestionSchema }),
   z.object({
     type: z.literal("permission-resolved"),
     requestId: z.string(),

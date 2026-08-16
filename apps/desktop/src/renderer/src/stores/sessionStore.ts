@@ -24,6 +24,8 @@ interface SessionState {
   usage: UsageInfo | null;
   todos: Todo[];
   pendingPermission: PermissionRequest | null;
+  pendingQuestion: import("@whalex/shared").UserQuestion | null;
+  answerQuestion(id: string, answer: string): void;
   lastError: { code: string; message: string } | null;
   model: string;
   superCode: boolean;
@@ -67,6 +69,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   usage: null,
   todos: [],
   pendingPermission: null,
+  pendingQuestion: null,
   lastError: null,
   model: "deepseek-v4-flash",
   superCode: false,
@@ -178,6 +181,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   async respondPermission(res) {
     set({ pendingPermission: null });
     await whalex.invoke("permission:respond", res);
+  },
+
+  answerQuestion(id, answer) {
+    void whalex.invoke("question:respond", { id, answer });
+    set({ pendingQuestion: null });
   },
 
   handleEnvelope(env) {
@@ -384,6 +392,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         break;
       case "permission-request":
         set({ pendingPermission: ev.request });
+        break;
+      case "question-request":
+        set({ pendingQuestion: ev.request });
         break;
       case "permission-resolved":
         set((s) =>

@@ -58,6 +58,17 @@ interface ParsedCall {
  */
 export class AgentLoop {
   readonly context: ContextManager;
+  /** Pending ask_user questions: id → resolve(answer). */
+  private questions = new Map<string, (answer: string) => void>();
+
+  /** Host calls this when the user answers a question card. */
+  answerQuestion(id: string, answer: string): boolean {
+    const r = this.questions.get(id);
+    if (!r) return false;
+    this.questions.delete(id);
+    r(answer);
+    return true;
+  }
   private controller: AbortController | null = null;
   private systemPrompt: string | null = null;
   private running = false;
@@ -568,6 +579,36 @@ export class AgentLoop {
 
     if (!tool) return fail(`Unknown tool: ${call.name}`);
     if (parseError) return fail(parseError);
+
+    // ask_user pauses the turn on the user, exactly like a permission request:
+    // yield the card, block on the answer, and hand the choice back as the
+    // tool result. Aborting the turn resolves every pending question.
+    if (call.name === "ask_user") {
+      const q = rawArgs as {
+        question?: string;
+        options?: Array<{ label: string; description?: string }>;
+        multi_select?: boolean;
+      };
+      const request = {
+        id: call.id,
+        question: q.question ?? "",
+        options: q.options ?? [],
+        allowOther: true,
+        multiSelect: !!q.multi_select,
+      };
+      yield { type: "question-request", request };
+      const answer = await new Promise<string>((resolve) => {
+        this.questions.set(call.id, resolve);
+        signal.addEventListener("abort", () => this.answerQuestion(call.id, "(no answer — turn aborted)"), { once: true });
+      });
+      return {
+        result: { ok: true, output: `User answered: ${answer}` },
+        parsedArgs: rawArgs,
+        durationMs: Date.now() - started,
+        denied: false,
+      };
+    }
+
 
     const parsed = tool.schema.safeParse(rawArgs);
     if (!parsed.success) {

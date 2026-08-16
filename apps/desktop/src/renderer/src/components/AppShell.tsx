@@ -9,6 +9,7 @@ import { BrowserPanel } from "./BrowserPanel";
 import { SettingsModal } from "./SettingsModal";
 import { UpdateToast } from "./UpdateToast";
 import { RewindDialog } from "./RewindDialog";
+import { QuestionCard } from "./QuestionCard";
 import { useUiStore } from "../stores/uiStore";
 import logoUrl from "../assets/logo.png";
 import { PanelLeftOpen } from "lucide-react";
@@ -17,6 +18,7 @@ export function AppShell() {
   const status = useSessionStore((s) => s.status);
   const abort = useSessionStore((s) => s.abort);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
+  const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
   const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
   const browserActive = useSessionStore((s) => s.browser.active);
   const rewindOpen = useUiStore((s) => s.rewindOpen);
@@ -45,6 +47,11 @@ export function AppShell() {
         <Sidebar />
         <main className="flex min-w-0 flex-1 flex-col">
           <Transcript />
+          {pendingQuestion && (
+            <div className="mx-auto w-full max-w-3xl px-6">
+              <QuestionCard request={pendingQuestion} />
+            </div>
+          )}
           <Composer />
         </main>
         {browserActive && (

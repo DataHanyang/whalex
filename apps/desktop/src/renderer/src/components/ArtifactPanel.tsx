@@ -34,7 +34,11 @@ function HtmlView({ content }: { content: string }) {
         <iframe
           ref={ref}
           title="artifact"
-          sandbox="allow-scripts"
+          // allow-same-origin is required for CDN module scripts and textures:
+          // an opaque-origin srcdoc breaks three.js-style loads. The content is
+          // authored by the local agent, which already writes arbitrary files
+          // on this machine — the iframe is not a trust boundary against it.
+          sandbox="allow-scripts allow-same-origin"
           className="h-full rounded border border-border bg-white"
           style={{ width: VIEWPORTS[vp], maxWidth: "100%" }}
         />

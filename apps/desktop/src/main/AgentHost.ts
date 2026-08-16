@@ -373,6 +373,13 @@ export class AgentHost {
     }
   }
 
+  /** Routes an ask_user answer to whichever session is waiting on it. */
+  answerQuestion(id: string, answer: string): void {
+    for (const hosted of this.sessions.values()) {
+      if (hosted.loop.answerQuestion(id, answer)) return;
+    }
+  }
+
   async restartMcp(name: string): Promise<void> {
     const entry = this.settings.get().mcpServers[name];
     if (entry) await this.mcp.restart(name, entry.config);
