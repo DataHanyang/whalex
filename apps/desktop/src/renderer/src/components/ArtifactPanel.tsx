@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, RefreshCw, X } from "lucide-react";
+import { ExternalLink, RefreshCw, X , PanelRightClose } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUiStore } from "../stores/uiStore";
 import { StreamingMarkdown } from "./StreamingMarkdown";
 import { CodeBlock } from "./CodeBlock";
 import { whalex } from "../lib/ipc";
@@ -103,6 +104,13 @@ export function ArtifactPanel() {
             <ExternalLink size={14} />
           </button>
         )}
+        <button
+          onClick={useUiStore.getState().toggleArtifactCollapsed}
+          className="rounded p-1 text-faint hover:text-text"
+          title="Collapse preview"
+        >
+          <PanelRightClose size={15} />
+        </button>
         <button onClick={close} className="rounded p-1 text-faint hover:text-text" title="Close">
           <X size={15} />
         </button>

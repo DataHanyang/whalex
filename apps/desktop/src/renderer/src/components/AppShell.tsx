@@ -11,6 +11,7 @@ import { UpdateToast } from "./UpdateToast";
 import { RewindDialog } from "./RewindDialog";
 import { useUiStore } from "../stores/uiStore";
 import logoUrl from "../assets/logo.png";
+import { PanelLeftOpen } from "lucide-react";
 
 export function AppShell() {
   const status = useSessionStore((s) => s.status);
@@ -19,6 +20,8 @@ export function AppShell() {
   const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
   const browserActive = useSessionStore((s) => s.browser.active);
   const rewindOpen = useUiStore((s) => s.rewindOpen);
+  const artifactCollapsed = useUiStore((s) => s.artifactCollapsed);
+  const toggleArtifactCollapsed = useUiStore((s) => s.toggleArtifactCollapsed);
   const closeRewind = useUiStore((s) => s.closeRewind);
 
   // Esc aborts a running turn (unless a permission card owns the key).
@@ -49,10 +52,22 @@ export function AppShell() {
             <BrowserPanel />
           </div>
         )}
-        {!browserActive && activeArtifactId && (
+        {!browserActive && activeArtifactId && !artifactCollapsed && (
           <div className="w-[46%] min-w-[360px] max-w-[720px] shrink-0">
             <ArtifactPanel />
           </div>
+        )}
+        {!browserActive && activeArtifactId && artifactCollapsed && (
+          // Folded: a rail keeps the artifact one click away while the
+          // transcript takes the width back.
+          <button
+            onClick={toggleArtifactCollapsed}
+            title="Show preview"
+            className="flex w-9 shrink-0 flex-col items-center gap-2 border-l border-border bg-surface py-3 text-faint hover:text-text"
+          >
+            <PanelLeftOpen size={15} />
+            <span className="[writing-mode:vertical-rl] text-[11px] tracking-wide">Preview</span>
+          </button>
         )}
       </div>
       <StatusBar />
