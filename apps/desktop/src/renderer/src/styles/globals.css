@@ -231,3 +231,38 @@ body {
 .thinking-dot:nth-child(3) {
   animation-delay: 0.4s;
 }
+
+/* Thinking-effort slider. Native range chrome differs per platform and ignores
+   the app's palette, so track and thumb are drawn explicitly. */
+.effort-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+.effort-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.effort-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -5px;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+  transition: transform 0.1s ease;
+}
+.effort-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.effort-range:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
