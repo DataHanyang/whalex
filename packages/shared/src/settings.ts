@@ -83,13 +83,20 @@ export const SettingsSchema = z.object({
   /** name → server entry. Superset of the project-level .mcp.json. */
   mcpServers: z.record(McpServerEntrySchema).default({}),
   plugins: z.array(InstalledPluginSchema).default([]),
-  superCode: z
-    .object({
-      maxAgents: z.number().int().min(1).max(200).default(50),
-      tokenBudget: z.number().int().min(0).default(0),
-      confirmBeforeRun: z.boolean().default(true),
-    })
-    .default({}),
+  superCode: z.preprocess(
+    // 50 was the old shipped default; SuperCode is a scale-first mode now.
+    (v) =>
+      v && typeof v === "object" && (v as { maxAgents?: number }).maxAgents === 50
+        ? { ...(v as object), maxAgents: 400 }
+        : v,
+    z
+      .object({
+        maxAgents: z.number().int().min(1).max(1000).default(400),
+        tokenBudget: z.number().int().min(0).default(0),
+        confirmBeforeRun: z.boolean().default(true),
+      })
+      .default({}),
+  ),
   updateChannel: z.enum(["stable", "beta"]).default("stable"),
   /** Optional vision sidecar — DeepSeek is text-only. Empty = disabled. */
   vision: z

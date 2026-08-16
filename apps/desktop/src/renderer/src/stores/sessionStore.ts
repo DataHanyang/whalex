@@ -36,7 +36,9 @@ interface SessionState {
   activeArtifactId: string | null;
   subagents: Record<string, { agentType: string; label: string; state: string; toolCount: number; tokens: number; lastActivity: string }>;
   workflow: WorkflowState | null;
-  browser: { active: boolean; url: string; title: string };
+  browser: { tabs: Array<{ id: string; url: string; title: string }>; activeTabId: string | null };
+  /** Selected side-panel tab: "agents", `a:<artifactId>` or `b:<browserTabId>`. */
+  sideTab: string | null;
   /** Wall-clock start of the running turn, or null when idle. */
   turnStartedAt: number | null;
   /** Total duration of the last completed turn (ms). */
@@ -50,7 +52,10 @@ interface SessionState {
   setGoalMode(on: boolean): void;
   openArtifact(id: string): void;
   closeArtifact(): void;
-  closeBrowser(): void;
+  selectSideTab(id: string): void;
+  closeArtifactTab(id: string): void;
+  selectBrowserTab(tabId: string): void;
+  closeBrowserTab(tabId: string): void;
   refreshSessions(): Promise<void>;
   deleteSession(sessionId: string, cwd: string): Promise<void>;
   rewind(boundary: number): Promise<void>;
@@ -81,7 +86,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   activeArtifactId: null,
   subagents: {},
   workflow: null,
-  browser: { active: false, url: "", title: "" },
+  browser: { tabs: [], activeTabId: null },
+  sideTab: null,
   turnStartedAt: null,
   lastTurnMs: null,
   permissionMode: "default",
@@ -89,6 +95,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   setModel(model) {
     set({ model });
+    const id = get().activeSessionId;
+    if (id) void whalex.invoke("session:setModel", { sessionId: id, model });
   },
   setSuperCode(on) {
     set({ superCode: on });
@@ -106,14 +114,46 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (id) void whalex.invoke("session:setGoalMode", { sessionId: id, on });
   },
   openArtifact(id) {
-    set({ activeArtifactId: id });
+    set({ activeArtifactId: id, sideTab: `a:${id}` });
+    void whalex.invoke("browser:hide", undefined);
   },
   closeArtifact() {
-    set({ activeArtifactId: null });
+    set({ activeArtifactId: null, sideTab: null });
   },
-  closeBrowser() {
-    set((s) => ({ browser: { ...s.browser, active: false } }));
-    void whalex.invoke("browser:hide", undefined);
+  selectSideTab(id) {
+    set({ sideTab: id, activeArtifactId: id.startsWith("a:") ? id.slice(2) : null });
+    if (id.startsWith("b:")) {
+      void whalex.invoke("browser:selectTab", { tabId: id.slice(2) });
+    } else {
+      // The native browser view would paint over DOM content; park it.
+      void whalex.invoke("browser:hide", undefined);
+    }
+  },
+  closeArtifactTab(id) {
+    set((s) => {
+      const artifacts = s.artifacts.filter((a) => a.artifactId !== id);
+      const wasActive = s.sideTab === `a:${id}`;
+      const nextTab = wasActive ? (artifacts.at(-1) ? `a:${artifacts.at(-1)!.artifactId}` : null) : s.sideTab;
+      return {
+        artifacts,
+        sideTab: nextTab,
+        activeArtifactId: nextTab?.startsWith("a:") ? nextTab.slice(2) : null,
+      };
+    });
+  },
+  selectBrowserTab(tabId) {
+    get().selectSideTab(`b:${tabId}`);
+  },
+  closeBrowserTab(tabId) {
+    void whalex.invoke("browser:closeTab", { tabId });
+    set((s) => {
+      const tabs = s.browser.tabs.filter((t) => t.id !== tabId);
+      const wasActive = s.sideTab === `b:${tabId}`;
+      return {
+        browser: { tabs, activeTabId: tabs.at(-1)?.id ?? null },
+        sideTab: wasActive ? (tabs.at(-1) ? `b:${tabs.at(-1)!.id}` : null) : s.sideTab,
+      };
+    });
   },
 
   async refreshSessions() {
@@ -155,24 +195,26 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       activeArtifactId: null,
       subagents: {},
       workflow: null,
-      browser: { active: false, url: "", title: "" },
+      browser: { tabs: [], activeTabId: null },
+      sideTab: null,
     });
     void whalex.invoke("browser:hide", undefined);
     await get().refreshSessions();
   },
 
   async send(text) {
-    const { activeSessionId, model } = get();
+    const { activeSessionId, model, status } = get();
     if (!activeSessionId) return;
+    const steering = status !== "idle";
     set({ lastError: null });
     set((s) => ({
       transcript: [
         ...s.transcript,
         { kind: "user", id: `local-${Date.now()}`, text, ts: Date.now() },
       ],
-      status: "thinking",
-      turnStartedAt: Date.now(),
-      lastTurnMs: null,
+      ...(steering
+        ? {}
+        : { status: "thinking" as const, turnStartedAt: Date.now(), lastTurnMs: null }),
     }));
     await whalex.invoke("session:send", { sessionId: activeSessionId, text, model });
   },
@@ -291,6 +333,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             },
           ],
           activeArtifactId: ev.artifactId,
+          sideTab: `a:${ev.artifactId}`,
           transcript: [
             ...s.transcript,
             {
@@ -375,9 +418,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           ],
         }));
         break;
-      case "browser-navigated":
-        set({ browser: { active: true, url: ev.url, title: ev.title } });
+      case "browser-navigated": {
+        const tabs = ev.tabs ?? (ev.url ? [{ id: "tab1", url: ev.url, title: ev.title }] : []);
+        const activeTabId = ev.activeTabId ?? tabs.at(-1)?.id ?? null;
+        set({
+          browser: { tabs, activeTabId },
+          ...(activeTabId ? { sideTab: `b:${activeTabId}`, activeArtifactId: null } : {}),
+        });
         break;
+      }
       case "goal-update":
         set((s) => ({
           transcript: [

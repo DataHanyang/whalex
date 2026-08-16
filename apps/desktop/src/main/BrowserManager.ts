@@ -41,63 +41,155 @@ const clickJs = (ref: string) =>
 const typeJs = (ref: string, text: string, submit: boolean) =>
   `(() => { const el = document.querySelector('[data-whalex-ref="${ref}"]'); if (!el) return "no element ${ref}"; el.focus(); el.value = ${JSON.stringify(text)}; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); ${submit ? `const f = el.form; if (f) f.requestSubmit ? f.requestSubmit() : f.submit(); else el.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));` : ""} return "typed into ${ref}"; })()`;
 
+interface BTab {
+  id: string;
+  view: WebContentsView;
+  console: string[];
+}
+
+export interface BrowserTabInfo {
+  id: string;
+  url: string;
+  title: string;
+}
+
+type ActivityFn = (
+  url: string,
+  title: string,
+  tabs: BrowserTabInfo[],
+  activeTabId: string | null,
+) => void;
+
 /**
- * Hosts an in-app browser as a WebContentsView overlaid on the window, and
- * implements the DOM-based BrowserController the agent's browser_* tools call.
- * The renderer positions it via browser:setBounds.
+ * Hosts the in-app browser as native WebContentsViews overlaid on the window —
+ * one per tab, only the active tab visible. Implements the DOM-based
+ * BrowserController the agent's browser_* tools call (they always act on the
+ * active tab). The renderer positions the active view via browser:setBounds.
  */
 export class BrowserManager implements BrowserController {
-  private view: WebContentsView | null = null;
-  private consoleLog: string[] = [];
-  private onActivity?: (url: string, title: string) => void;
+  private tabs = new Map<string, BTab>();
+  private order: string[] = [];
+  private activeId: string | null = null;
+  private lastBounds: { x: number; y: number; width: number; height: number } | null = null;
+  private nextId = 1;
+  private onActivity?: ActivityFn;
 
   constructor(private getWindow: () => BrowserWindow | null) {}
 
-  setActivityListener(fn: (url: string, title: string) => void): void {
+  setActivityListener(fn: ActivityFn): void {
     this.onActivity = fn;
   }
 
-  private ensureView(): WebContentsView | null {
+  tabsInfo(): BrowserTabInfo[] {
+    return this.order
+      .map((id) => this.tabs.get(id))
+      .filter((t): t is BTab => !!t)
+      .map((t) => ({
+        id: t.id,
+        url: t.view.webContents.getURL(),
+        title: t.view.webContents.getTitle(),
+      }));
+  }
+
+  private active(): BTab | null {
+    return this.activeId ? (this.tabs.get(this.activeId) ?? null) : null;
+  }
+
+  private emitActivity(): void {
+    const a = this.active();
+    this.onActivity?.(
+      a?.view.webContents.getURL() ?? "",
+      a?.view.webContents.getTitle() ?? "",
+      this.tabsInfo(),
+      this.activeId,
+    );
+  }
+
+  private applyBounds(): void {
+    for (const tab of this.tabs.values()) {
+      if (tab.id === this.activeId && this.lastBounds) tab.view.setBounds(this.lastBounds);
+      else tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    }
+  }
+
+  private createTab(): BTab | null {
     const win = this.getWindow();
     if (!win) return null;
-    if (this.view) return this.view;
     const view = new WebContentsView({
       webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
     });
     win.contentView.addChildView(view);
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    const tab: BTab = { id: `tab${this.nextId++}`, view, console: [] };
     view.webContents.on("console-message", (_e, _level, message) => {
-      this.consoleLog.push(message);
-      if (this.consoleLog.length > 200) this.consoleLog.shift();
+      tab.console.push(message);
+      if (tab.console.length > 200) tab.console.shift();
     });
-    this.view = view;
-    return view;
+    // Keep the tab strip and address bar fresh on in-page navigations too.
+    view.webContents.on("did-navigate", () => this.emitActivity());
+    view.webContents.on("did-navigate-in-page", () => this.emitActivity());
+    view.webContents.on("page-title-updated", () => this.emitActivity());
+    this.tabs.set(tab.id, tab);
+    this.order.push(tab.id);
+    return tab;
+  }
+
+  private ensureTab(newTab: boolean): BTab | null {
+    if (!newTab && this.active()) return this.active();
+    const tab = newTab || this.tabs.size === 0 ? this.createTab() : this.active();
+    if (tab) this.activeId = tab.id;
+    this.applyBounds();
+    return tab;
+  }
+
+  selectTab(id: string): void {
+    if (!this.tabs.has(id)) return;
+    this.activeId = id;
+    this.applyBounds();
+    this.emitActivity();
+  }
+
+  closeTab(id: string): void {
+    const tab = this.tabs.get(id);
+    if (!tab) return;
+    const win = this.getWindow();
+    win?.contentView.removeChildView(tab.view);
+    tab.view.webContents.close();
+    this.tabs.delete(id);
+    this.order = this.order.filter((x) => x !== id);
+    if (this.activeId === id) this.activeId = this.order[this.order.length - 1] ?? null;
+    this.applyBounds();
+    this.emitActivity();
   }
 
   setBounds(rect: { x: number; y: number; width: number; height: number }): void {
-    this.view?.setBounds(rect);
+    this.lastBounds = rect;
+    this.applyBounds();
   }
 
   hide(): void {
-    this.view?.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+    for (const tab of this.tabs.values()) tab.view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
   }
 
-  async navigate(url: string): Promise<{ ok: boolean; title?: string; url?: string; error?: string }> {
-    const view = this.ensureView();
-    if (!view) return { ok: false, error: "no window" };
+  async navigate(
+    url: string,
+    newTab = false,
+  ): Promise<{ ok: boolean; title?: string; url?: string; error?: string }> {
+    const tab = this.ensureTab(newTab);
+    if (!tab) return { ok: false, error: "no window" };
     try {
       if (url === "back") {
-        if (view.webContents.canGoBack()) view.webContents.goBack();
+        if (tab.view.webContents.canGoBack()) tab.view.webContents.goBack();
       } else if (url === "forward") {
-        if (view.webContents.canGoForward()) view.webContents.goForward();
+        if (tab.view.webContents.canGoForward()) tab.view.webContents.goForward();
       } else {
         const full = /^(https?|file):\/\//.test(url) ? url : `https://${url}`;
-        await view.webContents.loadURL(full);
+        await tab.view.webContents.loadURL(full);
       }
       await new Promise((r) => setTimeout(r, 400));
-      const title = view.webContents.getTitle();
-      const finalUrl = view.webContents.getURL();
-      this.onActivity?.(finalUrl, title);
+      const title = tab.view.webContents.getTitle();
+      const finalUrl = tab.view.webContents.getURL();
+      this.emitActivity();
       return { ok: true, title, url: finalUrl };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -105,36 +197,43 @@ export class BrowserManager implements BrowserController {
   }
 
   async readPage(): Promise<string> {
-    if (!this.view) return "No page is open. Use browser_navigate first.";
-    return String(await this.view.webContents.executeJavaScript(READ_PAGE_JS, true));
+    const tab = this.active();
+    if (!tab) return "No page is open. Use browser_navigate first.";
+    return String(await tab.view.webContents.executeJavaScript(READ_PAGE_JS, true));
   }
 
   async click(ref: string): Promise<string> {
-    if (!this.view) return "No page open.";
-    return String(await this.view.webContents.executeJavaScript(clickJs(ref), true));
+    const tab = this.active();
+    if (!tab) return "No page open.";
+    return String(await tab.view.webContents.executeJavaScript(clickJs(ref), true));
   }
 
   async type(ref: string, text: string, submit: boolean): Promise<string> {
-    if (!this.view) return "No page open.";
-    return String(await this.view.webContents.executeJavaScript(typeJs(ref, text, submit), true));
+    const tab = this.active();
+    if (!tab) return "No page open.";
+    return String(await tab.view.webContents.executeJavaScript(typeJs(ref, text, submit), true));
   }
 
   async scroll(direction: "up" | "down"): Promise<string> {
-    if (!this.view) return "No page open.";
+    const tab = this.active();
+    if (!tab) return "No page open.";
     const dy = direction === "down" ? 600 : -600;
-    await this.view.webContents.executeJavaScript(`window.scrollBy(0, ${dy})`, true);
+    await tab.view.webContents.executeJavaScript(`window.scrollBy(0, ${dy})`, true);
     return `scrolled ${direction}`;
   }
 
   async readConsole(): Promise<string> {
-    return this.consoleLog.slice(-40).join("\n") || "(no console messages)";
+    const tab = this.active();
+    return tab ? tab.console.slice(-40).join("\n") || "(no console messages)" : "(no page open)";
   }
 
   dispose(): void {
-    if (this.view) {
-      const win = this.getWindow();
-      win?.contentView.removeChildView(this.view);
-      this.view = null;
+    const win = this.getWindow();
+    for (const tab of this.tabs.values()) {
+      win?.contentView.removeChildView(tab.view);
     }
+    this.tabs.clear();
+    this.order = [];
+    this.activeId = null;
   }
 }

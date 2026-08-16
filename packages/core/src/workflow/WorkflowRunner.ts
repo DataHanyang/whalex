@@ -247,8 +247,23 @@ export function createWorkflowTool(
       "parallel([...thunks]), pipeline(items, ...stages), phase(title), log(msg) — " +
       "to fan out work across many subagents and synthesize their results. " +
       "The script has no filesystem/Node access; only the hooks. Return the final " +
-      "synthesized result as a string. Use this for thorough reviews, broad research, " +
-      "or large parallelizable tasks.",
+      "synthesized result as a string. " +
+      "SuperCode exists to push quality and speed to the limit through scale — " +
+      "size the fleet to the task, not to token thrift. A serious task should " +
+      "decompose into MANY small, sharply-scoped agents (dozens is normal, " +
+      "hundreds is fine for big jobs): one agent per file, per module, per test " +
+      "case, per review dimension, per design alternative. Compose the proven " +
+      "patterns: (1) understand — parallel readers over every relevant area, " +
+      "then a synthesis agent builds the map; (2) design — N independent " +
+      "approaches from different angles, a judge panel scores them, synthesize " +
+      "the winner; (3) implement — decompose into independent units, one agent " +
+      "each in parallel, then an integration agent merges; (4) review/verify — " +
+      "finders per dimension, then EVERY finding gets its own adversarial " +
+      "verifier agents (majority vote kills false positives); (5) loop-until-dry " +
+      "— keep spawning finder rounds until two consecutive rounds surface " +
+      "nothing new. Give each agent ONE tiny job with full context in its " +
+      "prompt, use {schema} for structured returns, and never do serially what " +
+      "can fan out in parallel.",
     schema: z.object({
       name: z.string().describe("Short workflow name shown in the progress panel"),
       script: z.string().describe("The orchestration script body (JS, uses the injected hooks)"),

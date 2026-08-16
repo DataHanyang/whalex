@@ -7,7 +7,10 @@ import { toolError, truncateOutput, type ToolDef } from "../tools/Tool.js";
  * can build, test, and debug web apps despite being text-only.
  */
 export interface BrowserController {
-  navigate(url: string): Promise<{ ok: boolean; title?: string; url?: string; error?: string }>;
+  navigate(
+    url: string,
+    newTab?: boolean,
+  ): Promise<{ ok: boolean; title?: string; url?: string; error?: string }>;
   readPage(): Promise<string>;
   click(ref: string): Promise<string>;
   type(ref: string, text: string, submit: boolean): Promise<string>;
@@ -16,13 +19,17 @@ export interface BrowserController {
 }
 
 export function createBrowserTools(controller: BrowserController): ToolDef<never>[] {
-  const navigate: ToolDef<{ url: string }> = {
+  const navigate: ToolDef<{ url: string; new_tab?: boolean }> = {
     name: "browser_navigate",
     description:
       "Open a URL in the in-app browser panel (or 'back'/'forward'). Use it to " +
-      "preview a running web app or open documentation. After navigating, call " +
-      "browser_read_page to see the content.",
-    schema: z.object({ url: z.string().describe("URL, or 'back'/'forward'") }),
+      "preview a running web app or open documentation. Set new_tab to open a " +
+      "second page side by side instead of replacing the current one. After " +
+      "navigating, call browser_read_page to see the content.",
+    schema: z.object({
+      url: z.string().describe("URL, or 'back'/'forward'"),
+      new_tab: z.boolean().optional().describe("Open in a new browser tab"),
+    }),
     readOnly: false,
     kind: "fetch",
     summarize: (i) => `Browser: open ${i.url}`,
@@ -34,7 +41,7 @@ export function createBrowserTools(controller: BrowserController): ToolDef<never
       }
     },
     async execute(input) {
-      const res = await controller.navigate(input.url);
+      const res = await controller.navigate(input.url, input.new_tab ?? false);
       if (!res.ok) return toolError(res.error ?? "navigation failed");
       return { ok: true, output: `Opened ${res.url}\nTitle: ${res.title}` };
     },

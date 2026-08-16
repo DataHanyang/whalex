@@ -115,6 +115,17 @@ Five tasks, same prompts, all three CLIs running full-auto on the same Windows m
 tool's own usage report; cost is computed from published rates. Artifacts were **rendered in a
 real browser engine** to confirm they work — not just that a file was written.
 
+<p align="center">
+  <img src="docs/graphs/bench-total.svg" alt="Total cost: WhaleX $0.135 vs Codex $7.30 (54x) vs Claude Code ~$14.10 (104x). Total time: 32m 49s vs 37m 45s vs 50m 34s." width="920">
+</p>
+
+<p align="center">
+  <img src="docs/graphs/bench-tasks.svg" alt="Per-task time and cost for all five benchmark tasks across WhaleX, Codex and Claude Code." width="920">
+</p>
+
+<details>
+<summary>Raw numbers (table)</summary>
+
 <table>
 <thead>
 <tr>
@@ -161,13 +172,7 @@ real browser engine** to confirm they work — not just that a file was written.
 </tbody>
 </table>
 
-```
-Total cost, all five tasks (USD)
-
-WhaleX      ▏$0.14
-Codex       ███████████████▏$7.30     54× more
-Claude Code █████████████████████████████▏$14.10  104× more
-```
+</details>
 
 Two tasks carry an objective score, and **all three agents scored 100% on both** — including the
 spreadsheet engine, which wants a real parser, error propagation, circular-reference detection and
@@ -214,6 +219,11 @@ Some jobs are too wide for a single context window: auditing a whole codebase,
 weighing five designs against each other, migrating a hundred call sites. **SuperCode**
 is WhaleX's answer — the agent writes a short orchestration script, and WhaleX runs it,
 spawning a fleet of sub-agents and streaming their progress back as a live tree.
+It is deliberately a scale-first mode: a serious task decomposes into many small,
+sharply-scoped agents — dozens routinely, hundreds for big jobs (up to 400 by
+default) — with judge panels, adversarial verification and loop-until-dry rounds
+composing them into one high-confidence result. DeepSeek's pricing is what makes
+that practical: a 100-agent fleet costs cents, not dollars.
 
 The point is the split of duties: **the script decides control flow, the agents decide
 content.** Loops, fan-out and merging are ordinary code, so they are deterministic and

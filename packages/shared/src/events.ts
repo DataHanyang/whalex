@@ -109,6 +109,10 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     type: z.literal("browser-navigated"),
     url: z.string(),
     title: z.string(),
+    tabs: z
+      .array(z.object({ id: z.string(), url: z.string(), title: z.string() }))
+      .optional(),
+    activeTabId: z.string().nullable().optional(),
   }),
   z.object({
     type: z.literal("goal-update"),

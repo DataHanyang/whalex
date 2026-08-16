@@ -1,0 +1,30 @@
+<svg width="920" height="300" viewBox="0 0 920 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+<style>
+  text { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .t  { fill: #9aa0ab; }
+  .m  { fill: #7c828d; }
+  .b  { font-weight: 600; }
+  .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+</style>
+<text x="24" y="34" class="t b" font-size="17">All five tasks — total cost and wall-clock time</text>
+<text x="24" y="54" class="m" font-size="12">Same prompts, full-auto, same Windows machine · rates: DeepSeek $0.435/$0.87 · Opus 5 $5/$25 · GPT-5.6 Sol $5/$30 per 1M tok</text>
+<text x="24" y="78" class="m b" font-size="12">TOTAL COST (USD)</text>
+<text x="24" y="104" class="t b" font-size="13">WhaleX</text>
+<rect x="24" y="112" width="4.0" height="20" rx="5" fill="#6366f1"/>
+<text x="36.0" y="127" class="t b mono" font-size="13">$0.135</text>
+<text x="24" y="162" class="t b" font-size="13">Codex</text>
+<rect x="24" y="170" width="217.4" height="20" rx="5" fill="#0ea47f"/>
+<text x="249.4" y="185" class="t b mono" font-size="13">$7.30</text>
+<text x="311.4" y="185" class="m" font-size="11.5">54× cost</text>
+<text x="24" y="220" class="t b" font-size="13">Claude Code</text>
+<rect x="24" y="228" width="420.0" height="20" rx="5" fill="#d97757"/>
+<text x="452.0" y="243" class="t b mono" font-size="13">~$14.10</text>
+<text x="514.0" y="243" class="m" font-size="11.5">104× cost</text>
+<text x="520" y="78" class="m b" font-size="12">TOTAL TIME</text>
+<rect x="520" y="112" width="201.5" height="20" rx="5" fill="#6366f1" opacity="0.85"/>
+<text x="729.5" y="127" class="t b mono" font-size="13">32m 49s</text>
+<rect x="520" y="170" width="231.9" height="20" rx="5" fill="#0ea47f" opacity="0.85"/>
+<text x="757.9" y="185" class="t b mono" font-size="13">37m 45s</text>
+<rect x="520" y="228" width="310.0" height="20" rx="5" fill="#d97757" opacity="0.85"/>
+<text x="838.0" y="243" class="t b mono" font-size="13">50m 34s</text>
+</svg>

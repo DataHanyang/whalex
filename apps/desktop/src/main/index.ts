@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow, app, nativeTheme, shell } from "electron";
+import { BrowserWindow, Menu, Tray, app, nativeTheme, shell } from "electron";
 import { AgentHost } from "./AgentHost.js";
 import { SettingsManager } from "./settings.js";
 import { SecretVault } from "./secrets.js";
@@ -44,6 +44,42 @@ if (!app.requestSingleInstanceLock()) {
 AuthManager.registerProtocol();
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let quitting = false;
+
+function createTray(): void {
+  if (tray) return;
+  const iconPath = path.join(__dirname, "../../build/icon.png");
+  try {
+    tray = new Tray(iconPath);
+  } catch {
+    return; // no tray on this platform/session — closing will quit as before
+  }
+  tray.setToolTip("WhaleX");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open WhaleX", click: () => showWindow() },
+      { type: "separator" },
+      {
+        label: "Quit",
+        click: () => {
+          quitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+  tray.on("click", () => showWindow());
+}
+
+function showWindow(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+  } else {
+    createWindow();
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -81,6 +117,14 @@ function createWindow(): void {
       mainWindow.show();
     }
   }, 3000);
+  // Closing the window keeps the app (and any running agents) alive in the
+  // tray; only the tray's Quit or OS shutdown actually exits.
+  mainWindow.on("close", (e) => {
+    if (!quitting && tray) {
+      e.preventDefault();
+      mainWindow?.hide();
+    }
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -113,8 +157,11 @@ void app.whenReady().then(() => {
   const updater = new Updater(() => mainWindow);
   const preview = new PreviewManager();
   const plugins = new PluginManager(settings);
+  host.pluginSkillDirs = () => plugins.skillDirs();
   const browser = new BrowserManager(() => mainWindow);
-  browser.setActivityListener((url, title) => host.notifyBrowserNavigated(url, title));
+  browser.setActivityListener((url, title, tabs, activeTabId) =>
+    host.notifyBrowserNavigated(url, title, tabs, activeTabId),
+  );
   host.setBrowser(browser);
   host.setComputer(new ComputerManager(settings, vault));
   const auth = new AuthManager(vault);
@@ -122,6 +169,10 @@ void app.whenReady().then(() => {
 
   registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth });
   createWindow();
+  createTray();
+  // Relaunching the app (e.g. from the Start menu) while it sits in the tray
+  // restores the hidden window instead of spawning a second instance.
+  app.on("second-instance", () => showWindow());
   logLine("window created");
 
   // MCP servers connect in the background; the UI shows their status live.
@@ -133,11 +184,14 @@ void app.whenReady().then(() => {
   });
 
   app.on("before-quit", () => {
+    quitting = true;
     host.disposeAll();
     preview.stopAll();
   });
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  // Stay resident: background work continues until the user quits from the
+  // tray (or the machine shuts down).
+  if (!tray && process.platform !== "darwin") app.quit();
 });

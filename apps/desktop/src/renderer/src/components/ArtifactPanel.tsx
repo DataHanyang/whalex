@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ExternalLink, RefreshCw, X , PanelRightClose } from "lucide-react";
-import { useSessionStore } from "../stores/sessionStore";
-import { useUiStore } from "../stores/uiStore";
 import { StreamingMarkdown } from "./StreamingMarkdown";
 import { CodeBlock } from "./CodeBlock";
 import { SpreadsheetView, SlidesView } from "./OfficeViews";
-import { whalex } from "../lib/ipc";
 
 const VIEWPORTS = { desktop: "100%", tablet: "768px", mobile: "375px" } as const;
 
@@ -107,85 +103,38 @@ function MermaidView({ content }: { content: string }) {
   return <div ref={ref} className="flex justify-center overflow-auto p-4" />;
 }
 
-export function ArtifactPanel() {
-  const artifacts = useSessionStore((s) => s.artifacts);
-  const activeId = useSessionStore((s) => s.activeArtifactId);
-  const openArtifact = useSessionStore((s) => s.openArtifact);
-  const close = useSessionStore((s) => s.closeArtifact);
-  const active = artifacts.find((a) => a.artifactId === activeId);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  if (!active) return null;
-
-  const openExternal = () => {
-    if (active.url) void whalex.invoke("shell:openExternal", { url: active.url });
-  };
-
+export function ArtifactBody({ artifact }: { artifact: import("@whalex/shared").Artifact }) {
+  const active = artifact;
   return (
-    <div className="flex h-full w-full flex-col border-l border-border bg-surface">
-      <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-          {artifacts.map((a) => (
-            <button
-              key={a.artifactId}
-              onClick={() => openArtifact(a.artifactId)}
-              className={`shrink-0 truncate rounded px-2 py-1 text-[12px] ${a.artifactId === activeId ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2"}`}
-              style={{ maxWidth: 160 }}
-              title={a.title}
-            >
-              {a.title}
-            </button>
-          ))}
+    <div className="min-h-0 flex-1 overflow-auto">
+      {active.kind === "html" && active.content && <HtmlView content={active.content} />}
+      {active.kind === "url" && active.url && <UrlView title={active.title} url={active.url} />}
+      {active.kind === "markdown" && active.content && (
+        <div className="p-4">
+          <StreamingMarkdown text={active.content} streaming={false} />
         </div>
-        <button onClick={() => setRefreshKey((k) => k + 1)} className="rounded p-1 text-faint hover:text-text" title="Refresh">
-          <RefreshCw size={14} />
-        </button>
-        {active.url && (
-          <button onClick={openExternal} className="rounded p-1 text-faint hover:text-text" title="Open externally">
-            <ExternalLink size={14} />
-          </button>
-        )}
-        <button
-          onClick={useUiStore.getState().toggleArtifactCollapsed}
-          className="rounded p-1 text-faint hover:text-text"
-          title="Collapse preview"
-        >
-          <PanelRightClose size={15} />
-        </button>
-        <button onClick={close} className="rounded p-1 text-faint hover:text-text" title="Close">
-          <X size={15} />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto" key={refreshKey}>
-        {active.kind === "html" && active.content && <HtmlView content={active.content} />}
-        {active.kind === "url" && active.url && <UrlView title={active.title} url={active.url} />}
-        {active.kind === "markdown" && active.content && (
-          <div className="p-4">
-            <StreamingMarkdown text={active.content} streaming={false} />
-          </div>
-        )}
-        {active.kind === "svg" && active.content && (
-          <div className="flex justify-center p-4" dangerouslySetInnerHTML={{ __html: active.content }} />
-        )}
-        {active.kind === "mermaid" && active.content && <MermaidView content={active.content} />}
-        {active.kind === "plan" && active.content && (
-          <div className="p-4">
-            <StreamingMarkdown text={active.content} streaming={false} />
-          </div>
-        )}
-        {active.kind === "spreadsheet" && active.content && <SpreadsheetView base64={active.content} />}
-        {active.kind === "slides" && active.content && <SlidesView base64={active.content} />}
-        {active.kind === "image" && active.content && (
-          <div className="flex justify-center p-4">
-            <img src={active.content} alt={active.title} className="max-w-full" />
-          </div>
-        )}
-        {active.kind === "code" && active.content && (
-          <div className="p-3">
-            <CodeBlock code={active.content} lang={active.language ?? "text"} stable />
-          </div>
-        )}
-      </div>
+      )}
+      {active.kind === "svg" && active.content && (
+        <div className="flex justify-center p-4" dangerouslySetInnerHTML={{ __html: active.content }} />
+      )}
+      {active.kind === "mermaid" && active.content && <MermaidView content={active.content} />}
+      {active.kind === "plan" && active.content && (
+        <div className="p-4">
+          <StreamingMarkdown text={active.content} streaming={false} />
+        </div>
+      )}
+      {active.kind === "spreadsheet" && active.content && <SpreadsheetView base64={active.content} />}
+      {active.kind === "slides" && active.content && <SlidesView base64={active.content} />}
+      {active.kind === "image" && active.content && (
+        <div className="flex justify-center p-4">
+          <img src={active.content} alt={active.title} className="max-w-full" />
+        </div>
+      )}
+      {active.kind === "code" && active.content && (
+        <div className="p-3">
+          <CodeBlock code={active.content} lang={active.language ?? "text"} stable />
+        </div>
+      )}
     </div>
   );
 }

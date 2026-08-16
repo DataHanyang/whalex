@@ -4,8 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Transcript } from "./Transcript";
 import { Composer } from "./Composer";
 import { StatusBar } from "./StatusBar";
-import { ArtifactPanel } from "./ArtifactPanel";
-import { BrowserPanel } from "./BrowserPanel";
+import { SidePanel } from "./SidePanel";
 import { SettingsModal } from "./SettingsModal";
 import { UpdateToast } from "./UpdateToast";
 import { RewindDialog } from "./RewindDialog";
@@ -24,8 +23,7 @@ export function AppShell() {
   const sessions = useSessionStore((s) => s.sessions);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const sessionTitle = sessions.find((x) => x.sessionId === activeSessionId)?.title ?? "";
-  const activeArtifactId = useSessionStore((s) => s.activeArtifactId);
-  const browserActive = useSessionStore((s) => s.browser.active);
+  const sideTab = useSessionStore((s) => s.sideTab);
   const rewindOpen = useUiStore((s) => s.rewindOpen);
   const artifactCollapsed = useUiStore((s) => s.artifactCollapsed);
   const toggleArtifactCollapsed = useUiStore((s) => s.toggleArtifactCollapsed);
@@ -69,8 +67,10 @@ export function AppShell() {
         <Sidebar />
         <main className="flex min-w-0 flex-1 flex-col">
           {sessionTitle && (
-            <div className="flex h-8 shrink-0 items-center justify-center border-b border-border text-[12px] font-medium text-muted">
-              <span className="max-w-[70%] truncate">{sessionTitle}</span>
+            <div className="flex h-[60px] shrink-0 items-center justify-center border-b border-border bg-surface px-6">
+              <span className="max-w-[75%] truncate text-[15px] font-semibold tracking-tight">
+                {sessionTitle}
+              </span>
             </div>
           )}
           <Transcript />
@@ -81,24 +81,19 @@ export function AppShell() {
           )}
           <Composer />
         </main>
-        {(browserActive || (activeArtifactId && !artifactCollapsed)) && (
+        {sideTab && !artifactCollapsed && (
           <div
             onMouseDown={startResize}
             className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-accent"
             title="Drag to resize"
           />
         )}
-        {browserActive && (
+        {sideTab && !artifactCollapsed && (
           <div className="shrink-0" style={{ width: artifactWidth }}>
-            <BrowserPanel />
+            <SidePanel />
           </div>
         )}
-        {!browserActive && activeArtifactId && !artifactCollapsed && (
-          <div className="shrink-0" style={{ width: artifactWidth }}>
-            <ArtifactPanel />
-          </div>
-        )}
-        {!browserActive && activeArtifactId && artifactCollapsed && (
+        {sideTab && artifactCollapsed && (
           // Folded: a rail keeps the artifact one click away while the
           // transcript takes the width back.
           <button
