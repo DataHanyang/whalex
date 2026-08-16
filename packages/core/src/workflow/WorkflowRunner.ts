@@ -18,6 +18,12 @@ export interface WorkflowDeps {
   extraTools?: () => ToolDef<never>[];
   maxAgents: number;
   concurrency: number;
+  /**
+   * Session-scoped result cache keyed by (prompt, schema). A model that
+   * rewrites a failed script and reruns the workflow gets its already-
+   * completed agents back instantly instead of paying for them again.
+   */
+  cache?: Map<string, unknown>;
   onUpdate: (state: WorkflowState) => void;
   signal: AbortSignal;
 }
@@ -170,6 +176,8 @@ export class WorkflowRunner {
       throw new Error(`Workflow hit the agent cap (${this.deps.maxAgents}).`);
     }
     this.agentCount++;
+    const cacheKey = JSON.stringify([prompt, opts.schema ?? null]);
+    const cached = this.deps.cache?.get(cacheKey);
     const record: WorkflowAgent = {
       id: randomUUID(),
       label: opts.label ?? prompt.slice(0, 40),
@@ -180,6 +188,12 @@ export class WorkflowRunner {
     };
     this.state.agents.push(record);
     this.emit();
+
+    if (cached !== undefined) {
+      record.state = "done";
+      this.emit();
+      return cached;
+    }
 
     await this.acquireSlot();
     record.state = "running";
@@ -235,10 +249,9 @@ export class WorkflowRunner {
       this.state.costUsd += usage.costUsd;
       this.emit();
 
-      if (opts.schema !== undefined) {
-        return parseJsonLoose(text);
-      }
-      return text.trim();
+      const value = opts.schema !== undefined ? parseJsonLoose(text) : text.trim();
+      this.deps.cache?.set(cacheKey, value);
+      return value;
     } catch (err) {
       record.state = "error";
       record.durationMs = Date.now() - started;
@@ -298,7 +311,12 @@ export function createWorkflowTool(
       "— keep spawning finder rounds until two consecutive rounds surface " +
       "nothing new. Give each agent ONE tiny job with full context in its " +
       "prompt, use {schema} for structured returns, and never do serially what " +
-      "can fan out in parallel.",
+      "can fan out in parallel. Efficiency rules: results of identical " +
+      "agent(prompt, schema) calls are cached for the session, so if a script " +
+      "fails partway, fix it and rerun — completed agents return instantly " +
+      "and only the missing work runs. Never hand-parse JSON from agent text " +
+      "(it may contain markdown fences); pass {schema} instead. Keep " +
+      "judge/synthesis prompts compact: pass summaries, not full transcripts.",
     schema: z.object({
       name: z.string().describe("Short workflow name shown in the progress panel"),
       script: z.string().describe("The orchestration script body (JS, uses the injected hooks)"),
