@@ -411,6 +411,7 @@ export function Composer() {
           <Picker
             value={model}
             onChange={setModel}
+            locked={superCode}
             title={t("composer.model")}
             icon={<Cpu size={12} />}
             options={modelOptions.map((id) => ({
@@ -424,12 +425,14 @@ export function Composer() {
             // instead of the ambient setting while it's on.
             <EffortControl
               value={superCode ? "max" : (reasoningEffort as EffortLevel)}
+              locked={superCode}
               onChange={(v) => void updateSettings({ reasoningEffort: v })}
             />
           )}
           <Picker
             value={permissionMode}
             onChange={(m) => setPermissionMode(m as (typeof MODES)[number])}
+            locked={superCode}
             title={t("composer.permTip")}
             options={MODE_OPTIONS.map((o) => ({
               ...o,

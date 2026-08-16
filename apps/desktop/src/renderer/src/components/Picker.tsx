@@ -20,6 +20,8 @@ interface PickerProps<T extends string> {
   /** Shown instead of the option label — for a shorter trigger. */
   triggerLabel?: string;
   align?: "left" | "right";
+  /** Display-only: the value is managed automatically (e.g. by SuperCode). */
+  locked?: boolean;
 }
 
 const TONE_TRIGGER = {
@@ -41,6 +43,7 @@ export function Picker<T extends string>({
   title,
   triggerLabel,
   align = "left",
+  locked = false,
 }: PickerProps<T>) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -70,11 +73,11 @@ export function Picker<T extends string>({
     <div ref={wrap} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => !locked && setOpen((v) => !v)}
         title={title}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] transition-colors ${TONE_TRIGGER[tone]}`}
+        className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] transition-colors ${TONE_TRIGGER[tone]} ${locked ? "cursor-default opacity-90" : ""}`}
       >
         {icon ?? selected?.icon}
         <span className="max-w-[150px] truncate">
