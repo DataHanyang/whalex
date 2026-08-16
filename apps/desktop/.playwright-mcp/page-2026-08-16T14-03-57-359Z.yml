@@ -1,0 +1,41 @@
+- generic [active] [ref=f7e1]:
+  - main "3D Earth with live satellite markers" [ref=f7e2]
+  - banner "Mission status" [ref=f7e4]:
+    - generic [ref=f7e5]: ORBITAL
+    - generic [ref=f7e8]:
+      - generic [ref=f7e9]: 14:00:28
+      - generic [ref=f7e10]: UTC
+      - generic [ref=f7e11]: 2026-08-16
+    - generic [ref=f7e12]:
+      - generic [ref=f7e13]:
+        - generic [ref=f7e14]: TRACKED
+        - strong [ref=f7e15]: "0"
+      - generic [ref=f7e16]:
+        - generic [ref=f7e17]: VISIBLE
+        - strong [ref=f7e18]: "0"
+    - generic [ref=f7e19]:
+      - generic [ref=f7e20]: —
+      - generic [ref=f7e21]: —
+  - generic:
+    - generic: Fetching live TLE data…
+    - generic: Clock drift -208.5s — system clock vs server
+  - complementary "Satellite list" [ref=f7e22]:
+    - generic [ref=f7e23]:
+      - heading "TRACKING" [level=1] [ref=f7e24]
+      - generic [ref=f7e25]: 0 / 0
+    - searchbox "Search satellites" [ref=f7e26]
+    - group "Filter by group" [ref=f7e27]:
+      - button "STA 0" [pressed] [ref=f7e28] [cursor=pointer]:
+        - generic [ref=f7e30]: STA
+        - generic [ref=f7e31]: "0"
+      - button "VIS 0" [pressed] [ref=f7e32] [cursor=pointer]:
+        - generic [ref=f7e34]: VIS
+        - generic [ref=f7e35]: "0"
+      - button "GPS 0" [pressed] [ref=f7e36] [cursor=pointer]:
+        - generic [ref=f7e38]: GPS
+        - generic [ref=f7e39]: "0"
+      - button "STL 0" [pressed] [ref=f7e40] [cursor=pointer]:
+        - generic [ref=f7e42]: STL
+        - generic [ref=f7e43]: "0"
+    - listbox "Satellites" [ref=f7e44]: No satellites match
+    - generic "Altitude density" [ref=f7e45]

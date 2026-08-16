@@ -11,7 +11,10 @@ import { buildSystemPrompt } from "./SystemPrompt.js";
 import { compactSession } from "./Compactor.js";
 import { NOOP_HOOKS, type HookRunner } from "./Hooks.js";
 
-const MAX_ROUNDS = 60;
+// Effectively no cap — the user decided runaway protection belongs to the
+// Stop button and token budgets, not a round counter that halted real
+// SuperCode runs twice in a row.
+const MAX_ROUNDS = 100_000;
 /** Retries granted when a turn is cut off by the output cap mid-tool-call. */
 const MAX_TRUNCATION_RETRIES = 3;
 export const ARTIFACT_MARKER = "WHALEX_ARTIFACT:";
@@ -31,6 +34,8 @@ export interface AgentLoopOptions {
   extraTools?: () => import("../tools/Tool.js").ToolDef<never>[];
   /** User lifecycle hooks (PreToolUse can block). Defaults to no-op. */
   hooks?: HookRunner;
+  /** Auto-compaction as the context fills (default on). */
+  autoCompact?: boolean;
 }
 
 interface CallOutcome {
@@ -450,7 +455,7 @@ export class AgentLoop {
           }
         }
 
-        if (this.context.needsCompaction()) {
+        if (this.opts.autoCompact !== false && this.context.needsCompaction()) {
           const before = this.context.contextPct();
           yield { type: "status", state: "thinking" };
           const res = await compactSession(
