@@ -16,18 +16,22 @@ interface UiState {
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   rewindOpen: boolean;
+  /** Artifact panel folded to a rail so the transcript gets the width back. */
+  artifactCollapsed: boolean;
   mcpStatus: McpStatus[];
   updateStatus: UpdateStatus;
   openSettings(tab?: SettingsTab): void;
   closeSettings(): void;
   openRewind(): void;
   closeRewind(): void;
+  toggleArtifactCollapsed(): void;
   listen(): void;
 }
 
 export const useUiStore = create<UiState>((set) => ({
   settingsOpen: false,
   settingsTab: "general",
+  artifactCollapsed: false,
   rewindOpen: false,
   mcpStatus: [],
   updateStatus: { state: "idle" },
@@ -43,6 +47,9 @@ export const useUiStore = create<UiState>((set) => ({
   },
   closeRewind() {
     set({ rewindOpen: false });
+  },
+  toggleArtifactCollapsed() {
+    set((s) => ({ artifactCollapsed: !s.artifactCollapsed }));
   },
   listen() {
     whalex.on("mcp:status", (statuses) => set({ mcpStatus: statuses }));

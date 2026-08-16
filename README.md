@@ -17,9 +17,9 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 
 <br>
 
-<img src="docs/screenshots/pomodoro-preview.png" alt="Whalex builds a Pomodoro timer and opens it in the live preview panel" width="820">
+<img src="docs/screenshots/hero.png" alt="Whalex with a satellite mission-control dashboard rendered in its live preview panel" width="900">
 
-<sub><em>"Build a Pomodoro timer and open it in the preview" → writes the file, verifies it in a browser, and shows it — in one request.</em></sub>
+<sub><em>A live satellite mission-control dashboard — orbit tracks, streaming telemetry, event log — built by Whalex from one prompt and rendered in its preview panel. About five cents of DeepSeek tokens.</em></sub>
 
 </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, AtSign, Cpu, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
+import { Picker } from "./Picker";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -220,6 +221,19 @@ export function Composer() {
     plan: t("mode.plan"),
     bypassPermissions: t("mode.bypassPermissions"),
   };
+  // Auto mode approves everything, so it is tinted as a warning; plan is
+  // read-only and tinted as informational.
+  const MODE_OPTIONS = MODES.map((m) => ({
+    value: m,
+    tone: m === "bypassPermissions" ? ("warn" as const)
+      : m === "plan" ? ("accent" as const) : ("default" as const),
+  }));
+  const modelHint = (m?: { contextWindow?: number; supportsReasoning?: boolean }) => {
+    if (!m) return undefined;
+    const ctx = m.contextWindow ? `${Math.round(m.contextWindow / 1000)}K context` : "";
+    return [ctx, m.supportsReasoning ? "reasoning" : ""].filter(Boolean).join(" · ");
+  };
+
   const cycleMode = () => {
     const i = MODES.indexOf(permissionMode as (typeof MODES)[number]);
     setPermissionMode(MODES[(i + 1) % MODES.length] ?? "default");
@@ -330,32 +344,28 @@ export function Composer() {
           className="block w-full resize-none bg-transparent px-4 pb-1 pt-3 text-[13.5px] outline-none placeholder:text-faint disabled:opacity-50"
         />
         <div className="flex items-center gap-2 px-3 pb-2.5 pt-1">
-          <select
+          <Picker
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="rounded-md border border-border bg-surface px-2 py-1 text-[11.5px] text-muted outline-none hover:bg-surface-2"
+            onChange={setModel}
             title={t("composer.model")}
-          >
-            {modelOptions.map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={cycleMode}
-            className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${
-              permissionMode === "bypassPermissions"
-                ? "border-warn bg-warn-soft text-warn"
-                : permissionMode === "plan"
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-border text-muted hover:bg-surface-2"
-            }`}
+            icon={<Cpu size={12} />}
+            options={modelOptions.map((id) => ({
+              value: id,
+              label: models.find((m) => m.id === id)?.label ?? id,
+              hint: modelHint(models.find((m) => m.id === id)),
+            }))}
+          />
+          <Picker
+            value={permissionMode}
+            onChange={(m) => setPermissionMode(m as (typeof MODES)[number])}
             title={t("composer.permTip")}
-          >
-            <Shield size={12} />
-            {MODE_LABEL[permissionMode]}
-          </button>
+            options={MODE_OPTIONS.map((o) => ({
+              ...o,
+              label: MODE_LABEL[o.value] ?? o.value,
+              hint: t(`mode.hint.${o.value}`),
+              icon: <Shield size={12} />,
+            }))}
+          />
           <button
             onClick={() => setGoalMode(!goalMode)}
             className={`flex items-center gap-1 rounded-md border px-2 py-1 text-[11.5px] ${goalMode ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-surface-2"}`}
