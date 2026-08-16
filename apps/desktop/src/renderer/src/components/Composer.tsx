@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, Brain, Cpu, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, AtSign, Cpu, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
 import { Picker } from "./Picker";
+import { EffortControl, type EffortLevel } from "./EffortControl";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -226,7 +227,6 @@ export function Composer() {
   };
   // Auto mode approves everything, so it is tinted as a warning; plan is
   // read-only and tinted as informational.
-  const EFFORTS = ["none", "low", "medium", "high"] as const;
   const MODE_OPTIONS = MODES.map((m) => ({
     value: m,
     tone: m === "bypassPermissions" ? ("warn" as const)
@@ -360,16 +360,9 @@ export function Composer() {
             }))}
           />
           {modelSupportsReasoning && (
-            <Picker
-              value={reasoningEffort}
-              onChange={(v) => void updateSettings({ reasoningEffort: v as typeof reasoningEffort })}
-              title={t("composer.effortTip")}
-              icon={<Brain size={12} />}
-              options={EFFORTS.map((e) => ({
-                value: e,
-                label: t(`effort.${e}`),
-                hint: t(`effort.hint.${e}`),
-              }))}
+            <EffortControl
+              value={reasoningEffort as EffortLevel}
+              onChange={(v) => void updateSettings({ reasoningEffort: v })}
             />
           )}
           <Picker
