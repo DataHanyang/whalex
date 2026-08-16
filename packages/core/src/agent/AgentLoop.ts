@@ -23,6 +23,8 @@ export interface AgentLoopOptions {
   session: SessionStore;
   modelInfo: ModelInfo;
   temperature: number;
+  /** Thinking budget hint; only sent for models that advertise reasoning. */
+  reasoningEffort?: string;
   /** Optional extra system-prompt text (subagent role, skills catalog). */
   extraSystemPrompt?: string;
   /** Live extra tools (MCP servers), fetched each turn so reconnects appear. */
@@ -209,6 +211,10 @@ export class AgentLoop {
             ],
             tools: this.opts.modelInfo.supportsTools ? this.toolSpecs() : undefined,
             temperature: this.opts.temperature,
+            reasoningEffort:
+              this.opts.modelInfo.supportsReasoning && this.opts.reasoningEffort !== "none"
+                ? this.opts.reasoningEffort
+                : undefined,
             maxTokens: this.opts.modelInfo.maxOutput,
             signal,
           });
