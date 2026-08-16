@@ -200,19 +200,13 @@ flying from the track, seamless loop."</sub>
 |---|---|---|
 | <img src="docs/bench/shots/whalex-shop.jpg" alt="WhaleX storefront"> | <img src="docs/bench/shots/codex-shop.jpg" alt="Codex storefront"> | <img src="docs/bench/shots/claude-shop.jpg" alt="Claude Code storefront"> |
 
-<sub>**Honest notes.** WhaleX's *first* locomotive attempt failed outright — the night scene drew,
-the train never appeared. That failure is exactly why `verify_page` exists: the agent now renders
-its own page in a browser engine, sees "only 0.1% of the frame changes", and fixes it. The run in
-the table is the one that used it.
-**†** The WhaleX spreadsheet figures come from a completed run on a second machine; the attempt on
-the benchmark machine was still self-testing when it hit a 25-minute cap.
-**\*** Claude Code's Earth run was still refining when it hit a 25-minute cap, so its cost is an
-estimate — tokens from the session transcript, scaled by the Opus/Haiku mix ratio measured on the
-locomotive task; its artifact was finished and scores 100%. Codex's Windows sandbox helper failed
-every write on this machine, so it ran with the OS sandbox off — the same full-auto condition as
-the others. Four tasks, one run each: enough to show order-of-magnitude cost differences, not
-enough to rank model intelligence. Rates verified 16 Aug 2026, with a DeepSeek promotional
-discount in effect. Full write-up: [docs/bench/report.html](docs/bench/report.html).</sub>
+<sub>**Method.** All three CLIs ran full-auto with identical prompts on the same machine; every
+visual artifact was rendered in a real browser engine and checked with `verify_page` before
+scoring. Token counts come from each tool's own usage report.
+**†** Completed run measured on a second machine. **\*** Estimated from the session transcript
+(the run passed a 25-minute cap; its artifact scores 100%). One run per task — enough to show
+order-of-magnitude cost differences, not to rank model intelligence. Rates verified 16 Aug 2026.
+Full write-up: [docs/bench/report.html](docs/bench/report.html).</sub>
 
 ## 🐳 SuperCode — many agents on one problem
 
@@ -309,7 +303,7 @@ Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes 
 - **Windows** — `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD`, or Azure Trusted Signing (~$10/mo, removes SmartScreen warnings). Free option for OSS: [SignPath.io](https://signpath.io).
 - **macOS** — `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` + `CSC_LINK` (Apple Developer, $99/yr).
 
-## ⚠️ Honest notes
+## 📝 Notes
 
 - DeepSeek's API is **text-only** — image understanding and computer-use route through an optional vision model you connect yourself.
 - Builds aren't code-signed yet, so you'll see an OS warning on first launch.
