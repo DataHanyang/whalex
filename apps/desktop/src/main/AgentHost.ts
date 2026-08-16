@@ -220,6 +220,10 @@ export class AgentHost {
     return { sessionId, cwd, transcript: store.transcript() };
   }
 
+  isSessionRunning(sessionId: string): boolean {
+    return this.sessions.get(sessionId)?.loop.isRunning ?? false;
+  }
+
   abortWorkflows(sessionId: string): void {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) return;
