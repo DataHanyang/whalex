@@ -6,7 +6,7 @@
   .b  { font-weight: 600; }
   .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 </style>
-<text x="24" y="34" class="t b" font-size="17">Per task — time to a working result (labels show cost)</text>
+<text x="24" y="34" class="t b" font-size="17">Per task — cost to a working result (labels show time)</text>
 <text x="24" y="54" class="m" font-size="12">Artifacts verified by rendering in a real browser engine, not just written to disk</text>
 <rect x="24" y="66" width="10" height="10" rx="3" fill="#6366f1"/>
 <text x="39" y="75" class="t" font-size="12">WhaleX</text>
@@ -15,38 +15,38 @@
 <rect x="183" y="66" width="10" height="10" rx="3" fill="#d97757"/>
 <text x="198" y="75" class="t" font-size="12">Claude Code</text>
 <text x="24" y="91" class="t b" font-size="13">Steam locomotive · canvas night animation</text>
-<rect x="24" y="98" width="152.3" height="14" rx="4" fill="#6366f1"/>
-<text x="184.3" y="109" class="t mono" font-size="12">6m 48s<tspan class="m">  ·  $0.035</tspan></text>
-<rect x="24" y="119" width="165.8" height="14" rx="4" fill="#0ea47f"/>
-<text x="197.8" y="130" class="t mono" font-size="12">7m 24s<tspan class="m">  ·  $1.11</tspan></text>
-<rect x="24" y="140" width="320.3" height="14" rx="4" fill="#d97757"/>
-<text x="352.3" y="151" class="t mono" font-size="12">14m 18s<tspan class="m">  ·  $4.35</tspan></text>
+<rect x="24" y="98" width="4.0" height="14" rx="4" fill="#6366f1"/>
+<text x="36.0" y="109" class="t mono" font-size="12">$0.035<tspan class="m">  ·  6m 48s</tspan></text>
+<rect x="24" y="119" width="86.0" height="14" rx="4" fill="#0ea47f"/>
+<text x="118.0" y="130" class="t mono" font-size="12">$1.11<tspan class="m">  ·  7m 24s</tspan></text>
+<rect x="24" y="140" width="336.9" height="14" rx="4" fill="#d97757"/>
+<text x="368.9" y="151" class="t mono" font-size="12">$4.35<tspan class="m">  ·  14m 18s</tspan></text>
 <text x="24" y="188" class="t b" font-size="13">Realistic 3D Earth · WebGL day/night globe</text>
-<rect x="24" y="195" width="148.2" height="14" rx="4" fill="#6366f1"/>
-<text x="180.2" y="206" class="t mono" font-size="12">6m 37s<tspan class="m">  ·  $0.035</tspan></text>
-<rect x="24" y="216" width="132.2" height="14" rx="4" fill="#0ea47f"/>
-<text x="164.2" y="227" class="t mono" font-size="12">5m 54s<tspan class="m">  ·  $1.34</tspan></text>
+<rect x="24" y="195" width="4.0" height="14" rx="4" fill="#6366f1"/>
+<text x="36.0" y="206" class="t mono" font-size="12">$0.035<tspan class="m">  ·  6m 37s</tspan></text>
+<rect x="24" y="216" width="103.8" height="14" rx="4" fill="#0ea47f"/>
+<text x="135.8" y="227" class="t mono" font-size="12">$1.34<tspan class="m">  ·  5m 54s</tspan></text>
 <rect x="24" y="237" width="560.0" height="14" rx="4" fill="#d97757"/>
-<text x="592.0" y="248" class="t mono" font-size="12">25m+ capped<tspan class="m">  ·  ~$7.23</tspan></text>
+<text x="592.0" y="248" class="t mono" font-size="12">~$7.23<tspan class="m">  ·  25m+ capped</tspan></text>
 <text x="24" y="285" class="t b" font-size="13">E-commerce landing page</text>
-<rect x="24" y="292" width="50.8" height="14" rx="4" fill="#6366f1"/>
-<text x="82.8" y="303" class="t mono" font-size="12">2m 16s<tspan class="m">  ·  $0.015</tspan></text>
-<rect x="24" y="313" width="255.4" height="14" rx="4" fill="#0ea47f"/>
-<text x="287.4" y="324" class="t mono" font-size="12">11m 24s<tspan class="m">  ·  $2.41</tspan></text>
-<rect x="24" y="334" width="89.2" height="14" rx="4" fill="#d97757"/>
-<text x="121.2" y="345" class="t mono" font-size="12">3m 59s<tspan class="m">  ·  $0.93</tspan></text>
+<rect x="24" y="292" width="4.0" height="14" rx="4" fill="#6366f1"/>
+<text x="36.0" y="303" class="t mono" font-size="12">$0.015<tspan class="m">  ·  2m 16s</tspan></text>
+<rect x="24" y="313" width="186.7" height="14" rx="4" fill="#0ea47f"/>
+<text x="218.7" y="324" class="t mono" font-size="12">$2.41<tspan class="m">  ·  11m 24s</tspan></text>
+<rect x="24" y="334" width="71.7" height="14" rx="4" fill="#d97757"/>
+<text x="103.7" y="345" class="t mono" font-size="12">$0.93<tspan class="m">  ·  3m 59s</tspan></text>
 <text x="24" y="382" class="t b" font-size="13">LeetCode classics · 7 problems, 48 tests, all 100%</text>
-<rect x="24" y="389" width="7.5" height="14" rx="4" fill="#6366f1"/>
-<text x="39.5" y="400" class="t mono" font-size="12">20s<tspan class="m">  ·  $0.003</tspan></text>
-<rect x="24" y="410" width="25.4" height="14" rx="4" fill="#0ea47f"/>
-<text x="57.4" y="421" class="t mono" font-size="12">1m 08s<tspan class="m">  ·  $0.214</tspan></text>
-<rect x="24" y="431" width="14.2" height="14" rx="4" fill="#d97757"/>
-<text x="46.2" y="442" class="t mono" font-size="12">38s<tspan class="m">  ·  $0.187</tspan></text>
+<rect x="24" y="389" width="4.0" height="14" rx="4" fill="#6366f1"/>
+<text x="36.0" y="400" class="t mono" font-size="12">$0.003<tspan class="m">  ·  20s</tspan></text>
+<rect x="24" y="410" width="16.6" height="14" rx="4" fill="#0ea47f"/>
+<text x="48.6" y="421" class="t mono" font-size="12">$0.214<tspan class="m">  ·  1m 08s</tspan></text>
+<rect x="24" y="431" width="14.5" height="14" rx="4" fill="#d97757"/>
+<text x="46.5" y="442" class="t mono" font-size="12">$0.187<tspan class="m">  ·  38s</tspan></text>
 <text x="24" y="479" class="t b" font-size="13">Spreadsheet formula engine · 71 cases, all 100%</text>
-<rect x="24" y="486" width="191.9" height="14" rx="4" fill="#6366f1"/>
-<text x="223.9" y="497" class="t mono" font-size="12">8m 34s<tspan class="m">  ·  $0.048</tspan></text>
-<rect x="24" y="507" width="267.3" height="14" rx="4" fill="#0ea47f"/>
-<text x="299.3" y="518" class="t mono" font-size="12">11m 56s<tspan class="m">  ·  $2.23</tspan></text>
-<rect x="24" y="528" width="149.0" height="14" rx="4" fill="#d97757"/>
-<text x="181.0" y="539" class="t mono" font-size="12">6m 39s<tspan class="m">  ·  $1.40</tspan></text>
+<rect x="24" y="486" width="4.0" height="14" rx="4" fill="#6366f1"/>
+<text x="36.0" y="497" class="t mono" font-size="12">$0.048<tspan class="m">  ·  8m 34s</tspan></text>
+<rect x="24" y="507" width="172.7" height="14" rx="4" fill="#0ea47f"/>
+<text x="204.7" y="518" class="t mono" font-size="12">$2.23<tspan class="m">  ·  11m 56s</tspan></text>
+<rect x="24" y="528" width="108.4" height="14" rx="4" fill="#d97757"/>
+<text x="140.4" y="539" class="t mono" font-size="12">$1.40<tspan class="m">  ·  6m 39s</tspan></text>
 </svg>

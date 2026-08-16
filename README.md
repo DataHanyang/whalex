@@ -60,9 +60,9 @@ Three ideas drive it:
 
 | One prompt → a shipped landing page, verified in-app | The interview — decisions stay yours, step by step |
 |---|---|
-| <img src="docs/screenshots/searchbuild.png" alt="Deepfind, an AI search engine landing page a SuperCode fleet designed, built and smoke-tested, rendered live in the side panel"> | <img src="docs/screenshots/interview.png" alt="After the recon fleet finishes, the agent asks scoped questions with rich options before writing any plan"> |
+| <img src="docs/screenshots/searchbuild.png" width="330" alt="Deepfind, an AI search engine landing page a SuperCode fleet designed, built and smoke-tested, rendered live in the side panel"> | <img src="docs/screenshots/interview.png" width="570" alt="After the recon fleet finishes, the agent asks scoped questions with rich options before writing any plan"> |
 | **Browser use — searches Google, reads the results back** | **Thinking effort — click the level, drag the slider** |
-| <img src="docs/screenshots/browser-use.png" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/effort.png" alt="Thinking-effort slider with seven levels from Off to Max"> |
+| <img src="docs/screenshots/browser-use.png" width="560" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/effort.png" width="560" alt="Thinking-effort popover open above the composer, seven levels from Off to Max"> |
 
 ## 🚀 Quick start
 
@@ -106,6 +106,7 @@ Every write or command is gated by a **permission card** unless you switch modes
 | **Auto-edit** | Auto-approve file edits, still ask for shell |
 | **Plan** | Read-only — the agent plans without changing anything |
 | **Auto** | Approve everything (a warning banner stays on) |
+| **SuperCode** | The orchestration mode picks for you: strongest model + max reasoning + plan mode for recon and interview, then Auto the moment you accept the plan |
 
 ## 📊 Measured against Codex and Claude Code
 
@@ -259,7 +260,7 @@ difference was how they got there:
 
 | | 🚀 **SuperCode (Deep budget)** | 🧑‍🚀 **Solo agent** |
 |---|---|---|
-| Result | <img src="docs/screenshots/hero.png" alt="SuperCode fleet's tracker: 10,961 satellites with an ISS telemetry panel, source-freshness chips and altitude histogram" width="420"> | <img src="docs/screenshots/orbital-b.png" alt="Solo agent's tracker: 16,084 satellites color-coded by category with orbit-regime filters" width="420"> |
+| Result | <img src="docs/screenshots/orbital-a.gif" alt="SuperCode fleet's tracker: 10,961 satellites orbiting a rotating 3D Earth with an ISS telemetry panel" width="420"> | <img src="docs/screenshots/orbital-b.gif" alt="Solo agent's tracker: 16,084 satellites color-coded by category orbiting a rotating Earth" width="420"> |
 | Active working time | **64 min** | 93 min |
 | Tool calls / file writes | 348 / 96 | 294 / 74 |
 | Satellites rendered | 10,961 (curated groups) | 16,084 (full catalog) |
