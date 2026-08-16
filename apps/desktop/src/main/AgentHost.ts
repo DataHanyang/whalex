@@ -44,6 +44,8 @@ interface HostedSession {
   modeOverride: import("@whalex/shared").PermissionMode | null;
   /** Abort controllers of live workflow runs; fired on session abort. */
   workflowAborts: Set<AbortController>;
+  /** Agent-result cache shared by every workflow run in this session. */
+  workflowCache: Map<string, unknown>;
 }
 
 const CPU = os.cpus().length;
@@ -178,6 +180,7 @@ export class AgentHost {
       goalMode: false,
       modeOverride: null,
       workflowAborts: new Set(),
+      workflowCache: new Map(),
       loop: new AgentLoop({
         provider,
         registry,
@@ -320,6 +323,7 @@ export class AgentHost {
               extraTools: () => this.mcp.toolDefs(),
               maxAgents: s.superCode.maxAgents,
               concurrency: Math.max(4, Math.min(24, CPU * 2)),
+              cache: hosted.workflowCache,
               onUpdate: (state: WorkflowState) =>
                 this.emitDirect(sessionId, { type: "workflow-update", workflow: state }),
               signal: (() => {
