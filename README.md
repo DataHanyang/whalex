@@ -192,6 +192,63 @@ the others. Four tasks, one run each: enough to show order-of-magnitude cost dif
 enough to rank model intelligence. Rates verified 16 Aug 2026, with a DeepSeek promotional
 discount in effect. Full write-up: [docs/bench/report.html](docs/bench/report.html).</sub>
 
+## 🐳 SuperCode — many agents on one problem
+
+Some jobs are too wide for a single context window: auditing a whole codebase,
+weighing five designs against each other, migrating a hundred call sites. **SuperCode**
+is Whalex's answer — the agent writes a short orchestration script, and Whalex runs it,
+spawning a fleet of sub-agents and streaming their progress back as a live tree.
+
+The point is the split of duties: **the script decides control flow, the agents decide
+content.** Loops, fan-out and merging are ordinary code, so they are deterministic and
+inspectable; the judgement calls stay with the model.
+
+```js
+// The agent writes this; Whalex executes it.
+phase('Review')
+const DIMENSIONS = ['correctness', 'security', 'performance', 'tests']
+
+const findings = await pipeline(
+  DIMENSIONS,
+  d => agent(`Review this repo for ${d} issues.`, { label: d, schema: FINDINGS }),
+  review => parallel(review.findings.map(f => () =>
+    agent(`Try to REFUTE this finding: ${f.title}`, { schema: VERDICT })
+      .then(v => ({ ...f, real: !v.refuted }))
+  ))
+)
+return findings.flat().filter(f => f.real)
+```
+
+**What the script gets**
+
+| Hook | What it does |
+|---|---|
+| `agent(prompt, opts)` | Runs a sub-agent. `schema` forces structured JSON back, `label`/`phase` place it in the progress tree. |
+| `parallel(thunks)` | Runs tasks concurrently and waits for all of them — a barrier. |
+| `pipeline(items, ...stages)` | Runs each item through every stage independently, no barrier between stages, so a fast item finishes while a slow one is still on stage one. |
+| `phase(title)` | Starts a new group in the progress tree. |
+| `log(msg)` | Writes a line to the run narration. |
+
+**How it runs safely**
+
+- The script executes as an async function with **only those five hooks in scope** — no
+  `require`, no `process`, no filesystem, no network. It cannot do anything except ask
+  for agents.
+- Sub-agent tool calls still pass the **same permission engine** as the main session;
+  approvals bubble up to the same cards.
+- Hard caps on **agent count and concurrency**, plus a token budget. Whalex shows an
+  estimate before starting — *"~12 agents, about $0.15"* — and the running cost ticks up
+  in the panel.
+- **Explicit opt-in only**: type `supercode` in your prompt, flip the composer switch, or
+  run `/supercode on`. It never triggers itself, because a fan-out costs real money.
+
+**Why it is practical here.** A twelve-agent adversarial review on Opus-class pricing is a
+decision you think about; on DeepSeek rates the same fan-out lands in the range of a
+coffee. Cheap tokens are what make "just run twenty agents at it" a reasonable default
+rather than an indulgence.
+
+<img src="docs/screenshots/supercode.png" alt="SuperCode progress tree with phases and per-agent status" width="720">
+
 ## 🧩 Extend it
 
 - **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, GitHub, Playwright, …). Or paste any `mcpServers` JSON.
@@ -248,7 +305,8 @@ MIT — see [LICENSE](LICENSE).
 
 **Whalex** — DeepSeek로 구동되는 오픈소스 **로컬 코딩 에이전트 데스크톱 앱**입니다. Claude Code · Codex처럼 내 폴더에서 코드를 읽고·고치고·실행하고, 만든 걸 앱 안 미리보기로 바로 확인합니다. 내 DeepSeek 키만 연결하면 됩니다(BYOK).
 
-- **로컬 제어** · **아티팩트 미리보기** · **브라우저 유즈** · **서브에이전트/슈퍼코드** · **목표 모드** · **MCP/Skills/플러그인** · **체크포인트/되돌리기** · **Hooks** · **비전 브리지** · **자동 업데이트**
+- **로컬 제어** · **아티팩트 미리보기** · **자가 검증(verify_page)** · **브라우저 유즈** · **서브에이전트** · **목표 모드** · **MCP/Skills/플러그인** · **체크포인트/되돌리기** · **Hooks** · **비전 브리지** · **자동 업데이트**
+- **슈퍼코드(SuperCode)** — 한 컨텍스트에 안 담기는 큰 일(코드베이스 전수 감사, 설계안 비교, 대량 마이그레이션)에 에이전트 여러 개를 한꺼번에 투입합니다. 에이전트가 짧은 오케스트레이션 스크립트를 쓰면 Whalex가 그걸 실행해 서브에이전트를 팬아웃하고 진행 상황을 트리로 보여줍니다. **제어 흐름(반복·분기·병합)은 코드가, 판단은 모델이** 맡는 구조라 결과가 결정적이고 들여다보기 쉽습니다. 스크립트는 주입된 5개 훅(`agent` `parallel` `pipeline` `phase` `log`)만 쓸 수 있고 파일·네트워크 접근이 없으며, 서브에이전트의 도구 호출도 같은 권한 시스템을 거칩니다. 에이전트 수·동시성·토큰 예산에 상한이 있고 시작 전 예상 비용을 보여줍니다. **명시적으로 켤 때만 동작**합니다(프롬프트에 `supercode`, 컴포저 스위치, `/supercode on`)
 - 권한 모드(확인/편집자동/플랜/자동)는 **Shift+Tab**으로 전환
 - UI 5개 언어: **English · 한국어 · 中文 · 日本語 · Français**
 - 설치: [Releases](https://github.com/DataHanyang/whalex/releases)에서 OS별 설치본 다운로드 → 앱 실행 → DeepSeek 키 입력 → 폴더 선택
