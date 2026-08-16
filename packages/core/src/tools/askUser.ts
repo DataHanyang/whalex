@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { ToolDef } from "./Tool.js";
 
-const schema = z.object({
-  question: z.string().describe("The question to put to the user, ending with a question mark."),
+const questionSchema = z.object({
+  question: z.string().describe("One question, ending with a question mark."),
   options: z
     .array(
       z.object({
@@ -16,7 +16,19 @@ const schema = z.object({
   multi_select: z
     .boolean()
     .optional()
-    .describe("true when several options may be picked together; answers come back comma-separated."),
+    .describe("true when several options may be picked together."),
+});
+
+const schema = z.object({
+  questions: z
+    .array(questionSchema)
+    .min(1)
+    .max(4)
+    .describe(
+      "1-4 questions asked in ONE call. The card walks the user through them " +
+      "one at a time; you get every answer back together. Prefer batching an " +
+      "interview into one call over separate calls per question.",
+    ),
 });
 
 export type AskUserInput = z.infer<typeof schema>;
@@ -31,16 +43,16 @@ export type AskUserInput = z.infer<typeof schema>;
 export const askUserTool: ToolDef<AskUserInput> = {
   name: "ask_user",
   description:
-    "Ask the user a question with 2-5 selectable options when you are blocked " +
-    "on a decision only they can make (which approach, which file, which " +
-    "trade-off). Ask one thing per call and chain calls for a step-by-step " +
-    "interview. The turn pauses until they answer; the result is the chosen " +
-    "option(s) or their typed reply. Don't use it for things you can decide yourself.",
+    "Ask the user up to 4 questions, each with 2-5 selectable options, when " +
+    "you are blocked on decisions only they can make. The card presents the " +
+    "questions step-by-step and the turn pauses until all are answered; the " +
+    "result lists each question with the chosen option(s) or a typed reply. " +
+    "Don't use it for things you can decide or look up yourself.",
   schema,
   // Not readOnly: the fast path can't yield events; the sequential path can.
   readOnly: false,
   kind: "read",
-  summarize: (i) => `Ask: ${i.question.slice(0, 60)}`,
+  summarize: (i) => `Ask ${i.questions.length} question(s): ${i.questions[0]?.question.slice(0, 50) ?? ""}`,
   async execute() {
     // Never reached — the loop intercepts ask_user before dispatch.
     return { ok: false, output: "ask_user must be handled by the agent loop." };

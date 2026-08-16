@@ -266,3 +266,30 @@ body {
   outline-offset: 3px;
   border-radius: 999px;
 }
+
+/* SuperCode toggle: a slow gradient shimmer while armed, so the mode reads as
+   "on" from across the room. */
+@keyframes sc-shimmer {
+  0% { background-position: 200% 50%; }
+  100% { background-position: -200% 50%; }
+}
+.supercode-on {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: linear-gradient(110deg,
+    var(--accent-soft) 25%, rgba(255, 255, 255, 0.55) 50%, var(--accent-soft) 75%);
+  background-size: 250% 100%;
+  animation: sc-shimmer 2.2s linear infinite;
+}
+.supercode-on svg { animation: sc-twinkle 1.4s ease-in-out infinite; }
+@keyframes sc-twinkle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25) rotate(8deg); opacity: 0.75; }
+}
+
+/* A running workflow agent tile breathes. */
+@keyframes agent-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(77, 107, 254, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(77, 107, 254, 0); }
+}
+.agent-running { animation: agent-pulse 1.6s ease-out infinite; border-color: var(--accent); }
