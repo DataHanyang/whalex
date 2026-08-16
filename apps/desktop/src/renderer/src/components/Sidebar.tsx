@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { FolderOpen, MessageSquare, Plus, Settings, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSessionStore } from "../stores/sessionStore";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore } from "../stores/uiStore";
@@ -23,7 +24,14 @@ export function Sidebar() {
   const cwd = useSessionStore((s) => s.cwd);
   const startSession = useSessionStore((s) => s.startSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
-  const [pendingDelete, setPendingDelete] = useState<{ sessionId: string; cwd: string; title: string } | null>(null);
+  const [pendingDelete, setPendingDeleteRaw] = useState<{ sessionId: string; cwd: string; title: string } | null>(null);
+  const setConfirmOpen = useUiStore((st) => st.setConfirmOpen);
+  // The native browser view paints above the DOM, so it must be told to
+  // yield while the confirm dialog is up.
+  const setPendingDelete = (v: { sessionId: string; cwd: string; title: string } | null) => {
+    setPendingDeleteRaw(v);
+    setConfirmOpen(v !== null);
+  };
   const refreshSessions = useSessionStore((st) => st.refreshSessions);
   useEffect(() => {
     const id = setInterval(() => void refreshSessions(), 10_000);
@@ -114,9 +122,9 @@ export function Sidebar() {
         <Settings size={14} />
         {t("sidebar.settings")}
       </button>
-      {pendingDelete && (
+      {pendingDelete && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
           onClick={() => setPendingDelete(null)}
         >
           <div
@@ -147,7 +155,8 @@ export function Sidebar() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </aside>
   );

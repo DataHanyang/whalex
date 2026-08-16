@@ -16,6 +16,8 @@ interface UiState {
   settingsOpen: boolean;
   settingsTab: SettingsTab;
   rewindOpen: boolean;
+  /** A confirm dialog is up — native browser views must yield to it. */
+  confirmOpen: boolean;
   /** Artifact panel folded to a rail so the transcript gets the width back. */
   artifactCollapsed: boolean;
   /** Text pushed into the composer by another surface (e.g. plan Revise). */
@@ -27,6 +29,7 @@ interface UiState {
   openSettings(tab?: SettingsTab): void;
   closeSettings(): void;
   openRewind(): void;
+  setConfirmOpen(open: boolean): void;
   closeRewind(): void;
   toggleArtifactCollapsed(): void;
   setComposerDraft(text: string | null): void;
@@ -41,6 +44,7 @@ export const useUiStore = create<UiState>((set) => ({
   composerDraft: null,
   artifactWidth: 560,
   rewindOpen: false,
+  confirmOpen: false,
   mcpStatus: [],
   updateStatus: { state: "idle" },
 
@@ -49,6 +53,9 @@ export const useUiStore = create<UiState>((set) => ({
   },
   closeSettings() {
     set({ settingsOpen: false });
+  },
+  setConfirmOpen(open) {
+    set({ confirmOpen: open });
   },
   openRewind() {
     set({ rewindOpen: true });

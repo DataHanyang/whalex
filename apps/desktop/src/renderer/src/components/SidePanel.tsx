@@ -46,6 +46,9 @@ function kindIcon(kind: Artifact["kind"]) {
 /** The native in-app browser view, with a real address bar above it. */
 function BrowserView({ tabId }: { tabId: string }) {
   const tabs = useSessionStore((s) => s.browser.tabs);
+  const overlayOpen = useUiStore(
+    (s) => s.settingsOpen || s.rewindOpen || s.confirmOpen,
+  );
   const tab = tabs.find((t) => t.id === tabId);
   const holderRef = useRef<HTMLDivElement>(null);
   const [addr, setAddr] = useState(tab?.url ?? "");
@@ -59,6 +62,11 @@ function BrowserView({ tabId }: { tabId: string }) {
   useEffect(() => {
     const el = holderRef.current;
     if (!el) return;
+    if (overlayOpen) {
+      // A dialog is above us; the native view would punch through it.
+      void whalex.invoke("browser:hide", undefined);
+      return;
+    }
     const report = () => {
       const r = el.getBoundingClientRect();
       void whalex.invoke("browser:setBounds", {
@@ -78,7 +86,7 @@ function BrowserView({ tabId }: { tabId: string }) {
       window.removeEventListener("resize", report);
       clearInterval(interval);
     };
-  }, [tabId]);
+  }, [tabId, overlayOpen]);
 
   return (
     <div className="flex h-full flex-col">
