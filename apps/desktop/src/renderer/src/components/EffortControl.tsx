@@ -8,6 +8,8 @@ export type EffortLevel = (typeof EFFORT_LEVELS)[number];
 interface Props {
   value: EffortLevel;
   onChange: (v: EffortLevel) => void;
+  /** Display-only: SuperCode pins the level automatically. */
+  locked?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface Props {
  * composer at all times was too much furniture for a control you touch rarely,
  * and the levels are ordered, so a track reads better than a row of choices.
  */
-export function EffortControl({ value, onChange }: Props) {
+export function EffortControl({ value, onChange, locked = false }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export function EffortControl({ value, onChange }: Props) {
     <div ref={wrap} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => !locked && setOpen((v) => !v)}
         title={t("composer.effortTip")}
         aria-haspopup="dialog"
         aria-expanded={open}
