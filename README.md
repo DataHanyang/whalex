@@ -27,68 +27,18 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 
 ## ✨ What it does
 
-<table>
-<tr>
-<td width="33%" valign="top">
-
-**🛠 Local control**
-Read / write / edit files, run PowerShell &amp; bash, `glob`, `grep`, `web_fetch` — right in your project folder.
-
-</td>
-<td width="33%" valign="top">
-
-**🎨 Artifact preview**
-Renders the HTML / SVG / Mermaid / Markdown the agent creates in a split panel — no leaving the app.
-
-</td>
-<td width="33%" valign="top">
-
-**🌐 Browser use**
-The agent opens and reads pages via the DOM, so it can build &amp; test web apps despite DeepSeek being text-only.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**🤖 Sub-agents &amp; SuperCode**
-Delegate to a sub-agent, or fan out a whole fleet of agents in parallel.
-
-</td>
-<td valign="top">
-
-**🎯 Goal mode**
-Give a goal; it iterates on its own, self-evaluating until the goal is met (Codex-style loop).
-
-</td>
-<td valign="top">
-
-**⏪ Checkpoints &amp; rewind**
-`/rewind` restores files **and** the conversation to any earlier point.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**🔌 MCP · Skills · Plugins**
-One-click MCP presets, `SKILL.md` skills, git/local plugins, and Hooks.
-
-</td>
-<td valign="top">
-
-**🖼 Vision bridge**
-Paste an image → a vision model describes it → injected into context.
-
-</td>
-<td valign="top">
-
-**⚡ Fast &amp; auto-updating**
-Parallel read-only tools (~2.75×), rate-limit retries, in-app auto-update.
-
-</td>
-</tr>
-</table>
+| | | |
+|---|---|---|
+| 🛠<br>**Local control** | Read, write and edit files; run PowerShell or bash; `glob`, `grep`, `web_fetch` — all scoped to your project folder. | |
+| 🎨<br>**Artifact preview** | HTML, SVG, Mermaid and Markdown the agent creates render in a split panel, hot-reloading as it edits. | `present_file` |
+| ✅<br>**Self-verification** | `verify_page` opens a page it built in a real browser engine and measures whether it actually draws and animates — so a blank canvas gets caught and fixed, not shipped. | `verify_page` |
+| 🌐<br>**Browser use** | Reads pages through the DOM and the accessibility tree, so it can build and test web apps even though DeepSeek is text-only. | `browser_*` |
+| 🤖<br>**Sub-agents** | Delegates a scoped job to a child agent with its own context — or fans out a fleet of them in parallel. | `agent`, SuperCode |
+| 🎯<br>**Goal mode** | Give it a goal instead of a task; it iterates and self-assesses until the goal is met. | Codex-style loop |
+| ⏪<br>**Checkpoints** | `/rewind` restores your files *and* the conversation to any earlier turn. | `/rewind` |
+| 🔌<br>**Extensible** | One-click MCP presets, `SKILL.md` skills, git or local plugins, and shell Hooks on tool events. | MCP · Skills · Plugins |
+| 🖼<br>**Vision bridge** | Paste an image and a vision model you connect describes it into context — DeepSeek never has to see pixels. | optional |
+| ⚡<br>**Fast &amp; current** | Read-only tools run in parallel, rate limits retry themselves, and the app updates itself in place. | auto-update |
 
 ## 📸 In action
 
@@ -152,13 +102,46 @@ Same prompts, same Windows machine, all three CLIs running full-auto. Tokens com
 tool's own usage report; cost is computed from published rates. Artifacts were **rendered in a
 real browser engine** to confirm they work — not just that a file was written.
 
-| Task | 🐋 Whalex<br><sub>DeepSeek V4 Pro</sub> | Claude Code<br><sub>Opus 5</sub> | Codex<br><sub>GPT-5.6 Sol</sub> |
-|---|:---:|:---:|:---:|
-| **LeetCode classics**<br><sub>7 problems · 48 hidden tests</sub> | **100%** · **20s** · **$0.003** | 100% · 38s · $0.187 | 100% · 68s · $0.214 |
-| **Steam locomotive**<br><sub>canvas animation, night scene</sub> | **100%** · **408s** · **$0.035** | 100% · 858s · $4.35 | 92% · 444s · $1.11 |
-| **E-commerce landing page**<br><sub>single-file storefront</sub> | **100%** · **136s** · **$0.015** | 93% · 239s · $0.926 | 100% · 684s · $2.41 |
-| **Realistic 3D Earth**<br><sub>WebGL globe, day/night</sub> | **100%** · **397s** · **$0.035** | 100% · 25m+ · ~$7.23* | 100% · 354s · $1.34 |
-| **All four** | **$0.087** | ~$12.70 &nbsp;<sub>145×</sub> | $5.07 &nbsp;<sub>58×</sub> |
+<table>
+<thead>
+<tr>
+  <th rowspan="2" align="left">Task</th>
+  <th colspan="3">⏱ Time</th>
+  <th colspan="3">💵 Cost</th>
+</tr>
+<tr>
+  <th>🐋 Whalex</th><th>Codex</th><th>Claude&nbsp;Code</th>
+  <th>🐋 Whalex</th><th>Codex</th><th>Claude&nbsp;Code</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td align="left"><b>Steam locomotive</b><br><sub>canvas animation, night scene</sub></td>
+  <td align="right"><b>6m 48s</b></td><td align="right">7m 24s</td><td align="right">14m 18s</td>
+  <td align="right"><b>$0.035</b></td><td align="right">$1.11</td><td align="right">$4.35</td>
+</tr>
+<tr>
+  <td align="left"><b>Realistic 3D Earth</b><br><sub>WebGL globe, day/night</sub></td>
+  <td align="right"><b>6m 37s</b></td><td align="right">5m 54s</td><td align="right">25m+ <sub>capped</sub></td>
+  <td align="right"><b>$0.035</b></td><td align="right">$1.34</td><td align="right">~$7.23<sup>*</sup></td>
+</tr>
+<tr>
+  <td align="left"><b>E-commerce landing page</b><br><sub>single-file storefront</sub></td>
+  <td align="right"><b>2m 16s</b></td><td align="right">11m 24s</td><td align="right">3m 59s</td>
+  <td align="right"><b>$0.015</b></td><td align="right">$2.41</td><td align="right">$0.93</td>
+</tr>
+<tr>
+  <td align="left"><b>LeetCode classics</b><br><sub>7 problems · 48 hidden tests · all three scored 100%</sub></td>
+  <td align="right"><b>20s</b></td><td align="right">1m 08s</td><td align="right">38s</td>
+  <td align="right"><b>$0.003</b></td><td align="right">$0.214</td><td align="right">$0.187</td>
+</tr>
+<tr>
+  <th align="left">All four</th>
+  <th align="right">16m 00s</th><th align="right">25m 49s</th><th align="right">43m 55s</th>
+  <th align="right">$0.087</th><th align="right">$5.07<br><sub>58×</sub></th><th align="right">~$12.70<br><sub>145×</sub></th>
+</tr>
+</tbody>
+</table>
 
 ```
 Total cost, all four tasks (USD)
@@ -167,6 +150,10 @@ Whalex      ▏$0.09
 Codex       ███████████▏$5.07     58× more
 Claude Code ████████████████████████████▏$12.70  145× more
 ```
+
+Only the LeetCode task has an objective score — all three got every hidden test right, which is
+why the table reports time and cost instead of a meaningless row of 100%s. The three visual tasks
+are judged by rendering them (below), not by a number.
 
 DeepSeek's per-token price is what opens the gap: **$0.435/$0.87** per 1M in/out against
 **$5/$25** (Opus 5) and **$5/$30** (GPT-5.6 Sol).
