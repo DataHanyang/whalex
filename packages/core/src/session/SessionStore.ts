@@ -293,6 +293,27 @@ export class SessionStore {
           break;
       }
     }
+    // A crash or hard interrupt can leave an assistant tool_calls message
+    // without its tool responses; the API rejects such history outright.
+    // Synthesize an interrupted-result for every unanswered call.
+    const answered = new Set(
+      msgs.filter((m) => m.role === "tool").map((m) => (m as { tool_call_id?: string }).tool_call_id),
+    );
+    for (let i = 0; i < msgs.length; i++) {
+      const m = msgs[i] as { role: string; tool_calls?: Array<{ id: string }> };
+      if (m.role !== "assistant" || !m.tool_calls) continue;
+      let insertAt = i + 1;
+      while (insertAt < msgs.length && msgs[insertAt]?.role === "tool") insertAt++;
+      for (const call of m.tool_calls) {
+        if (answered.has(call.id)) continue;
+        msgs.splice(insertAt, 0, {
+          role: "tool",
+          tool_call_id: call.id,
+          content: "[interrupted — the app closed before this tool finished; no result was recorded]",
+        });
+        insertAt++;
+      }
+    }
     return msgs;
   }
 
