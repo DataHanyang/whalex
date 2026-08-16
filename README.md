@@ -58,11 +58,11 @@ Three ideas drive it:
 
 ## 📸 In action
 
-| Browser use — searches Google, reads the results back | Excel artifact — a workbook rendered with sheet tabs |
+| One prompt → a shipped landing page, verified in-app | The interview — decisions stay yours, step by step |
 |---|---|
-| <img src="docs/screenshots/browser-use.png" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/excel.png" alt="A 12-month P&L workbook rendered as a spreadsheet artifact"> |
-| **Thinking effort — click the level, drag the slider** | **Home — pick an example or just type** |
-| <img src="docs/screenshots/effort.png" alt="Thinking-effort slider with seven levels from Off to Max"> | <img src="docs/screenshots/home.png" alt="English home screen with example prompts"> |
+| <img src="docs/screenshots/searchbuild.png" alt="Deepfind, an AI search engine landing page a SuperCode fleet designed, built and smoke-tested, rendered live in the side panel"> | <img src="docs/screenshots/interview.png" alt="After the recon fleet finishes, the agent asks scoped questions with rich options before writing any plan"> |
+| **Browser use — searches Google, reads the results back** | **Thinking effort — click the level, drag the slider** |
+| <img src="docs/screenshots/browser-use.png" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/effort.png" alt="Thinking-effort slider with seven levels from Off to Max"> |
 
 ## 🚀 Quick start
 
