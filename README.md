@@ -179,13 +179,13 @@ flying from the track, seamless loop."</sub>
 
 | 🐋 Whalex · **$0.035** | Codex · $1.11 | Claude Code · $4.35 |
 |---|---|---|
-| <img src="docs/bench/shots/whalex-train.jpg" alt="Whalex steam locomotive"> | <img src="docs/bench/shots/codex-train.jpg" alt="Codex steam locomotive"> | <img src="docs/bench/shots/claude-train.jpg" alt="Claude Code steam locomotive"> |
+| <img src="docs/bench/gif/whalex-train.gif" alt="Whalex steam locomotive"> | <img src="docs/bench/gif/codex-train.gif" alt="Codex steam locomotive"> | <img src="docs/bench/gif/claude-train.gif" alt="Claude Code steam locomotive"> |
 
 <sub>"Create a realistic 3D HTML animation of the Earth."</sub>
 
 | 🐋 Whalex · **$0.035** | Codex · $1.34 | Claude Code |
 |---|---|---|
-| <img src="docs/bench/shots/whalex-earth.jpg" alt="Whalex 3D Earth"> | <img src="docs/bench/shots/codex-earth.jpg" alt="Codex 3D Earth"> | <img src="docs/bench/shots/claude-earth.jpg" alt="Claude Code 3D Earth"> |
+| <img src="docs/bench/gif/whalex-earth.gif" alt="Whalex 3D Earth"> | <img src="docs/bench/gif/codex-earth.gif" alt="Codex 3D Earth"> | <img src="docs/bench/gif/claude-earth.gif" alt="Claude Code 3D Earth"> |
 
 <sub>"Build a modern landing page for an online shopping mall as a single self-contained file."</sub>
 
