@@ -6,11 +6,13 @@ import { todoWriteTool } from "./todo.js";
 import { presentFileTool } from "./present.js";
 import { webFetchTool } from "./web.js";
 import { verifyPageTool } from "./verify.js";
+import { askUserTool } from "./askUser.js";
 
 export * from "./Tool.js";
 export { presentFileTool } from "./present.js";
 export { webFetchTool } from "./web.js";
 export { verifyPageTool } from "./verify.js";
+export { askUserTool } from "./askUser.js";
 
 export interface BuiltinToolOptions {
   /** Read-only agents (e.g. the "explore" subagent type) get a reduced set. */
@@ -32,6 +34,7 @@ export function createBuiltinRegistry(opts: BuiltinToolOptions = {}): ToolRegist
     globTool,
     grepTool,
     todoWriteTool,
+    askUserTool,
     ...(opts.includePresent !== false ? [presentFileTool] : []),
     ...(opts.includeWebFetch !== false ? [webFetchTool] : []),
     ...(opts.includeVerifyPage ? [verifyPageTool] : []),

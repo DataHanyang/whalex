@@ -38,6 +38,7 @@ const INVOKE_CHANNELS = new Set([
   "browser:hide",
   "vision:test",
   "vision:describe",
+  "question:respond",
   "dialog:pickFolder",
   "shell:openExternal",
 ]);
