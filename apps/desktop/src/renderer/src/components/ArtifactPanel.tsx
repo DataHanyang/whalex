@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, RefreshCw, X , PanelRightClose } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
+import { useTranslation } from "react-i18next";
+import { CheckCircle2, PencilLine, XCircle } from "lucide-react";
 import { useUiStore } from "../stores/uiStore";
 import { StreamingMarkdown } from "./StreamingMarkdown";
 import { CodeBlock } from "./CodeBlock";
@@ -8,6 +10,94 @@ import { SpreadsheetView, SlidesView } from "./OfficeViews";
 import { whalex } from "../lib/ipc";
 
 const VIEWPORTS = { desktop: "100%", tablet: "768px", mobile: "375px" } as const;
+
+/**
+ * A plan produced in plan mode: the markdown on top, a decision bar below.
+ * Accept flips the session out of plan mode and tells the agent to build;
+ * Revise opens an inline feedback box; Reject sends the plan back.
+ */
+function PlanView({ content }: { content: string }) {
+  const { t } = useTranslation();
+  const send = useSessionStore((s) => s.send);
+  const setPermissionMode = useSessionStore((s) => s.setPermissionMode);
+  const close = useSessionStore((s) => s.closeArtifact);
+  const [editing, setEditing] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        <StreamingMarkdown text={content} streaming={false} />
+      </div>
+      <div className="shrink-0 border-t border-border bg-surface p-3">
+        {editing ? (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!feedback.trim()) return;
+              void send(`Revise the plan: ${feedback.trim()}`);
+              setEditing(false);
+              setFeedback("");
+            }}
+          >
+            <input
+              autoFocus
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder={t("plan.revisePlaceholder")}
+              className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-[12.5px] outline-none placeholder:text-faint focus:border-accent"
+            />
+            <button
+              type="submit"
+              disabled={!feedback.trim()}
+              className="rounded-lg bg-accent px-3 py-2 text-[12.5px] font-medium text-white disabled:opacity-40"
+            >
+              {t("plan.sendRevision")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="rounded-lg border border-border px-3 py-2 text-[12.5px] text-muted hover:bg-surface-2"
+            >
+              {t("plan.cancel")}
+            </button>
+          </form>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setPermissionMode("default");
+                void send("I accept the plan. Exit plan mode and implement it now.");
+              }}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white hover:opacity-90"
+            >
+              <CheckCircle2 size={14} />
+              {t("plan.accept")}
+            </button>
+            <button
+              onClick={() => setEditing(true)}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[13px] text-muted hover:bg-surface-2"
+            >
+              <PencilLine size={14} />
+              {t("plan.revise")}
+            </button>
+            <button
+              onClick={() => {
+                void send("The plan is rejected. Do not proceed with it.");
+                close();
+              }}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-danger/40 px-3 py-2 text-[13px] text-danger hover:bg-danger/10"
+            >
+              <XCircle size={14} />
+              {t("plan.reject")}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Renders an HTML artifact inside a strictly-sandboxed iframe. */
 function HtmlView({ content }: { content: string }) {
@@ -134,6 +224,7 @@ export function ArtifactPanel() {
           <div className="flex justify-center p-4" dangerouslySetInnerHTML={{ __html: active.content }} />
         )}
         {active.kind === "mermaid" && active.content && <MermaidView content={active.content} />}
+        {active.kind === "plan" && active.content && <PlanView content={active.content} />}
         {active.kind === "spreadsheet" && active.content && <SpreadsheetView base64={active.content} />}
         {active.kind === "slides" && active.content && <SlidesView base64={active.content} />}
         {active.kind === "image" && active.content && (

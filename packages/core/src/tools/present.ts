@@ -8,7 +8,7 @@ const PresentInput = z.object({
   path: z.string().optional().describe("Path to a file to render (html/md/svg/image/xlsx/pptx)"),
   content: z.string().optional().describe("Inline content to render instead of a file"),
   kind: z
-    .enum(["html", "markdown", "svg", "mermaid", "image", "code", "spreadsheet", "slides"])
+    .enum(["html", "markdown", "svg", "mermaid", "image", "code", "spreadsheet", "slides", "plan"])
     .describe("How to render the artifact"),
   title: z.string().describe("Short title shown on the artifact tab"),
   language: z.string().optional().describe("Language for code artifacts"),

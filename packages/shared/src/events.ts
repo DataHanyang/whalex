@@ -78,7 +78,7 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     type: z.literal("artifact"),
     artifactId: z.string(),
     title: z.string(),
-    kind: z.enum(["html", "markdown", "svg", "mermaid", "image", "code", "url", "spreadsheet", "slides"]),
+    kind: z.enum(["html", "markdown", "svg", "mermaid", "image", "code", "url", "spreadsheet", "slides", "plan"]),
     path: z.string().optional(),
     url: z.string().optional(),
     content: z.string().optional(),
@@ -179,7 +179,7 @@ export type WorkflowState = z.infer<typeof WorkflowStateSchema>;
 export const ArtifactSchema = z.object({
   artifactId: z.string(),
   title: z.string(),
-  kind: z.enum(["html", "markdown", "svg", "mermaid", "image", "code", "url", "spreadsheet", "slides"]),
+  kind: z.enum(["html", "markdown", "svg", "mermaid", "image", "code", "url", "spreadsheet", "slides", "plan"]),
   path: z.string().optional(),
   url: z.string().optional(),
   content: z.string().optional(),
