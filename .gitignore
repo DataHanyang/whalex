@@ -13,3 +13,4 @@ Thumbs.db
 .playwright-mcp/
 apps/desktop/orbital-*.png
 .claude/scheduled_tasks.lock
+.claude/
