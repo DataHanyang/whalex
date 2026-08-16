@@ -164,8 +164,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   async refreshSessions() {
-    const cwd = get().cwd;
-    const sessions = await whalex.invoke("session:list", { cwd: cwd ?? undefined });
+    // Every project's sessions, so switching folders never "loses" them;
+    // the sidebar groups them by folder.
+    const sessions = await whalex.invoke("session:list", {});
     set({ sessions });
   },
 
@@ -197,6 +198,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       usage: null,
       todos: [],
       pendingPermission: null,
+      pendingQuestion: null,
+      planPending: false,
       lastError: null,
       artifacts: [],
       activeArtifactId: null,
