@@ -17,7 +17,7 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 
 <br>
 
-<img src="docs/screenshots/hero.png" alt="Live satellite constellation over a NASA-textured Earth, built by WhaleX from one prompt" width="900">
+<img src="docs/screenshots/hero.png" alt="ORBITAL - a real-time tracker of 10,961 satellites on a night-lights 3D Earth with an ISS telemetry panel, built end-to-end by a WhaleX SuperCode fleet from one prompt" width="900">
 
 <sub><em>Built by WhaleX from a single prompt and self-verified with its own <code>verify_page</code> tool: a NASA-textured Earth with a live 8-satellite constellation, orbit tracks, altitude HUD and ground stations. About four cents of DeepSeek tokens.</em></sub>
 
@@ -251,6 +251,35 @@ The whole pictured session — max-reasoning recon, interview, planning on V4 Pr
 multi-phase design fleet — used roughly half a million tokens: about **$0.30** at
 DeepSeek rates. The same orchestration pattern on frontier-model pricing is a
 double-digit dollar decision.
+
+**Same brief, with and without the fleet.** We gave one prompt — *"Render the
+current real-time positions and info of satellites on a 3D Earth. Find and connect
+real live data sources yourself. Take great care with the UI/UX."* — to two fresh
+sessions on the same model (V4 Pro), same procedure (plan → accept → auto). The
+SuperCode run is the hero image at the top of this page; the solo run built the
+dashboard below. Both shipped genuinely excellent, fully-verified trackers — the
+difference was how they got there:
+
+| | SuperCode (Deep budget) | Solo agent |
+|---|---|---|
+| Active working time | **64 min** | 93 min |
+| Tool calls / file writes | 348 / 96 | 294 / 74 |
+| Satellites rendered | 10,961 (curated groups) | 16,084 (full catalog) |
+| Verification | recon fleet, 3-judge design panel, 6 adversarial findings fixed, a11y audit | self-built pixel-sampling harness; found & fixed real canvas and shader bugs |
+| Tokens (est. from session logs) | ~57M (incl. 10.7M measured fleet) | ~23.5M |
+| Cost, DeepSeek list price* | ≤ $26 | ≤ $10 |
+| Same volume at frontier rates | ~$290 | ~$120 |
+
+<sub>*Upper bound at $0.435/$0.87 per 1M tokens with no cache discount — DeepSeek's
+automatic context caching bills repeated prefixes at a fraction of list, so the
+real figure is far lower. Frontier column: the same token volume at $5/$25.</sub>
+
+<img src="docs/screenshots/orbital-b.png" alt="The solo run's tracker: 16,084 satellites color-coded by category with orbit-regime filters on a 3D Earth" width="820">
+
+The fleet finished a third faster and verified along more axes at once; the solo
+agent went deeper on fewer threads. What makes either affordable enough to run
+casually is the pricing: this entire two-session experiment cost less than a
+single frontier-priced run of one of them.
 
 **Under the hood** the agent writes a short orchestration script and WhaleX executes it:
 

@@ -11,4 +11,5 @@ Thumbs.db
 
 # Agent browsing artifacts
 .playwright-mcp/
-orbital-*.png
+apps/desktop/orbital-*.png
+.claude/scheduled_tasks.lock
