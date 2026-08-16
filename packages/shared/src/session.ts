@@ -7,6 +7,8 @@ export const SessionMetaSchema = z.object({
   title: z.string(),
   createdAt: z.number(),
   updatedAt: z.number(),
+  /** True while this app instance is actively running the session. */
+  running: z.boolean().optional(),
   messageCount: z.number(),
   model: z.string().optional(),
 });

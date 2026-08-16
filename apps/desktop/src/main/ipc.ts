@@ -77,7 +77,10 @@ export function registerIpc(deps: {
       }
     },
     "models:list": async (req) => makeProvider(req.providerId).listModels(),
-    "session:list": (req) => SessionStore.list(req.cwd),
+    "session:list": async (req) => {
+      const list = await SessionStore.list(req.cwd);
+      return list.map((m) => ({ ...m, running: host.isSessionRunning(m.sessionId) }));
+    },
     "session:delete": (req) => SessionStore.delete(req.cwd, req.sessionId),
     "session:start": (req) => host.start(req.cwd, req.resumeSessionId),
     "session:send": (req) => {

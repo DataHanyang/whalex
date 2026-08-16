@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { FolderOpen, MessageSquare, Plus, Settings, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore } from "../stores/uiStore";
@@ -24,6 +24,11 @@ export function Sidebar() {
   const startSession = useSessionStore((s) => s.startSession);
   const deleteSession = useSessionStore((s) => s.deleteSession);
   const [pendingDelete, setPendingDelete] = useState<{ sessionId: string; cwd: string; title: string } | null>(null);
+  const refreshSessions = useSessionStore((st) => st.refreshSessions);
+  useEffect(() => {
+    const id = setInterval(() => void refreshSessions(), 10_000);
+    return () => clearInterval(id);
+  }, [refreshSessions]);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const openSettings = useUiStore((s) => s.openSettings);
 
@@ -77,7 +82,11 @@ export function Sidebar() {
             }`}
           >
             <div className="flex min-w-0 items-center gap-1.5 text-[12.5px]">
-              <MessageSquare size={12} className="shrink-0 text-faint" />
+              {s.running ? (
+                <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+              ) : (
+                <MessageSquare size={12} className="shrink-0 text-faint" />
+              )}
               <span className="min-w-0 flex-1 truncate">{s.title}</span>
               <button
                 onClick={(e) => {
