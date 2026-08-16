@@ -59,6 +59,14 @@ export const executeTool: ToolDef<z.infer<typeof ExecuteInput>> = {
       windowsHide: true,
       cancelSignal: ctx.signal,
       all: true,
+      // Nothing here is interactive: give the command a closed stdin so a
+      // prompt — an unterminated PowerShell here-string, a `read`, a tool
+      // asking to confirm — fails immediately instead of blocking until the
+      // timeout. Force-kill shortly after the timeout as well: killing the
+      // shell alone can leave a grandchild holding the output pipe open, and
+      // then the promise never settles at all.
+      stdin: "ignore",
+      forceKillAfterDelay: 5_000,
     });
     const durationMs = Date.now() - started;
     const raw = (result.all ?? "").toString().trim();
