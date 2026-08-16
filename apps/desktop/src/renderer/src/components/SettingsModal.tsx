@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Settings2,
   Sparkles,
+  Trash2,
   X,
 } from "lucide-react";
 import { MCP_PRESETS, type McpServerConfig, type SkillInfo } from "@whalex/shared";
@@ -80,10 +81,9 @@ function GeneralTab() {
         ] as const
       ).map(([key, labelKey]) => (
         <Row key={key} label={t(labelKey)}>
-          <input
-            type="checkbox"
+          <ToggleSwitch
             checked={settings.features[key]}
-            onChange={(e) => void update({ features: { ...settings.features, [key]: e.target.checked } })}
+            onChange={(v) => void update({ features: { ...settings.features, [key]: v } })}
           />
         </Row>
       ))}
@@ -203,16 +203,45 @@ function ModelsTab() {
       </Row>
       <Row label={t("settings.computerUse")}>
         <label className="flex items-center gap-2 text-[11.5px] text-faint">
-          <input
-            type="checkbox"
+          <ToggleSwitch
             checked={settings.computerUse.enabled}
             disabled={!settings.vision.baseUrl || !settings.vision.model}
-            onChange={(e) => void update({ computerUse: { enabled: e.target.checked } })}
+            onChange={(v) => void update({ computerUse: { enabled: v } })}
           />
           {t("settings.computerUse.allow")}
         </label>
       </Row>
     </div>
+  );
+}
+
+/** Small on/off switch — settings rows use this instead of a bare checkbox. */
+function ToggleSwitch({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative h-[18px] w-8 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+        checked ? "bg-accent" : "bg-border"
+      }`}
+    >
+      <span
+        className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-all ${
+          checked ? "left-[16px]" : "left-[2px]"
+        }`}
+      />
+    </button>
   );
 }
 
@@ -254,10 +283,16 @@ function McpTab() {
     await update({ mcpServers: next });
   };
 
+  const [adding, setAdding] = useState<string | null>(null);
   const enablePreset = async (name: string) => {
-    const cwd = settings.defaultCwd ?? ".";
-    await whalex.invoke("mcp:enablePreset", { name, cwd });
-    await init();
+    setAdding(name);
+    try {
+      const cwd = settings.defaultCwd ?? ".";
+      await whalex.invoke("mcp:enablePreset", { name, cwd });
+      await init();
+    } finally {
+      setAdding(null);
+    }
   };
 
   const installedNames = new Set(Object.keys(settings.mcpServers));
@@ -280,9 +315,10 @@ function McpTab() {
             </div>
             <button
               onClick={() => void enablePreset(p.name)}
-              className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-accent-hover"
+              disabled={adding === p.name}
+              className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-50"
             >
-              {t("settings.mcp.add")}
+              {adding === p.name ? "…" : t("settings.mcp.add")}
             </button>
           </div>
         ))}
@@ -312,13 +348,14 @@ function McpTab() {
               {entry.config.type} · {t("settings.mcp.tools", { count: status?.toolCount ?? 0 })}
             </span>
             <div className="flex-1" />
-            <input
-              type="checkbox"
-              checked={entry.enabled}
-              onChange={(e) => void toggle(name, e.target.checked)}
-            />
-            <button onClick={() => void remove(name)} className="text-[11px] text-danger hover:underline">
-              {t("settings.mcp.delete")}
+            <ToggleSwitch checked={entry.enabled} onChange={(v) => void toggle(name, v)} />
+            <button
+              onClick={() => void remove(name)}
+              title={t("settings.mcp.delete")}
+              aria-label={t("settings.mcp.delete")}
+              className="rounded-md p-1.5 text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+            >
+              <Trash2 size={14} />
             </button>
           </div>
         );

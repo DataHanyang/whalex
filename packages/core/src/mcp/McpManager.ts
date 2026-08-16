@@ -14,7 +14,12 @@ interface Connection {
   tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
 }
 
-const CONNECT_TIMEOUT = 15_000;
+// A cold `npx -y` run downloads the package first; give it room.
+const CONNECT_TIMEOUT = 60_000;
+// Concurrent npx invocations contend on the npm cache lock — a parallel boot
+// of 8 stdio servers made every handshake exceed the timeout. Connect a few
+// at a time instead.
+const CONNECT_POOL = 3;
 
 /**
  * Connects to and manages multiple MCP servers. Runs in the Electron main
@@ -31,11 +36,17 @@ export class McpManager {
   }
 
   async startAll(servers: Record<string, { config: McpServerConfig; enabled: boolean }>): Promise<void> {
-    await Promise.all(
-      Object.entries(servers).map(([name, entry]) =>
-        entry.enabled ? this.connect(name, entry.config) : this.markDisabled(name, entry.config),
-      ),
-    );
+    const entries = Object.entries(servers);
+    for (const [name, entry] of entries) {
+      if (!entry.enabled) this.markDisabled(name, entry.config);
+    }
+    const queue = entries.filter(([, e]) => e.enabled);
+    const worker = async () => {
+      for (let job = queue.shift(); job; job = queue.shift()) {
+        await this.connect(job[0], job[1].config);
+      }
+    };
+    await Promise.all(Array.from({ length: CONNECT_POOL }, worker));
     this.emitStatus();
   }
 

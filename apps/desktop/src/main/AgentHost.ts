@@ -212,7 +212,10 @@ export class AgentHost {
     this.settings.update({
       mcpServers: { ...settings.mcpServers, [name]: { config, enabled: true } },
     });
-    await this.mcp.connect(name, config);
+    // Don't block the reply on the connection: a first `npx -y` run downloads
+    // the whole package, which can take a minute. The row appears immediately
+    // with a "connecting" dot and the status event flips it when ready.
+    void this.mcp.connect(name, config).catch(() => {});
   }
 
   send(sessionId: string, text: string, model: string): void {

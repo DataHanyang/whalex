@@ -49,8 +49,9 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 840,
-    minWidth: 760,
-    minHeight: 520,
+    // The composer control row and side panel need this much to stay intact.
+    minWidth: 980,
+    minHeight: 640,
     show: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111113" : "#fafafa",
     titleBarStyle: "hidden",
