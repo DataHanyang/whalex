@@ -260,7 +260,7 @@ difference was how they got there:
 
 | | 🚀 **SuperCode (Deep budget)** | 🧑‍🚀 **Solo agent** |
 |---|---|---|
-| Result | <img src="docs/screenshots/orbital-a.gif" alt="SuperCode fleet's tracker: 10,961 satellites orbiting a rotating 3D Earth with an ISS telemetry panel" width="420"> | <img src="docs/screenshots/orbital-b.gif" alt="Solo agent's tracker: 16,084 satellites color-coded by category orbiting a rotating Earth" width="420"> |
+| Result | <img src="docs/screenshots/orbital-a.gif" alt="SuperCode fleet's tracker: 10,961 satellites orbiting a rotating 3D Earth with an ISS telemetry panel" width="370"> | <img src="docs/screenshots/orbital-b.gif" alt="Solo agent's tracker: 16,084 satellites color-coded by category orbiting a rotating Earth" width="370"> |
 | Active working time | **64 min** | 93 min |
 | Tool calls / file writes | 348 / 96 | 294 / 74 |
 | Satellites rendered | 10,961 (curated groups) | 16,084 (full catalog) |
