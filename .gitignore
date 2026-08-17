@@ -9,8 +9,9 @@ release/
 .DS_Store
 Thumbs.db
 
-# Agent browsing artifacts
+# Agent browsing artifacts (screenshots dropped in the app root — not recursive,
+# so build/icon.png, src assets and docs/ screenshots are unaffected)
 .playwright-mcp/
-apps/desktop/orbital-*.png
-.claude/scheduled_tasks.lock
+apps/desktop/*.png
+apps/desktop/*.gif
 .claude/
