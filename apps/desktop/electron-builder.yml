@@ -13,8 +13,9 @@ asarUnpack:
   - "**/node_modules/@vscode/ripgrep/**"
   - "**/node_modules/@nut-tree-fork/**"
 # Code signing: with a certificate (WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD env or
-# azureSignOptions) electron-builder signs automatically. Without one we keep
-# signAndEditExecutable false to avoid rcedit/winCodeSign symlink issues on CI.
+# azureSignOptions) electron-builder signs automatically. signAndEditExecutable
+# must stay true even unsigned: turning it off also skips rcedit, shipping the
+# stock Electron icon and version resources on WhaleX.exe (0.2.0/0.2.1 did).
 win:
   target:
     - nsis
@@ -25,7 +26,7 @@ win:
   #   endpoint: "https://eus.codesigning.azure.net"
   #   codeSigningAccountName: "<account>"
   #   certificateProfileName: "<profile>"
-  signAndEditExecutable: false
+  signAndEditExecutable: true
 mac:
   # zip is the reliable unsigned CI artifact; add dmg once a signing identity
   # (Apple Developer cert) is available, otherwise it fails on the runner.
