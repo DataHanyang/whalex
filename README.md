@@ -45,7 +45,7 @@ Three ideas drive it:
 
 | | | |
 |---|---|---|
-| 🛠 **Local control** | Read, write and edit files; run PowerShell or bash; `glob`, `grep`, `web_fetch` — all scoped to your project folder. | |
+| 🛠 **Local control** | Read, write and edit files; run PowerShell or bash; `glob`, `grep`, `web_fetch`. | |
 | 🎨 **Artifact preview** | HTML, SVG, Mermaid and Markdown the agent creates render in a split panel, hot-reloading as it edits. | `present_file` |
 | ✅ **Self-verification** | `verify_page` opens a page it built in a real browser engine and measures whether it actually draws and animates — so a blank canvas gets caught and fixed, not shipped. | `verify_page` |
 | 🌐 **Browser use** | Reads pages through the DOM and the accessibility tree, so it can build and test web apps even though DeepSeek is text-only. | `browser_*` |
@@ -304,10 +304,8 @@ return findings.flat().filter(f => f.real)
 | `phase(title)` | Starts a new group in the progress tree. |
 | `log(msg)` | Writes a line to the run narration. |
 
-**How it runs safely**
+**What keeps a run in bounds**
 
-- The script executes with **only those five hooks in scope** — no `require`, no
-  `process`, no filesystem, no network. It cannot do anything except ask for agents.
 - Fleet agents read and write files but have no shell; **every tool call passes the
   same permission engine** as the main session, so plan mode keeps the whole fleet
   read-only and approvals bubble up to the same cards.
