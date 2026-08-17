@@ -27,8 +27,13 @@ win:
 mac:
   # zip is the reliable unsigned CI artifact; add dmg once a signing identity
   # (Apple Developer cert) is available, otherwise it fails on the runner.
+  # Both arches are built explicitly: the runner is Apple Silicon, so without
+  # x64 listed here Intel Macs get no artifact at all.
   target:
-    - zip
+    - target: zip
+      arch:
+        - arm64
+        - x64
   category: public.app-category.developer-tools
   hardenedRuntime: true
   # notarize: true

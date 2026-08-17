@@ -379,14 +379,15 @@ configure. There is no account, no telemetry, and no middleman server.
 ## 💾 Installing, per OS
 
 ### Windows
-1. Download **`WhaleX-Setup-0.1.0.exe`** from [Releases](https://github.com/leejoong/whalex/releases).
+1. Download **`WhaleX-Setup-0.2.1.exe`** from [Releases](https://github.com/leejoong/whalex/releases).
 2. Run it. SmartScreen will warn because the build is unsigned — click **More info → Run anyway**.
 3. The app installs per-user (no admin rights needed) and creates Start-menu and desktop shortcuts.
 4. First launch: paste your DeepSeek API key, pick a working folder, choose a permission mode.
 5. Updates arrive in-app — a toast appears, one click restarts into the new version.
 
-### macOS (Apple Silicon)
-1. Download **`WhaleX-0.1.0-arm64-mac.zip`** and unzip it.
+### macOS
+1. Download **`WhaleX-0.2.1-arm64-mac.zip`** (Apple Silicon) or **`WhaleX-0.2.1-x64-mac.zip`**
+   (Intel) and unzip it.
 2. Drag **WhaleX.app** into **Applications**.
 3. The app is unsigned/un-notarised, so plain double-click is blocked: **right-click → Open → Open**
    (needed only once). On newer macOS you may instead need **System Settings → Privacy & Security →
@@ -394,11 +395,11 @@ configure. There is no account, no telemetry, and no middleman server.
 4. First launch: key → folder → go, same as Windows.
 
 ### Linux
-1. Download **`WhaleX-0.1.0.AppImage`**.
+1. Download **`WhaleX-0.2.1.AppImage`**.
 2. Make it executable and run:
    ```bash
-   chmod +x WhaleX-0.1.0.AppImage
-   ./WhaleX-0.1.0.AppImage
+   chmod +x WhaleX-0.2.1.AppImage
+   ./WhaleX-0.2.1.AppImage
    ```
 3. If your distro lacks FUSE 2 (`libfuse.so.2` error): install `libfuse2`, or run with
    `--appimage-extract-and-run`.
