@@ -1,6 +1,6 @@
 {
   "name": "whalex-monorepo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "engines": {
@@ -16,5 +16,12 @@
   "devDependencies": {
     "puppeteer-core": "^25.7.0",
     "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "//": "ripgrep resolves its binary from a per-arch optional dependency at runtime, so a cross-arch build would otherwise ship the runner's arch and break grep. Install both macOS arches everywhere.",
+    "supportedArchitectures": {
+      "os": ["current", "darwin"],
+      "cpu": ["current", "x64", "arm64"]
+    }
   }
 }
