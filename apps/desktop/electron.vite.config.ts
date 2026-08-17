@@ -8,7 +8,10 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({ exclude: ["@whalex/core", "@whalex/shared"] })],
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    // Bundle @whalex/shared (a workspace devDependency) so the preload's
+    // channel whitelist, sourced from IPC_INVOKE/IPC_EVENTS, resolves at
+    // runtime in packaged builds too.
+    plugins: [externalizeDepsPlugin({ exclude: ["@whalex/shared"] })],
   },
   renderer: {
     plugins: [react(), tailwindcss()],

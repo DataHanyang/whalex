@@ -1,17 +1,18 @@
 {
   "name": "whalex-monorepo",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "build": "pnpm -r --filter './packages/*' build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "dev": "pnpm --filter @whalex/desktop dev",
-    "cli": "pnpm --filter @whalex/cli start"
+    "cli": "pnpm --filter @whalex/cli start",
+    "bump": "node scripts/bump-version.mjs"
   },
   "devDependencies": {
     "puppeteer-core": "^25.7.0",

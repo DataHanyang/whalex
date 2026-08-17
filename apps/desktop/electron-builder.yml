@@ -1,6 +1,8 @@
 appId: app.whalex.desktop
 productName: WhaleX
-electronVersion: 33.4.11
+# electronVersion is intentionally omitted so electron-builder auto-detects the
+# installed electron devDependency — a single source of truth that can't drift
+# from what `pnpm dev` runs.
 directories:
   buildResources: build
   output: release
