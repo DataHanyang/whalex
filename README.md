@@ -317,8 +317,33 @@ return findings.flat().filter(f => f.real)
 
 ## 🧩 Extend it
 
+### Steer the agent with Markdown
+
+WhaleX reads a few plain-Markdown files so you can shape how it behaves without touching the app. All of them are optional and picked up automatically — no restart needed.
+
+- **`WHALEX.md` — project instructions.** Drop a `WHALEX.md` in your working folder and it's injected into the system prompt every session (up to 20,000 chars): conventions, the stack, commands to run, tone, "always do X / never do Y." A `CLAUDE.md` in the same folder is read as a fallback, so existing Claude Code repos work as-is. A `~/.whalex/WHALEX.md` in your home folder applies to every project. Precedence: project `WHALEX.md` → project `CLAUDE.md` → global `~/.whalex/WHALEX.md`.
+
+  ```markdown
+  # Project: acme-web
+  - Package manager is pnpm; never use npm.
+  - Run `pnpm test` after any change under `src/`.
+  - Prefer functional React components; no class components.
+  - Match the existing Prettier config; don't reformat untouched files.
+  ```
+
+- **`SKILL.md` — on-demand skills.** A folder with a `SKILL.md` (YAML frontmatter `name` + `description`, then the body) becomes a skill the agent loads only when it's relevant — the prompt carries a one-line catalog, the full body loads when the agent invokes it or you type `/<name>`. Put them in `~/.whalex/skills/<name>/` (all projects) or `<project>/.whalex/skills/<name>/` (project wins on a name clash). Claude Code–compatible.
+
+  ```markdown
+  ---
+  name: release-checklist
+  description: Steps to cut and verify a release build
+  ---
+  1. Bump the version in every package.json…
+  ```
+
+### Connect more tools
+
 - **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, GitHub, Playwright, Excel, PowerPoint, Gmail, …). Or paste any `mcpServers` JSON.
-- **Skills** — drop a `SKILL.md` under `~/.whalex/skills/<name>/` (Claude Code-compatible).
 - **Plugins** — install from a git URL or a local folder (skills + MCP + commands).
 - **Hooks** — run shell commands on `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `Stop`; a `PreToolUse` hook can block a tool.
 - **Feature toggles** — turn sub-agents, SuperCode, browser use, web fetch on/off in Settings.
