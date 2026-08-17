@@ -25,10 +25,19 @@ export class SecretVault {
     if (safeStorage.isEncryptionAvailable()) {
       this.store[ref] = { v: safeStorage.encryptString(value).toString("base64") };
     } else {
+      console.warn(
+        "[secrets] OS keychain unavailable — storing secret base64-encoded (NOT encrypted) in secrets.bin",
+      );
       this.store[ref] = { v: Buffer.from(value, "utf8").toString("base64"), plain: true };
     }
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(this.file, JSON.stringify(this.store), "utf8");
+    // Owner-only where the OS honors it (no-op on Windows ACLs).
+    fs.writeFileSync(this.file, JSON.stringify(this.store), { encoding: "utf8", mode: 0o600 });
+    try {
+      fs.chmodSync(this.file, 0o600); // mode above only applies on create
+    } catch {
+      // best effort
+    }
   }
 
   get(ref: string): string | null {

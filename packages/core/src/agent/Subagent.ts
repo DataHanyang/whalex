@@ -84,6 +84,7 @@ export function createAgentTool(deps: SubagentDeps): ToolDef<{
       const registry = createBuiltinRegistry({
         readOnlyOnly: typeInfo.readOnlyOnly,
         includePresent: false,
+        includeAskUser: false,
       });
       const session = SessionStore.createEphemeral(deps.cwd);
       const loop = new AgentLoop({
@@ -102,6 +103,7 @@ You are a ${input.agent_type} subagent. Complete the delegated task autonomously
       const agentRunId = randomUUID();
       let toolCount = 0;
       let finalText = "";
+      const extraDiffs: Array<{ path: string; oldText: string; newText: string }> = [];
       const started = Date.now();
       try {
         for await (const ev of loop.run(input.prompt)) {
@@ -109,7 +111,10 @@ You are a ${input.agent_type} subagent. Complete the delegated task autonomously
             loop.abort();
             break;
           }
-          if (ev.type === "tool-start") {
+          if (ev.type === "file-edit") {
+            // Surface the subagent's edits to the parent so rewind can undo them.
+            extraDiffs.push({ path: ev.path, oldText: ev.oldText, newText: ev.newText });
+          } else if (ev.type === "tool-start") {
             toolCount++;
             deps.onProgress?.({
               agentRunId,
@@ -120,6 +125,24 @@ You are a ${input.agent_type} subagent. Complete the delegated task autonomously
             });
           } else if (ev.type === "text-delta") {
             finalText += ev.delta;
+          } else if (ev.type === "question-request") {
+            // Subagents have no UI surface; an unanswered question would block
+            // the nested loop (and the whole session) forever. Answer it so
+            // the subagent proceeds on its own judgment.
+            loop.answerQuestion(
+              ev.request.id,
+              "(subagents cannot ask the user — decide yourself and continue)",
+            );
+          } else if (ev.type === "permission-request") {
+            // Same reasoning as WorkflowRunner: nobody can approve this card,
+            // so deny with an actionable reason instead of hanging.
+            deps.permissions.resolve({
+              id: ev.request.id,
+              behavior: "deny",
+              scope: "once",
+              message:
+                "Subagents cannot wait for interactive approval. Report what you would have done instead.",
+            });
           }
         }
       } catch (err) {
@@ -138,6 +161,7 @@ You are a ${input.agent_type} subagent. Complete the delegated task autonomously
         output:
           `[Subagent ${input.agent_type} completed in ${((Date.now() - started) / 1000).toFixed(0)}s, ${toolCount} tools]\n\n` +
           (finalText.trim() || "(no output)"),
+        extraDiffs,
       };
     },
   };

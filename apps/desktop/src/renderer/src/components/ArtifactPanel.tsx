@@ -42,13 +42,15 @@ function UrlView({ title, url }: { title: string; url: string }) {
 }
 
 /** Renders an HTML artifact inside a strictly-sandboxed iframe. */
-function HtmlView({ content }: { content: string }) {
-  const ref = useRef<HTMLIFrameElement>(null);
+function HtmlView({ artifactId, content }: { artifactId: string; content: string }) {
   const [vp, setVp] = useState<keyof typeof VIEWPORTS>("desktop");
-  useEffect(() => {
-    const iframe = ref.current;
-    if (iframe) iframe.srcdoc = content;
-  }, [content]);
+  // Served from the whalex-artifact:// origin (main-process protocol handler)
+  // rather than srcdoc, so the page escapes the app's strict CSP and CDN
+  // scripts/textures load. The version query busts the iframe cache when the
+  // agent re-presents the same id with new content. allow-same-origin keeps
+  // the doc non-opaque (module scripts / fetch work); it stays cross-origin
+  // from the renderer, so it cannot reach window.parent.whalex.
+  const src = `whalex-artifact://artifacts/${encodeURIComponent(artifactId)}?v=${content.length}`;
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-1 border-b border-border px-2 py-1">
@@ -64,12 +66,8 @@ function HtmlView({ content }: { content: string }) {
       </div>
       <div className="flex flex-1 justify-center overflow-auto bg-surface-2 p-2">
         <iframe
-          ref={ref}
           title="artifact"
-          // allow-same-origin is required for CDN module scripts and textures:
-          // an opaque-origin srcdoc breaks three.js-style loads. The content is
-          // authored by the local agent, which already writes arbitrary files
-          // on this machine — the iframe is not a trust boundary against it.
+          src={src}
           sandbox="allow-scripts allow-same-origin"
           className="h-full rounded border border-border bg-white"
           style={{ width: VIEWPORTS[vp], maxWidth: "100%" }}
@@ -107,7 +105,9 @@ export function ArtifactBody({ artifact }: { artifact: import("@whalex/shared").
   const active = artifact;
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      {active.kind === "html" && active.content && <HtmlView content={active.content} />}
+      {active.kind === "html" && active.content && (
+        <HtmlView artifactId={active.artifactId} content={active.content} />
+      )}
       {active.kind === "url" && active.url && <UrlView title={active.title} url={active.url} />}
       {active.kind === "markdown" && active.content && (
         <div className="p-4">

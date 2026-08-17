@@ -4,7 +4,22 @@ import { z } from "zod";
 import { toolError, type ToolDef } from "./Tool.js";
 
 const MAX_READ_BYTES = 1_000_000;
+/** Even with offset/limit we must decode from the start to count lines. */
+const MAX_READ_BYTES_PARTIAL = 32_000_000;
 const MAX_READ_LINES = 2000;
+
+/**
+ * Decode as UTF-8 and detect lossy files (legacy CP949/EUC-KR etc. decode to
+ * U+FFFD). Editing a lossy decode and re-saving as UTF-8 permanently destroys
+ * the original bytes, so writes must refuse.
+ */
+function decodeUtf8(buf: Buffer): { text: string; lossy: boolean } {
+  const text = buf.toString("utf8");
+  return { text, lossy: text.includes("�") };
+}
+
+const ENCODING_WARNING =
+  "not valid UTF-8 (likely a legacy encoding such as CP949/EUC-KR)";
 
 function resolveIn(cwd: string, p: string): string {
   return path.isAbsolute(p) ? path.normalize(p) : path.resolve(cwd, p);
@@ -40,16 +55,20 @@ export const readFileTool: ToolDef<z.infer<typeof ReadFileInput>> = {
       return toolError(`File not found: ${abs}`);
     }
     if (stat.isDirectory()) return toolError(`${abs} is a directory. Use glob to list files.`);
-    if (stat.size > MAX_READ_BYTES) {
+    const partial = input.offset !== undefined || input.limit !== undefined;
+    if (stat.size > (partial ? MAX_READ_BYTES_PARTIAL : MAX_READ_BYTES)) {
       return toolError(
-        `File is ${stat.size} bytes (limit ${MAX_READ_BYTES}). Use offset/limit to read part of it.`,
+        partial
+          ? `File is ${stat.size} bytes (limit ${MAX_READ_BYTES_PARTIAL} even with offset/limit). Use grep to search inside it.`
+          : `File is ${stat.size} bytes (limit ${MAX_READ_BYTES}). Use offset/limit to read part of it.`,
       );
     }
     const buf = await fs.readFile(abs);
     if (buf.subarray(0, 8000).includes(0)) {
       return toolError(`${abs} looks like a binary file.`);
     }
-    const lines = buf.toString("utf8").split(/\r?\n/);
+    const decoded = decodeUtf8(buf);
+    const lines = decoded.text.split(/\r?\n/);
     const start = (input.offset ?? 1) - 1;
     const count = Math.min(input.limit ?? MAX_READ_LINES, MAX_READ_LINES);
     const slice = lines.slice(start, start + count);
@@ -60,7 +79,10 @@ export const readFileTool: ToolDef<z.infer<typeof ReadFileInput>> = {
       start + count < lines.length
         ? `\n... (${lines.length - start - count} more lines — use offset=${start + count + 1})`
         : "";
-    return { ok: true, output: numbered + suffix };
+    const prefix = decoded.lossy
+      ? `[warning] ${abs} is ${ENCODING_WARNING}. Characters shown as � are lost in this view; edit_file will refuse to modify it.\n`
+      : "";
+    return { ok: true, output: prefix + numbered + suffix };
   },
 };
 
@@ -122,7 +144,15 @@ async function computeEdit(
   const abs = resolveIn(cwd, input.path);
   let oldText: string;
   try {
-    oldText = await fs.readFile(abs, "utf8");
+    const decoded = decodeUtf8(await fs.readFile(abs));
+    // Editing a lossy decode would re-save U+FFFD as UTF-8 and permanently
+    // destroy the original (e.g. Korean CP949) bytes.
+    if (decoded.lossy) {
+      return {
+        error: `${abs} is ${ENCODING_WARNING}. Editing it would corrupt the original text. Convert the file to UTF-8 first (e.g. via a shell command) or rewrite it entirely with write_file.`,
+      };
+    }
+    oldText = decoded.text;
   } catch {
     return { error: `File not found: ${abs}` };
   }

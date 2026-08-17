@@ -56,7 +56,8 @@ export class HookManager implements HookRunner {
   private matches(hook: HookConfig, ctx: HookContext): boolean {
     if (hook.event !== ctx.event) return false;
     if (!hook.matcher) return true;
-    if (!ctx.toolName) return true;
+    // A tool-name matcher can't match an event that has no tool.
+    if (!ctx.toolName) return false;
     // Glob-ish matcher against the tool name.
     const re = new RegExp(`^${hook.matcher.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
     return re.test(ctx.toolName);

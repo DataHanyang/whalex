@@ -22,6 +22,13 @@ export class ContextManager {
     this.model = model;
   }
 
+  /** Restore cumulative totals when resuming a session (cost/usage meter). */
+  restoreTotals(t: { inputTokens: number; outputTokens: number; cachedInputTokens: number }): void {
+    this.totalInput = t.inputTokens;
+    this.totalOutput = t.outputTokens;
+    this.totalCachedInput = t.cachedInputTokens;
+  }
+
   static estimateTokens(text: string): number {
     let ascii = 0;
     let wide = 0;

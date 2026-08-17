@@ -81,6 +81,10 @@ export class AgentLoop {
 
   constructor(private opts: AgentLoopOptions) {
     this.context = new ContextManager(opts.modelInfo);
+    // Restore cumulative usage on resume so the cost meter continues instead
+    // of restarting at zero.
+    const totals = opts.session.lastUsageTotals();
+    if (totals) this.context.restoreTotals(totals);
   }
 
   get isRunning(): boolean {
@@ -119,21 +123,36 @@ export class AgentLoop {
   abort(): void {
     this.goalStop = true;
     this.controller?.abort();
+    this.evalController?.abort();
     this.opts.permissions.abortPending();
   }
 
   /** Manual /compact — summarize and shrink the context on demand. */
   async manualCompact(): Promise<{ ok: boolean; beforePct: number; afterPct: number; error?: string }> {
     const before = this.context.contextPct();
+    if (this.running) {
+      return {
+        ok: false,
+        beforePct: before,
+        afterPct: before,
+        error: "The agent is running; stop it or wait for the turn to finish before compacting.",
+      };
+    }
     const controller = new AbortController();
     const res = await compactSession(
       this.opts.provider,
       this.opts.session,
       this.opts.modelInfo.id,
       controller.signal,
+      { contextWindow: this.opts.modelInfo.contextWindow },
     );
-    if (res.ok) this.context.reset();
-    return { ok: res.ok, beforePct: before, afterPct: this.context.contextPct(), error: res.error };
+    if (res.ok && res.summary) {
+      this.context.reset();
+      const after = this.context.contextPct();
+      this.opts.session.appendCompaction(res.summary, before, after);
+      return { ok: true, beforePct: before, afterPct: after };
+    }
+    return { ok: false, beforePct: before, afterPct: before, error: res.error };
   }
 
   /**
@@ -148,8 +167,15 @@ export class AgentLoop {
       `Work toward this goal autonomously. Perform every step needed until it is ` +
       `complete, checking the result of each step as you go.\n\nGoal: ${goal}`;
     for (let i = 0; i < maxIterations; i++) {
-      yield* this.run(prompt);
-      if (this.goalStop) return;
+      let stopReason: string | null = null;
+      for await (const ev of this.run(prompt)) {
+        if (ev.type === "done") stopReason = ev.stopReason;
+        yield ev;
+      }
+      // A dead provider or an abort ends the goal loop immediately — retrying
+      // the judge call up to maxIterations times against the same failure
+      // just burns tokens.
+      if (this.goalStop || stopReason === "aborted" || stopReason === "error") return;
 
       const check = await this.evaluateGoal(goal);
       yield {
@@ -165,9 +191,13 @@ export class AgentLoop {
     }
   }
 
+  /** Abortable judge call for goal mode; abort() cancels it mid-stream. */
+  private evalController: AbortController | null = null;
+
   /** Asks the model to judge goal completion. Returns {done, remaining}. */
   private async evaluateGoal(goal: string): Promise<{ done: boolean; remaining: string }> {
     const controller = new AbortController();
+    this.evalController = controller;
     let text = "";
     try {
       for await (const delta of this.opts.provider.streamChat({
@@ -189,6 +219,8 @@ export class AgentLoop {
       }
     } catch {
       return { done: false, remaining: "evaluation failed" };
+    } finally {
+      this.evalController = null;
     }
     try {
       const m = /\{[\s\S]*\}/.exec(text);
@@ -368,11 +400,22 @@ export class AgentLoop {
 
         yield { type: "status", state: "tool" };
 
+        // A turn cut off by the output cap leaves the *last* tool call's
+        // arguments truncated. jsonrepair would happily close the dangling
+        // quotes and braces, turning a half-streamed write_file into "valid"
+        // JSON — and a silently corrupted file on disk. Never execute that
+        // call: fail it with an explanation so the model re-issues it in
+        // smaller pieces. Every call still gets a tool_result so the
+        // assistant message's tool_calls stay paired in history.
+        const truncatedCall =
+          turn.finishReason === "length" ? turn.toolCalls[turn.toolCalls.length - 1] : undefined;
+        const execCalls = truncatedCall ? turn.toolCalls.slice(0, -1) : turn.toolCalls;
+
         // Parse args + show every tool card up front, then run read-only tools
         // (read/glob/grep/skill/present) concurrently — they need no approval
         // and don't mutate, so a batch of file reads no longer serializes.
         // Mutating tools still run in order, each with its permission gate.
-        const parsedCalls = turn.toolCalls.map((call) => this.parseCallArgs(call));
+        const parsedCalls = execCalls.map((call) => this.parseCallArgs(call));
         for (const pc of parsedCalls) {
           yield {
             type: "tool-start",
@@ -382,14 +425,21 @@ export class AgentLoop {
           };
         }
         const inflight = new Map<string, Promise<CallOutcome>>();
-        for (const pc of parsedCalls) {
-          const tool = this.lookupTool(pc.call.name);
-          if (tool && tool.readOnly && !pc.parseError) {
-            inflight.set(pc.call.id, this.runReadOnlyBody(pc.call, tool, pc.rawArgs, signal));
-          }
-        }
 
-        for (const pc of parsedCalls) {
+        for (let i = 0; i < parsedCalls.length; i++) {
+          const pc = parsedCalls[i]!;
+          // Launch the maximal run of consecutive read-only calls starting
+          // here, so sibling reads overlap but never run ahead of a pending
+          // mutation earlier in the batch (a read after a write must see the
+          // written content).
+          if (!inflight.has(pc.call.id)) {
+            for (let j = i; j < parsedCalls.length; j++) {
+              const cand = parsedCalls[j]!;
+              const tool = this.lookupTool(cand.call.name);
+              if (!tool || !tool.readOnly || cand.parseError) break;
+              inflight.set(cand.call.id, this.runReadOnlyBody(cand.call, tool, cand.rawArgs, signal));
+            }
+          }
           const call = pc.call;
           let outcome: CallOutcome;
           const pre = inflight.get(call.id);
@@ -431,6 +481,13 @@ export class AgentLoop {
           if (outcome.result.diff) {
             yield { type: "file-edit", toolCallId: call.id, ...outcome.result.diff };
           }
+          // Nested agents (subagent/workflow fleet) edited files in their own
+          // ephemeral sessions; record those on this session so rewind can
+          // restore them too.
+          for (const d of outcome.result.extraDiffs ?? []) {
+            session.recordFileChange(d);
+            yield { type: "file-edit", toolCallId: call.id, ...d };
+          }
           if (artifact) {
             session.append({
               type: "artifact",
@@ -455,6 +512,46 @@ export class AgentLoop {
           }
         }
 
+        if (truncatedCall) {
+          truncationRetries += 1;
+          const exceeded = truncationRetries > MAX_TRUNCATION_RETRIES;
+          const output =
+            `This ${truncatedCall.name} call was cut off by the output token limit ` +
+            `before its arguments finished streaming, so it was NOT executed and ` +
+            `nothing was written. Do not repeat the whole thing in one shot: write ` +
+            `the first portion with write_file, then append the rest with ` +
+            `additional edit_file calls.`;
+          yield {
+            type: "tool-start",
+            toolCallId: truncatedCall.id,
+            toolName: truncatedCall.name,
+            args: {},
+          };
+          session.append({
+            type: "tool_result",
+            toolCallId: truncatedCall.id,
+            toolName: truncatedCall.name,
+            args: {},
+            ok: false,
+            denied: false,
+            output,
+            durationMs: 0,
+            ts: Date.now(),
+          });
+          this.context.addPending(output);
+          yield {
+            type: "tool-result",
+            toolCallId: truncatedCall.id,
+            ok: false,
+            output,
+            durationMs: 0,
+          };
+          if (exceeded) {
+            yield { type: "done", stopReason: "length" };
+            return;
+          }
+        }
+
         if (this.opts.autoCompact !== false && this.context.needsCompaction()) {
           const before = this.context.contextPct();
           yield { type: "status", state: "thinking" };
@@ -463,10 +560,13 @@ export class AgentLoop {
             session,
             this.opts.modelInfo.id,
             signal,
+            { contextWindow: this.opts.modelInfo.contextWindow },
           );
-          if (res.ok) {
+          if (res.ok && res.summary) {
             this.context.reset();
-            yield { type: "compaction", beforePct: before, afterPct: this.context.contextPct() };
+            const after = this.context.contextPct();
+            session.appendCompaction(res.summary, before, after);
+            yield { type: "compaction", beforePct: before, afterPct: after };
           }
         }
         yield { type: "status", state: "thinking" };
@@ -481,6 +581,13 @@ export class AgentLoop {
     } finally {
       this.running = false;
       this.controller = null;
+      // Persist cumulative usage so a resumed session restores its cost meter.
+      const snap = this.context.snapshot();
+      session.recordUsageTotals({
+        inputTokens: snap.inputTokens,
+        outputTokens: snap.outputTokens,
+        cachedInputTokens: snap.cachedInputTokens,
+      });
       await this.hooks()
         .run({ event: "Stop", sessionId: session.sessionId, cwd: session.cwd })
         .catch(() => {});
@@ -653,11 +760,21 @@ export class AgentLoop {
         })),
         allowOther: true,
       };
+      if (signal.aborted) {
+        return {
+          result: { ok: false, output: "(no answer — turn aborted)" },
+          parsedArgs: rawArgs,
+          durationMs: Date.now() - started,
+          denied: false,
+        };
+      }
       yield { type: "question-request", request };
+      const onAbort = () => this.answerQuestion(call.id, "(no answer — turn aborted)");
       const answer = await new Promise<string>((resolve) => {
         this.questions.set(call.id, resolve);
-        signal.addEventListener("abort", () => this.answerQuestion(call.id, "(no answer — turn aborted)"), { once: true });
+        signal.addEventListener("abort", onAbort, { once: true });
       });
+      signal.removeEventListener("abort", onAbort);
       return {
         result: { ok: true, output: `User answered: ${answer}` },
         parsedArgs: rawArgs,

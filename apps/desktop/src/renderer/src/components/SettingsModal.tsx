@@ -75,12 +75,14 @@ function GeneralTab() {
       <Row label={t("settings.autoCompact")}>
         <ToggleSwitch
           checked={settings.autoCompact}
+          label={t("settings.autoCompact")}
           onChange={(v) => void update({ autoCompact: v })}
         />
       </Row>
       <Row label={t("settings.privacy.redact")}>
         <ToggleSwitch
           checked={settings.redactSecrets}
+          label={t("settings.privacy.redact")}
           onChange={(v) => void update({ redactSecrets: v })}
         />
       </Row>
@@ -95,6 +97,7 @@ function GeneralTab() {
         <Row key={key} label={t(labelKey)}>
           <ToggleSwitch
             checked={settings.features[key]}
+            label={t(labelKey)}
             onChange={(v) => void update({ features: { ...settings.features, [key]: v } })}
           />
         </Row>
@@ -189,9 +192,11 @@ function ModelsTab() {
           min={1}
           max={200}
           value={settings.superCode.maxAgents}
-          onChange={(e) =>
-            void update({ superCode: { ...settings.superCode, maxAgents: Number(e.target.value) } })
-          }
+          onChange={(e) => {
+            // Never persist an empty/0/NaN cap — clamp into [1, 200].
+            const n = Math.min(200, Math.max(1, Math.floor(Number(e.target.value)) || 1));
+            void update({ superCode: { ...settings.superCode, maxAgents: n } });
+          }}
           className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         />
       </Row>
@@ -241,6 +246,7 @@ function ModelsTab() {
           <ToggleSwitch
             checked={settings.computerUse.enabled}
             disabled={!settings.vision.baseUrl || !settings.vision.model}
+            label={t("settings.computerUse")}
             onChange={(v) => void update({ computerUse: { enabled: v } })}
           />
           {t("settings.computerUse.allow")}
@@ -254,10 +260,13 @@ function ModelsTab() {
 function ToggleSwitch({
   checked,
   disabled,
+  label,
   onChange,
 }: {
   checked: boolean;
   disabled?: boolean;
+  /** Accessible name — screen readers otherwise announce a nameless switch. */
+  label?: string;
   onChange: (v: boolean) => void;
 }) {
   return (
@@ -265,6 +274,7 @@ function ToggleSwitch({
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative h-[18px] w-8 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
@@ -383,7 +393,7 @@ function McpTab() {
               {entry.config.type} · {t("settings.mcp.tools", { count: status?.toolCount ?? 0 })}
             </span>
             <div className="flex-1" />
-            <ToggleSwitch checked={entry.enabled} onChange={(v) => void toggle(name, v)} />
+            <ToggleSwitch checked={entry.enabled} label={name} onChange={(v) => void toggle(name, v)} />
             <button
               onClick={() => void remove(name)}
               title={t("settings.mcp.delete")}
@@ -620,11 +630,15 @@ export function SettingsModal() {
   const close = useUiStore((s) => s.closeSettings);
 
   useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) close();
+      if (e.key === "Escape") {
+        e.stopPropagation(); // don't let Esc also abort the running turn
+        close();
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [open, close]);
 
   if (!open) return null;

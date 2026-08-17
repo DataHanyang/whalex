@@ -25,6 +25,19 @@ export function RewindDialog({ onClose }: { onClose: () => void }) {
     if (sessionId) void whalex.invoke("checkpoint:list", { sessionId }).then(setCheckpoints);
   }, [sessionId]);
 
+  // Esc closes the dialog; capture + stopPropagation keeps it from also
+  // aborting a running turn (same pattern as SettingsModal/Picker).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+
   const doRewind = async (boundary: number) => {
     await rewind(boundary);
     onClose();

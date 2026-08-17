@@ -49,7 +49,33 @@ export const webFetchTool: ToolDef<z.infer<typeof WebFetchInput>> = {
       });
       if (!res.ok) return toolError(`HTTP ${res.status} ${res.statusText}`);
       const contentType = res.headers.get("content-type") ?? "";
-      const body = await res.text();
+      // Cap the download — res.text() on an unbounded body would buffer a
+      // multi-hundred-MB response in memory before truncateOutput ever runs.
+      const MAX_BODY_BYTES = 5_000_000;
+      const declared = Number(res.headers.get("content-length") ?? 0);
+      if (declared > MAX_BODY_BYTES) {
+        return toolError(`Response is ${declared} bytes (limit ${MAX_BODY_BYTES}).`);
+      }
+      let body = "";
+      if (res.body) {
+        const decoder = new TextDecoder();
+        let bytes = 0;
+        const reader = res.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          bytes += value.byteLength;
+          body += decoder.decode(value, { stream: true });
+          if (bytes > MAX_BODY_BYTES) {
+            await reader.cancel();
+            body += "\n… (response truncated at 5 MB)";
+            break;
+          }
+        }
+        body += decoder.decode();
+      } else {
+        body = await res.text();
+      }
       const text = contentType.includes("html") ? htmlToText(body) : body;
       return { ok: true, output: truncateOutput(text, 50_000) };
     } catch (err) {

@@ -71,8 +71,14 @@ export class OpenAICompatProvider implements ProviderClient {
       } catch (err) {
         const pe = classifyError(err);
         if (pe.code === "rate_limit" && attempt < maxAttempts && !req.signal.aborted) {
-          const delay = pe.retryAfterMs ?? Math.min(8000, 500 * 2 ** attempt);
-          await new Promise((r) => setTimeout(r, delay));
+          // Clamp a server-provided Retry-After — a hostile/misconfigured
+          // "retry-after: 300" must not pin the turn for 5 minutes.
+          const delay = Math.min(pe.retryAfterMs ?? 500 * 2 ** attempt, 30_000);
+          try {
+            await sleep(delay, req.signal);
+          } catch {
+            throw new ProviderError("aborted", "Request aborted");
+          }
           continue;
         }
         throw pe;
@@ -143,6 +149,22 @@ export class OpenAICompatProvider implements ProviderClient {
       throw classifyError(err);
     }
   }
+}
+
+/** Abortable delay: rejects immediately if the signal fires during the wait. */
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(new Error("aborted"));
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new Error("aborted"));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 export function classifyError(err: unknown): ProviderError {

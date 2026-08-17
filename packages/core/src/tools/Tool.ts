@@ -10,12 +10,24 @@ export interface ToolContext {
   setTodos(todos: Todo[]): void;
 }
 
+export interface FileDiff {
+  path: string;
+  oldText: string;
+  newText: string;
+}
+
 export interface ToolResult {
   ok: boolean;
   /** Text returned to the model (and shown collapsed in the UI). */
   output: string;
   /** Present when the tool changed a file — drives the DiffView. */
-  diff?: { path: string; oldText: string; newText: string };
+  diff?: FileDiff;
+  /**
+   * File changes made by nested agents (subagent/workflow fleet) that ran in
+   * their own ephemeral sessions. Recorded on the parent session so rewind can
+   * restore them — otherwise those edits are invisible to checkpoints.
+   */
+  extraDiffs?: FileDiff[];
 }
 
 export interface ToolDef<TIn = unknown> {

@@ -42,6 +42,13 @@ export class WorkflowRunner {
   private inflight = new Set<Promise<unknown>>();
   private running = 0;
   private queue: Array<() => void> = [];
+  /** File edits made by fleet agents, surfaced to the parent for rewind. */
+  private fileEdits: Array<{ path: string; oldText: string; newText: string }> = [];
+
+  /** File changes the fleet made (empty until the workflow has run). */
+  get edits(): ReadonlyArray<{ path: string; oldText: string; newText: string }> {
+    return this.fileEdits;
+  }
 
   constructor(
     private deps: WorkflowDeps,
@@ -64,14 +71,30 @@ export class WorkflowRunner {
   }
 
   async run(script: string): Promise<{ ok: boolean; result: string; error?: string }> {
+    const escape = detectSandboxEscape(script);
+    if (escape) {
+      this.state.state = "error";
+      this.emit();
+      return {
+        ok: false,
+        result: "",
+        error:
+          `Workflow script rejected: it references "${escape}", which could reach ` +
+          `Node/filesystem APIs and bypass the permission gate. Use only the ` +
+          `injected hooks (agent/parallel/pipeline/phase/log) and plain data.`,
+      };
+    }
     this.state.state = "running";
     this.emit();
     const api = this.makeApi();
     try {
       // The script body runs in an async function with only the injected
-      // hooks in scope. No require/import/process/globalThis passthrough.
-      // Shadow the reachable escape hatches (defense in depth, not a trust
-      // boundary — the model already runs permission-gated shell commands).
+      // hooks in scope. detectSandboxEscape() above statically rejects the
+      // known escape hatches (require/import/process/constructor/eval/…) and
+      // these shadowed params block the reachable globals. This is
+      // defense-in-depth: fleet agents' own tool calls still route through the
+      // PermissionEngine, so plan mode keeps writes blocked even if a script
+      // slips through.
       const fn = new Function(
         "agent",
         "parallel",
@@ -180,10 +203,9 @@ export class WorkflowRunner {
     opts: { schema?: unknown; label?: string; phase?: string },
   ): Promise<unknown> {
     if (this.deps.signal.aborted) throw new Error("Workflow aborted.");
-    if (this.agentCount >= this.deps.maxAgents) {
-      throw new Error(`Workflow hit the agent cap (${this.deps.maxAgents}).`);
-    }
-    this.agentCount++;
+    // Serve cached results before spending an agent-cap slot: a rerun of a
+    // fixed script should return its completed agents for free, not fail on
+    // the cap because cache hits consumed it.
     const cacheKey = JSON.stringify([prompt, opts.schema ?? null]);
     const cached = this.deps.cache?.get(cacheKey);
     const record: WorkflowAgent = {
@@ -203,7 +225,22 @@ export class WorkflowRunner {
       return cached;
     }
 
+    if (this.agentCount >= this.deps.maxAgents) {
+      record.state = "error";
+      this.emit();
+      throw new Error(`Workflow hit the agent cap (${this.deps.maxAgents}).`);
+    }
+    this.agentCount++;
+
     await this.acquireSlot();
+    // A script queued behind the concurrency limit may have been aborted while
+    // it waited — don't burn a full agent run on a slot acquired post-abort.
+    if (this.deps.signal.aborted) {
+      this.releaseSlot();
+      record.state = "error";
+      this.emit();
+      throw new Error("Workflow aborted.");
+    }
     record.state = "running";
     this.emit();
     const started = Date.now();
@@ -236,6 +273,9 @@ export class WorkflowRunner {
           break;
         }
         if (ev.type === "text-delta") text += ev.delta;
+        else if (ev.type === "file-edit") {
+          this.fileEdits.push({ path: ev.path, oldText: ev.oldText, newText: ev.newText });
+        }
         // Fleet agents have no UI surface, so an "ask" decision would hang
         // forever. Deny it with a reason the agent can act on; runs meant to
         // write happen in acceptEdits/auto mode where writes never ask.
@@ -273,6 +313,41 @@ export class WorkflowRunner {
   private emit(): void {
     this.deps.onUpdate(structuredClone(this.state));
   }
+}
+
+/**
+ * Static rejection of the escape hatches a workflow script could use to reach
+ * Node/filesystem APIs and sidestep the permission gate — the ones the code
+ * review demonstrated: `(0,eval)(…)`, `({}).constructor.constructor(…)`,
+ * `await import("node:fs")`, `process`/`require`/`globalThis`. Not a complete
+ * sandbox (string-obfuscated access can still evade a substring scan), but it
+ * blocks every escape a model would plausibly emit, and it's paired with the
+ * PermissionEngine gate on the agents' own tool calls. Returns the offending
+ * token, or null if the script looks clean.
+ */
+export function detectSandboxEscape(script: string): string | null {
+  const banned = [
+    "require",
+    "process",
+    "globalThis",
+    "constructor",
+    "__proto__",
+    "eval",
+    "Function",
+    "Reflect",
+    "Proxy",
+    "import.meta",
+    "Buffer",
+  ];
+  // Match as whole identifiers so e.g. a variable named `constructorName`
+  // doesn't trip it, but `.constructor` does.
+  for (const token of banned) {
+    const re = new RegExp(`(^|[^\\w.$])${token.replace(".", "\\.")}\\b|\\.${token}\\b`);
+    if (re.test(script)) return token;
+  }
+  // Dynamic import(): keyword form `import(` or `import (`.
+  if (/\bimport\s*\(/.test(script)) return "import()";
+  return null;
 }
 
 function parseJsonLoose(text: string): unknown {
@@ -337,7 +412,7 @@ export function createWorkflowTool(
       registerWorkflow(runner.workflowId, input.name);
       const res = await runner.run(input.script);
       if (!res.ok) return { ok: false, output: `Workflow error: ${res.error}` };
-      return { ok: true, output: res.result };
+      return { ok: true, output: res.result, extraDiffs: [...runner.edits] };
     },
   };
 }

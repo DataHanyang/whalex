@@ -58,6 +58,13 @@ export function Composer() {
   const [ac, setAc] = useState<Autocomplete | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [describing, setDescribing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | undefined>(undefined);
+  const showNotice = (msg: string) => {
+    setNotice(msg);
+    window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 4000);
+  };
   const taRef = useRef<HTMLTextAreaElement>(null);
   const status = useSessionStore((s) => s.status);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
@@ -102,7 +109,15 @@ export function Composer() {
       return;
     }
     // Non-image files ride along as a path mention the tools can read.
-    const p = (file as File & { path?: string }).path;
+    // File.path was removed in Electron 32+; the preload bridge exposes
+    // webUtils.getPathForFile instead (legacy .path kept as a fallback).
+    let p: string | undefined;
+    try {
+      p = whalex.getPathForFile?.(file);
+    } catch {
+      // not a file-backed File; fall through to the legacy property
+    }
+    p ||= (file as File & { path?: string }).path;
     if (p) setText((t0) => (t0 ? `${t0} @${p}` : `@${p}`));
   };
   const newSession = useSessionStore((s) => s.startSession);
@@ -158,6 +173,7 @@ export function Composer() {
     }
     if (name === "compact" && activeSessionId) {
       const res = await whalex.invoke("session:command", { sessionId: activeSessionId, command: "compact" });
+      if (!res.handled) showNotice(res.message ?? t("composer.compactUnavailable"));
       return res.handled;
     }
     if (name === "help") {
@@ -185,19 +201,25 @@ export function Composer() {
     let finalText = value;
     if (image) {
       // DeepSeek is text-only: describe the image via the vision sidecar and
-      // inject the description. No bridge configured → tell the user.
+      // inject the description. No bridge configured → tell the user. The
+      // finally guarantees `describing` never sticks and locks the composer.
       setDescribing(true);
-      const res = await whalex.invoke("vision:describe", {
-        imageDataUrl: image,
-        question: value || undefined,
-      });
-      setDescribing(false);
-      if (!res.configured) {
-        finalText = `${value}\n\n[An image was attached but no vision model is configured. Connect one in Settings → Models → Vision.]`;
-      } else if (res.ok && res.description) {
-        finalText = `${value ? value + "\n\n" : ""}[Attached image description]\n${res.description}`;
-      } else {
-        finalText = `${value}\n\n[Image analysis failed: ${res.error ?? "unknown"}]`;
+      try {
+        const res = await whalex.invoke("vision:describe", {
+          imageDataUrl: image,
+          question: value || undefined,
+        });
+        if (!res.configured) {
+          finalText = `${value}\n\n[An image was attached but no vision model is configured. Connect one in Settings → Models → Vision.]`;
+        } else if (res.ok && res.description) {
+          finalText = `${value ? value + "\n\n" : ""}[Attached image description]\n${res.description}`;
+        } else {
+          finalText = `${value}\n\n[Image analysis failed: ${res.error ?? "unknown"}]`;
+        }
+      } catch (e) {
+        finalText = `${value}\n\n[Image analysis failed: ${e instanceof Error ? e.message : String(e)}]`;
+      } finally {
+        setDescribing(false);
       }
       setImage(null);
     }
@@ -208,7 +230,11 @@ export function Composer() {
     void send(finalText);
   };
 
+  // Guards against out-of-order files:search responses: only the newest
+  // request may write into the autocomplete state.
+  const acSeqRef = useRef(0);
   const updateAutocomplete = async (value: string, caret: number) => {
+    const seq = ++acSeqRef.current;
     const before = value.slice(0, caret);
     const slash = /(?:^|\s)\/(\w*)$/.exec(before);
     const mention = /(?:^|\s)@([^\s]*)$/.exec(before);
@@ -222,6 +248,7 @@ export function Composer() {
     } else if (mention && cwd) {
       const q = mention[1]!;
       const matches: FileMatch[] = await whalex.invoke("files:search", { cwd, query: q, limit: 8 });
+      if (seq !== acSeqRef.current) return; // a newer keystroke superseded us
       const items = matches.map((m) => ({ label: `@${m.relPath}`, sub: m.isDir ? "folder" : "file" }));
       setAc(items.length ? { kind: "mention", items, from: before.length - mention[1]!.length, sel: 0 } : null);
     } else {
@@ -273,9 +300,11 @@ export function Composer() {
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     // Shift+Tab cycles the permission mode (Claude Code parity).
+    // While SuperCode manages the mode, the shortcut must not bypass the lock
+    // the pickers already enforce.
     if (e.key === "Tab" && e.shiftKey && !ac) {
       e.preventDefault();
-      cycleMode();
+      if (!superCode) cycleMode();
       return;
     }
     if (ac) {
@@ -317,6 +346,11 @@ export function Composer() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 pb-5 pt-1">
+      {notice && (
+        <div className="px-1 pb-1 text-[11.5px] text-warn" role="status">
+          {notice}
+        </div>
+      )}
       <div
         className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong"
         onDrop={onDrop}

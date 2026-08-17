@@ -27,7 +27,10 @@ export function listCheckpoints(session: SessionStore): Checkpoint[] {
         label: rec.text.replace(/\s+/g, " ").trim().slice(0, 60),
         fileChanges: 0,
       });
-    } else if (rec.type === "tool_result" && rec.diff && checkpoints.length > 0) {
+    } else if (
+      ((rec.type === "tool_result" && rec.diff) || rec.type === "file_change") &&
+      checkpoints.length > 0
+    ) {
       checkpoints[checkpoints.length - 1]!.fileChanges++;
     }
   });
@@ -47,9 +50,13 @@ export async function rewindTo(
   const toRestore = new Map<string, string>(); // path → oldText (earliest wins)
   for (let i = boundary; i < records.length; i++) {
     const rec = records[i];
-    if (rec && rec.type === "tool_result" && rec.diff) {
-      if (!toRestore.has(rec.diff.path)) toRestore.set(rec.diff.path, rec.diff.oldText);
-    }
+    const diff =
+      rec && rec.type === "tool_result"
+        ? rec.diff
+        : rec && rec.type === "file_change"
+          ? rec
+          : undefined;
+    if (diff && !toRestore.has(diff.path)) toRestore.set(diff.path, diff.oldText);
   }
   const restored: string[] = [];
   for (const [path, oldText] of toRestore) {

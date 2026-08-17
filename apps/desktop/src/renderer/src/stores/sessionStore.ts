@@ -44,6 +44,8 @@ interface SessionState {
   /** Total duration of the last completed turn (ms). */
   lastTurnMs: number | null;
   permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan";
+  /** Mode the user had before SuperCode took over, restored on toggle-off. */
+  preSuperCodeMode: "default" | "acceptEdits" | "bypassPermissions" | "plan" | null;
   goalMode: boolean;
 
   setModel(model: string): void;
@@ -68,6 +70,10 @@ interface SessionState {
 
 let unsubscribe: (() => void) | null = null;
 
+// Generation counter for session:start round-trips: rapid sidebar clicks can
+// leave several in flight, and only the latest one may win the store.
+let startSeq = 0;
+
 export const useSessionStore = create<SessionState>((set, get) => ({
   cwd: null,
   activeSessionId: null,
@@ -91,6 +97,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   turnStartedAt: null,
   lastTurnMs: null,
   permissionMode: "default",
+  preSuperCodeMode: null,
   goalMode: false,
 
   setModel(model) {
@@ -99,6 +106,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (id) void whalex.invoke("session:setModel", { sessionId: id, model });
   },
   setSuperCode(on) {
+    const prevMode = get().permissionMode;
     set({ superCode: on });
     const id = get().activeSessionId;
     if (id) void whalex.invoke("session:command", { sessionId: id, command: on ? "supercode-on" : "supercode-off" });
@@ -106,9 +114,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // and the budget interview come before any write. Re-enabling it on a
     // session whose plan was already presented must NOT drag the run back
     // into plan mode — that blocked a mid-execution session once.
-    if (on) get().setModel("deepseek-v4-pro");
-    const planDone = get().transcript.some((t) => t.kind === "artifact" && t.artifactKind === "plan");
-    get().setPermissionMode(on ? (planDone ? "bypassPermissions" : "plan") : "default");
+    if (on) {
+      set({ preSuperCodeMode: prevMode });
+      get().setModel("deepseek-v4-pro");
+      const planDone = get().transcript.some((t) => t.kind === "artifact" && t.artifactKind === "plan");
+      get().setPermissionMode(planDone ? "bypassPermissions" : "plan");
+    } else {
+      // Toggle-off hands back whatever mode the user was in before.
+      const restore = get().preSuperCodeMode ?? "default";
+      set({ preSuperCodeMode: null });
+      get().setPermissionMode(restore);
+    }
   },
   setPermissionMode(mode) {
     set({ permissionMode: mode });
@@ -123,6 +139,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   openArtifact(id) {
     set({ activeArtifactId: id, sideTab: `a:${id}` });
     void whalex.invoke("browser:hide", undefined);
+    // Resumed sessions start with an empty artifacts list, but main keeps
+    // every artifact for the session — lazily hydrate from artifact:read.
+    if (!get().artifacts.some((a) => a.artifactId === id)) {
+      void whalex.invoke("artifact:read", { artifactId: id }).then((artifact) => {
+        if (!artifact) return;
+        set((s) =>
+          s.artifacts.some((a) => a.artifactId === id)
+            ? {}
+            : { artifacts: [...s.artifacts, artifact] },
+        );
+      });
+    }
   },
   closeArtifact() {
     set({ activeArtifactId: null, sideTab: null });
@@ -153,14 +181,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
   closeBrowserTab(tabId) {
     void whalex.invoke("browser:closeTab", { tabId });
-    set((s) => {
-      const tabs = s.browser.tabs.filter((t) => t.id !== tabId);
-      const wasActive = s.sideTab === `b:${tabId}`;
-      return {
-        browser: { tabs, activeTabId: tabs.at(-1)?.id ?? null },
-        sideTab: wasActive ? (tabs.at(-1) ? `b:${tabs.at(-1)!.id}` : null) : s.sideTab,
-      };
-    });
+    const s = get();
+    const tabs = s.browser.tabs.filter((t) => t.id !== tabId);
+    // Closing a background tab must not steal the active slot.
+    const activeTabId =
+      s.browser.activeTabId === tabId ? (tabs.at(-1)?.id ?? null) : s.browser.activeTabId;
+    set({ browser: { tabs, activeTabId } });
+    if (s.sideTab === `b:${tabId}`) {
+      // Route through selectSideTab so the native view actually switches
+      // (browser:selectTab) or parks (browser:hide).
+      if (activeTabId) get().selectSideTab(`b:${activeTabId}`);
+      else set({ sideTab: null });
+    }
   },
 
   async refreshSessions() {
@@ -188,8 +220,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   async startSession(cwd, resumeSessionId) {
+    // Re-clicking the already-open session must not wipe its live state.
+    if (resumeSessionId && resumeSessionId === get().activeSessionId) return;
     unsubscribe ??= whalex.on("agent:event", (env) => get().handleEnvelope(env));
+    const seq = ++startSeq;
     const res = await whalex.invoke("session:start", { cwd, resumeSessionId });
+    if (seq !== startSeq) return; // a newer click superseded this response
+    // Re-derive planPending from the resumed transcript: a plan artifact with
+    // no later user message is still awaiting the user's decision. The host
+    // replays live workflow/usage/todos/streaming state separately.
+    const lastPlanIdx = res.transcript.reduce(
+      (acc, t, i) => (t.kind === "artifact" && t.artifactKind === "plan" ? i : acc),
+      -1,
+    );
+    const laterUserMsg =
+      lastPlanIdx >= 0 && res.transcript.slice(lastPlanIdx + 1).some((t) => t.kind === "user");
     set({
       cwd,
       activeSessionId: res.sessionId,
@@ -199,7 +244,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       todos: [],
       pendingPermission: null,
       pendingQuestion: null,
-      planPending: false,
+      planPending: lastPlanIdx >= 0 && !laterUserMsg,
       lastError: null,
       artifacts: [],
       activeArtifactId: null,
@@ -210,6 +255,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       superCode: false,
       goalMode: false,
       permissionMode: "default",
+      preSuperCodeMode: null,
     });
     void whalex.invoke("browser:hide", undefined);
     await get().refreshSessions();
@@ -254,7 +300,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   handleEnvelope(env) {
-    if (env.sessionId !== get().activeSessionId) return;
+    if (env.sessionId !== get().activeSessionId) {
+      // Background sessions keep their transcripts in main, but completion
+      // should reach the sidebar immediately, not on the 10s poll.
+      if (env.event.type === "done" || env.event.type === "error") {
+        void get().refreshSessions();
+      }
+      return;
+    }
     const ev = env.event;
     switch (ev.type) {
       case "message-start":
@@ -439,6 +492,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         // and model, but only enter plan mode when the plan stage hasn't
         // happened yet — replaying this on a mid-execution session used to
         // drag it back into read-only plan mode.
+        if (ev.on && !get().superCode) set({ preSuperCodeMode: get().permissionMode });
         set({ superCode: ev.on });
         if (ev.on) {
           get().setModel("deepseek-v4-pro");

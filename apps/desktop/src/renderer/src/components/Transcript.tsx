@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, Minimize2, Target } from "lucide-react";
 import type { TranscriptItem } from "@whalex/shared";
@@ -31,7 +31,9 @@ function Reasoning({ text }: { text: string }) {
   );
 }
 
-function Item({ item }: { item: TranscriptItem }) {
+// Memoized: on every streaming delta the whole transcript array re-renders,
+// but only the changed item's reference changes.
+const Item = memo(function Item({ item }: { item: TranscriptItem }) {
   const { t } = useTranslation();
   switch (item.kind) {
     case "user":
@@ -130,7 +132,9 @@ function Item({ item }: { item: TranscriptItem }) {
         <div className="transcript-item my-1.5 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px]">
           <CircleAlert size={15} className="mt-0.5 shrink-0 text-danger" />
           <div>
-            <span className="font-medium text-danger">{t(`error.${item.code}`)}</span>
+            {/* Unregistered codes fall back to the generic message instead of
+                leaking the raw i18n key. */}
+            <span className="font-medium text-danger">{t([`error.${item.code}`, "error.unknown"])}</span>
             <div className="mt-0.5 break-all text-muted">{item.message}</div>
           </div>
         </div>
@@ -138,7 +142,7 @@ function Item({ item }: { item: TranscriptItem }) {
     default:
       return null;
   }
-}
+});
 
 function EmptyState() {
   const { t } = useTranslation();
@@ -218,7 +222,7 @@ export function Transcript() {
         <button
           onClick={jump}
           className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-border bg-surface p-2 shadow-md hover:bg-surface-2"
-          aria-label="Jump to latest"
+          aria-label={t("transcript.jumpLatest")}
         >
           <ArrowDown size={15} />
         </button>

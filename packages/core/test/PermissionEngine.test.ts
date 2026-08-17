@@ -81,6 +81,38 @@ describe("PermissionEngine", () => {
     expect(check(e, tool({}), { command: "npm i" }).behavior).toBe("ask");
   });
 
+  it("matches an always-allow rule for an MCP tool with digits and hyphens", () => {
+    // Regression: the rule parser's [a-zA-Z_]+ tool-name class failed to parse
+    // mcp__context7__get-library-docs, so "always allow" never matched and the
+    // user was re-asked every call.
+    const e = new PermissionEngine({ mode: "default", allow: [], deny: [] });
+    const mcp = tool({
+      name: "mcp__context7__get-library-docs",
+      kind: "other",
+      ruleArg: () => "get-library-docs",
+    });
+    const decision = check(e, mcp, {});
+    expect(decision.behavior).toBe("ask");
+    if (decision.behavior !== "ask") return;
+    e.resolve({
+      id: decision.request.id,
+      behavior: "allow",
+      scope: "always",
+      rule: "mcp__context7__get-library-docs",
+    });
+    expect(check(e, mcp, {}).behavior).toBe("allow");
+  });
+
+  it("asks on PowerShell recursive-delete aliases even in bypass mode", () => {
+    const e = new PermissionEngine({ mode: "bypassPermissions", allow: [], deny: [] });
+    expect(check(e, tool({}), { command: "rm -r C:\\Windows" }).behavior).toBe("ask");
+    expect(check(e, tool({}), { command: "Remove-Item -Recurse -Force C:\\x" }).behavior).toBe("ask");
+    expect(check(e, tool({}), { command: "ri -Recurse ." }).behavior).toBe("ask");
+    expect(check(e, tool({}), { command: "rd /s /q C:\\temp" }).behavior).toBe("ask");
+    // A non-recursive rm of a relative path is still fine in bypass mode.
+    expect(check(e, tool({}), { command: "rm ./build/out.txt" }).behavior).toBe("allow");
+  });
+
   it("resolves an ask with allow and persists an always-rule", () => {
     const persisted: string[] = [];
     const e = new PermissionEngine(

@@ -18,7 +18,12 @@ export type PermissionDecision =
  */
 const HARD_DENY_ASK = [
   /rm\s+-rf?\s+[/~]/i,
+  // PowerShell aliases: rm/ri = Remove-Item, rd/rmdir = Remove-Item -Recurse.
+  // rm -r targeting a drive root (rm -r C:\) is as catastrophic as rm -rf /.
+  /\brm\s+-[a-z]*r[a-z]*\s+["']?[a-z]:[\\/]/i,
   /remove-item\s+.*-recurse/i,
+  /\bri\s+.*-recurse/i,
+  /\b(rd|rmdir)\s+\/s\b/i,
   /\bformat-volume\b/i,
   /\bformat(\.com|\.exe)?\s+[a-z]:/i,
   /\bdiskpart\b/i,
@@ -32,7 +37,10 @@ function ruleToRegex(pattern: string): RegExp {
 }
 
 function matchRule(rule: string, toolName: string, arg: string | undefined): boolean {
-  const m = rule.match(/^([a-zA-Z_]+)(?:\((.*)\))?$/);
+  // Tool names include MCP tools like mcp__context7__get-library-docs, which
+  // carry digits and hyphens — a bare [a-zA-Z_]+ silently failed to parse them,
+  // so "always allow" rules for MCP tools never matched and re-asked forever.
+  const m = rule.match(/^([A-Za-z0-9_.-]+)(?:\((.*)\))?$/);
   if (!m) return false;
   const [, ruleTool, rulePattern] = m;
   if (ruleTool !== toolName) return false;

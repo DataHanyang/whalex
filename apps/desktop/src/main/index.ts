@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow, Menu, Tray, app, nativeTheme, shell } from "electron";
+import { BrowserWindow, Menu, Tray, app, nativeTheme, protocol, shell } from "electron";
 import { AgentHost } from "./AgentHost.js";
 import { SettingsManager } from "./settings.js";
 import { SecretVault } from "./secrets.js";
@@ -44,9 +44,26 @@ if (process.env.WHALEX_INSTANCE) {
   app.setPath("userData", path.join(app.getPath("userData"), `instance-${process.env.WHALEX_INSTANCE}`));
 }
 if (!app.requestSingleInstanceLock()) {
-  app.quit();
+  // app.quit() is async and doesn't stop this script — whenReady would still
+  // fire and boot a second full app. Exit synchronously instead.
+  logLine("second instance — exiting");
+  app.exit(0);
 }
 AuthManager.registerProtocol();
+
+// HTML artifacts are served from their own isolated origin instead of an
+// iframe srcdoc. A srcdoc document inherits the app window's strict CSP
+// (default-src 'self'), which blocks the CDN scripts/textures three.js-style
+// artifacts need — the "LOADING…" hang. Served from whalex-artifact:// the
+// document carries no such CSP (CDNs load) AND lives cross-origin from the
+// privileged renderer, so its scripts can't reach window.parent.whalex.
+// Must be declared before app is ready.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "whalex-artifact",
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true },
+  },
+]);
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -159,6 +176,23 @@ void app.whenReady().then(() => {
   const settings = new SettingsManager();
   const vault = new SecretVault();
   const host = new AgentHost(() => mainWindow, settings, vault);
+
+  // Serve HTML artifacts by id from the in-process cache (see the privileged
+  // scheme registration above). Only html artifacts with content are served;
+  // anything else 404s.
+  protocol.handle("whalex-artifact", (request) => {
+    const url = new URL(request.url);
+    const id = decodeURIComponent(url.pathname.replace(/^\//, "")) || url.hostname;
+    const art = host.getArtifact(id);
+    if (!art || art.kind !== "html" || !art.content) {
+      return new Response("Artifact not found", { status: 404, headers: { "content-type": "text/plain" } });
+    }
+    return new Response(art.content, {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+  });
+
   const updater = new Updater(() => mainWindow);
   const preview = new PreviewManager();
   const plugins = new PluginManager(settings);
@@ -188,10 +222,19 @@ void app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 
-  app.on("before-quit", () => {
+  // One-shot: hold the quit until dev-server trees are killed (bounded at 3s),
+  // otherwise they end up orphaned on Windows and squat the ports.
+  let cleanupDone = false;
+  app.on("before-quit", (e) => {
     quitting = true;
+    if (cleanupDone) return;
+    cleanupDone = true;
+    e.preventDefault();
     host.disposeAll();
-    preview.stopAll();
+    void Promise.race([
+      preview.stopAll(),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]).finally(() => app.quit());
   });
 });
 

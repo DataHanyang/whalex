@@ -1,4 +1,5 @@
 import { memo, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, Copy } from "lucide-react";
 
 let highlighterPromise: ReturnType<typeof createHl> | null = null;
@@ -31,6 +32,7 @@ export const CodeBlock = memo(function CodeBlock({
   lang: string;
   stable: boolean;
 }) {
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const theme =
@@ -77,7 +79,7 @@ export const CodeBlock = memo(function CodeBlock({
         <button
           onClick={copy}
           className="titlebar-nodrag rounded p-1 text-faint opacity-0 transition-opacity hover:text-text group-hover:opacity-100"
-          aria-label="Copy code"
+          aria-label={t("code.copy")}
         >
           {copied ? <Check size={13} className="text-ok" /> : <Copy size={13} />}
         </button>

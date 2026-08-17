@@ -1,4 +1,4 @@
-import { WebContentsView, type BrowserWindow } from "electron";
+import { WebContentsView, shell, type BrowserWindow } from "electron";
 import type { BrowserController } from "@whalex/core";
 
 // Injected into the page to tag interactive elements with stable refs and
@@ -116,7 +116,29 @@ export class BrowserManager implements BrowserController {
     const win = this.getWindow();
     if (!win) return null;
     const view = new WebContentsView({
-      webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+      webPreferences: {
+        sandbox: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        // Dedicated session: keeps the permission policy below (and cookies)
+        // away from the main window's session.
+        partition: "persist:whalex-browser",
+      },
+    });
+    // Agent-driven tabs get no device/OS permissions (camera, mic, geolocation,
+    // notifications, ...). Idempotent — same handler for the shared partition.
+    view.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) =>
+      callback(false),
+    );
+    // window.open must never spawn an unmanaged native window; http(s) links
+    // go to the system browser like the main window's handler (index.ts).
+    view.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
+      return { action: "deny" };
+    });
+    // Block redirects/clicks into non-web schemes (file://, smb://, ...).
+    view.webContents.on("will-navigate", (e, target) => {
+      if (!/^https?:/i.test(target)) e.preventDefault();
     });
     win.contentView.addChildView(view);
     view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
@@ -183,7 +205,13 @@ export class BrowserManager implements BrowserController {
       } else if (url === "forward") {
         if (tab.view.webContents.canGoForward()) tab.view.webContents.goForward();
       } else {
-        const full = /^(https?|file):\/\//.test(url) ? url : `https://${url}`;
+        // http(s) only: this is agent-invokable, and file:// would let a
+        // prompt-injected page read local files.
+        // (?!\d) keeps host:port forms like "localhost:3000" schemeless.
+        if (/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(url) && !/^https?:\/\//i.test(url)) {
+          return { ok: false, error: "Only http(s) URLs can be opened." };
+        }
+        const full = /^https?:\/\//i.test(url) ? url : `https://${url}`;
         await tab.view.webContents.loadURL(full);
       }
       await new Promise((r) => setTimeout(r, 400));
@@ -205,12 +233,15 @@ export class BrowserManager implements BrowserController {
   async click(ref: string): Promise<string> {
     const tab = this.active();
     if (!tab) return "No page open.";
+    // Refs are interpolated into page JS — only the shape read_page emits.
+    if (!/^ref_\d+$/.test(ref)) return `Invalid ref "${ref.slice(0, 40)}" — use a ref_N from browser_read_page.`;
     return String(await tab.view.webContents.executeJavaScript(clickJs(ref), true));
   }
 
   async type(ref: string, text: string, submit: boolean): Promise<string> {
     const tab = this.active();
     if (!tab) return "No page open.";
+    if (!/^ref_\d+$/.test(ref)) return `Invalid ref "${ref.slice(0, 40)}" — use a ref_N from browser_read_page.`;
     return String(await tab.view.webContents.executeJavaScript(typeJs(ref, text, submit), true));
   }
 

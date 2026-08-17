@@ -1,56 +1,22 @@
-import { contextBridge, ipcRenderer } from "electron";
-import type { WhalexApi } from "@whalex/shared";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
+import { IPC_EVENTS, IPC_INVOKE, type WhalexApi } from "@whalex/shared";
 
-const INVOKE_CHANNELS = new Set([
-  "app:getState",
-  "auth:signIn",
-  "auth:signOut",
-  "settings:update",
-  "secrets:set",
-  "provider:test",
-  "models:list",
-  "session:list",
-  "session:delete",
-  "session:start",
-  "session:send",
-  "session:setModel",
-  "session:abort",
-  "session:setMode",
-  "session:setGoalMode",
-  "mcp:enablePreset",
-  "permission:respond",
-  "session:command",
-  "checkpoint:list",
-  "checkpoint:rewind",
-  "commands:list",
-  "files:search",
-  "mcp:status",
-  "mcp:restart",
-  "skills:list",
-  "skills:install",
-  "plugins:install",
-  "plugins:remove",
-  "artifact:read",
-  "preview:start",
-  "preview:stop",
-  "update:check",
-  "update:download",
-  "update:install",
-  "browser:setBounds",
-  "browser:navigate",
-  "browser:selectTab",
-  "browser:closeTab",
-  "browser:hide",
-  "vision:test",
-  "vision:describe",
-  "question:respond",
-  "dialog:pickFolder",
-  "shell:openExternal",
-]);
+// Single-sourced from the shared IPC contract so this whitelist can never
+// drift from the channels main actually registers.
+const INVOKE_CHANNELS = new Set(Object.keys(IPC_INVOKE));
 
-const EVENT_CHANNELS = new Set(["agent:event", "mcp:status", "update:status"]);
+const EVENT_CHANNELS = new Set(Object.keys(IPC_EVENTS));
 
-const api: WhalexApi = {
+/** The typed IPC surface plus direct helpers that need preload privileges. */
+interface WhalexBridge extends WhalexApi {
+  /**
+   * Absolute filesystem path of an attached/dropped File.
+   * `File.path` was removed in Electron 32; this wraps webUtils.getPathForFile.
+   */
+  getPathForFile(file: File): string;
+}
+
+const api: WhalexBridge = {
   invoke: (channel, req) => {
     if (!INVOKE_CHANNELS.has(channel)) {
       return Promise.reject(new Error(`Unknown IPC channel: ${channel}`));
@@ -64,6 +30,7 @@ const api: WhalexApi = {
     ipcRenderer.on(channel, wrapped);
     return () => ipcRenderer.removeListener(channel, wrapped);
   },
+  getPathForFile: (file) => webUtils.getPathForFile(file),
 };
 
 contextBridge.exposeInMainWorld("whalex", api);

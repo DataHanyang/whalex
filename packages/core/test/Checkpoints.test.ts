@@ -66,4 +66,22 @@ describe("Checkpoints", () => {
     await rewindTo(s, cps[1]!.boundary);
     expect(fs.existsSync(file)).toBe(false);
   });
+
+  it("restores files edited by nested (subagent/workflow) agents", async () => {
+    // Regression: fleet/subagent edits happen in ephemeral sessions, so their
+    // diffs used to be invisible to rewind. They are now promoted to the
+    // parent as file_change records.
+    const s = SessionStore.createEphemeral(tmp);
+    const file = path.join(tmp, "fleet.txt");
+    fs.writeFileSync(file, "before");
+    s.append({ type: "user", id: "u", text: "run fleet", ts: Date.now() });
+    s.append({ type: "assistant", id: "a", text: "", reasoning: "", toolCalls: [], ts: Date.now() });
+    s.recordFileChange({ path: file, oldText: "before", newText: "after" });
+    fs.writeFileSync(file, "after");
+
+    const cps = listCheckpoints(s);
+    expect(cps[0]!.fileChanges).toBe(1);
+    await rewindTo(s, cps[0]!.boundary);
+    expect(fs.readFileSync(file, "utf8")).toBe("before");
+  });
 });

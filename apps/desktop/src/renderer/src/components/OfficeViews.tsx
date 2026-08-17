@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 
@@ -11,6 +12,7 @@ function b64ToBytes(b64: string): Uint8Array {
 
 /** Excel workbook viewer: sheet tabs over a scrollable table. */
 export function SpreadsheetView({ base64 }: { base64: string }) {
+  const { t } = useTranslation();
   const [wb, setWb] = useState<XLSX.WorkBook | null>(null);
   const [sheet, setSheet] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -25,14 +27,18 @@ export function SpreadsheetView({ base64 }: { base64: string }) {
     }
   }, [base64]);
 
-  if (error) return <div className="p-4 text-[13px] text-warn">Could not open workbook: {error}</div>;
-  if (!wb) return <div className="p-4 text-[13px] text-faint">Opening workbook…</div>;
+  // sheet_to_json over a big sheet is expensive; recompute only when the
+  // workbook or the selected sheet actually changes.
+  const rows: unknown[][] = useMemo(() => {
+    if (!wb) return [];
+    const name = wb.SheetNames[sheet] ?? wb.SheetNames[0] ?? "";
+    const ws = wb.Sheets[name];
+    return ws ? (XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][]) : [];
+  }, [wb, sheet]);
 
-  const name = wb.SheetNames[sheet] ?? wb.SheetNames[0] ?? "";
-  const ws = wb.Sheets[name];
-  const rows: unknown[][] = ws
-    ? (XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][])
-    : [];
+  if (error) return <div className="p-4 text-[13px] text-warn">{t("office.workbook.error", { error })}</div>;
+  if (!wb) return <div className="p-4 text-[13px] text-faint">{t("office.workbook.opening")}</div>;
+
   const shown = rows.slice(0, 500); // a preview, not a grid editor
 
   return (
@@ -87,7 +93,7 @@ export function SpreadsheetView({ base64 }: { base64: string }) {
         </table>
         {rows.length > 500 && (
           <div className="p-2 text-center text-[11px] text-faint">
-            Showing first 500 of {rows.length} rows
+            {t("office.rowsTruncated", { shown: 500, total: rows.length })}
           </div>
         )}
       </div>
@@ -102,6 +108,7 @@ interface Slide {
 
 /** PowerPoint viewer: slide-by-slide text panels with prev/next. */
 export function SlidesView({ base64 }: { base64: string }) {
+  const { t } = useTranslation();
   const [slides, setSlides] = useState<Slide[] | null>(null);
   const [cur, setCur] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -137,9 +144,9 @@ export function SlidesView({ base64 }: { base64: string }) {
     };
   }, [base64]);
 
-  if (error) return <div className="p-4 text-[13px] text-warn">Could not open deck: {error}</div>;
-  if (!slides) return <div className="p-4 text-[13px] text-faint">Opening deck…</div>;
-  if (slides.length === 0) return <div className="p-4 text-[13px] text-faint">Deck has no slides.</div>;
+  if (error) return <div className="p-4 text-[13px] text-warn">{t("office.deck.error", { error })}</div>;
+  if (!slides) return <div className="p-4 text-[13px] text-faint">{t("office.deck.opening")}</div>;
+  if (slides.length === 0) return <div className="p-4 text-[13px] text-faint">{t("office.deck.empty")}</div>;
 
   const slide = slides[Math.min(cur, slides.length - 1)]!;
   const [title, ...body] = slide.texts;

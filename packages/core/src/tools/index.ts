@@ -21,6 +21,8 @@ export interface BuiltinToolOptions {
   workerTools?: boolean;
   includeWebFetch?: boolean;
   includePresent?: boolean;
+  /** Subagents have no UI surface to answer questions — exclude ask_user. */
+  includeAskUser?: boolean;
   /** Renders a produced HTML page to check it actually draws (needs Electron). */
   includeVerifyPage?: boolean;
 }
@@ -36,7 +38,7 @@ export function createBuiltinRegistry(opts: BuiltinToolOptions = {}): ToolRegist
     globTool,
     grepTool,
     todoWriteTool,
-    askUserTool,
+    ...(opts.includeAskUser !== false ? [askUserTool] : []),
     ...(opts.includePresent !== false ? [presentFileTool] : []),
     ...(opts.includeWebFetch !== false ? [webFetchTool] : []),
     ...(opts.includeVerifyPage ? [verifyPageTool] : []),

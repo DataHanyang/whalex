@@ -1,9 +1,18 @@
-import type { BrowserWindow } from "electron";
+import { shell, type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import type { UpdateStatus } from "@whalex/shared";
 import { isCloud, CLOUD_CONFIG } from "./edition.js";
 
 const { autoUpdater } = electronUpdater;
+
+// macOS builds ship unsigned zips, which Squirrel.Mac refuses to install.
+// Until we sign, degrade mac to "check + open the Releases page" — checking
+// still works (it only fetches the feed), but download/install must not run.
+// Flip to a real signing check once mac builds are signed.
+const MAC_NO_INSTALL = process.platform === "darwin";
+const RELEASES_URL = isCloud
+  ? "https://whalex.app"
+  : "https://github.com/leejoong/whalex/releases/latest";
 
 /**
  * Wraps electron-updater. autoDownload is off — the user clicks to download
@@ -15,7 +24,7 @@ export class Updater {
 
   constructor(private getWindow: () => BrowserWindow | null) {
     autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = !MAC_NO_INSTALL;
     // Cloud edition ships from our own bucket; OSS uses the GitHub feed
     // baked into electron-builder config.
     if (isCloud) {
@@ -53,6 +62,12 @@ export class Updater {
   }
 
   async download(): Promise<void> {
+    // Unsigned mac: the toast's download action sends the user to the
+    // Releases page instead — the closest the current status schema allows.
+    if (MAC_NO_INSTALL) {
+      await shell.openExternal(RELEASES_URL);
+      return;
+    }
     try {
       await autoUpdater.downloadUpdate();
     } catch (err) {
@@ -61,6 +76,12 @@ export class Updater {
   }
 
   install(): void {
+    if (MAC_NO_INSTALL) {
+      // Unreachable in practice (nothing downloads on mac), but never hand
+      // an unsigned zip to Squirrel.Mac.
+      void shell.openExternal(RELEASES_URL);
+      return;
+    }
     autoUpdater.quitAndInstall();
   }
 

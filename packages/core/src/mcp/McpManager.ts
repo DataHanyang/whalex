@@ -66,8 +66,9 @@ export class McpManager {
     this.connections.set(name, { name, client: null as never, status, tools: [] });
     this.emitStatus();
 
+    let client: Client | undefined;
     try {
-      const client = new Client({ name: "whalex", version: "0.1.0" }, { capabilities: {} });
+      client = new Client({ name: "whalex", version: "0.1.0" }, { capabilities: {} });
       const transport = this.makeTransport(config);
       await withTimeout(client.connect(transport), CONNECT_TIMEOUT, `connect ${name}`);
       const listed = await withTimeout(client.listTools(), CONNECT_TIMEOUT, `listTools ${name}`);
@@ -83,6 +84,16 @@ export class McpManager {
         tools,
       });
     } catch (err) {
+      // A timed-out stdio connect leaves the spawned `npx` child running with
+      // no client reference to close — a zombie holding the npm cache lock.
+      // Close whatever we have so the transport tears the child down.
+      if (client) {
+        try {
+          await client.close();
+        } catch {
+          // ignore — best-effort cleanup
+        }
+      }
       this.connections.set(name, {
         name,
         client: null as never,
@@ -197,12 +208,15 @@ export class McpManager {
     const match = /^mcp__([^_]+(?:_[^_]+)*?)__(.+)$/.exec(namespaced);
     if (!match) return { ok: false, output: `Bad MCP tool name: ${namespaced}` };
     const [, serverName, toolName] = match;
-    // Find the connection whose name is the longest matching prefix.
+    // Find the connection whose name is the longest matching prefix, so a
+    // server "foo" never shadows "foo__bar" (or vice versa) by insertion order.
     let conn: Connection | undefined;
     for (const c of this.connections.values()) {
-      if (namespaced.startsWith(`mcp__${c.name}__`)) {
+      if (
+        namespaced.startsWith(`mcp__${c.name}__`) &&
+        (!conn || c.name.length > conn.name.length)
+      ) {
         conn = c;
-        break;
       }
     }
     if (!conn || !conn.client) {
@@ -231,10 +245,11 @@ export class McpManager {
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms),
-    ),
-  ]);
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  // Clear the timer whichever side wins, so a fast success doesn't keep the
+  // event loop alive for the full timeout.
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }

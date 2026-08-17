@@ -17,6 +17,19 @@ export function PermissionCard({ request }: { request: PermissionRequest }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Only treat Enter/Esc as approve/deny when no editable control owns
+      // the keystroke — typing in a settings input, the address bar or a
+      // textarea must never approve a tool.
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         void respond({ id: request.id, behavior: "allow", scope: "once" });
@@ -50,7 +63,7 @@ export function PermissionCard({ request }: { request: PermissionRequest }) {
         className="mt-1 flex items-center gap-1 text-[11.5px] text-muted hover:text-text"
       >
         <ChevronDown size={11} className={showArgs ? "" : "-rotate-90"} />
-        args
+        {t("permission.args")}
       </button>
       {showArgs && (
         <pre className="mt-1 max-h-40 overflow-auto rounded bg-code-bg p-2 font-mono text-[11.5px] text-muted">

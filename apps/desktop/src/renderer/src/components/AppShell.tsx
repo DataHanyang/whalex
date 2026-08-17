@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../stores/sessionStore";
 import { Sidebar } from "./Sidebar";
 import { Transcript } from "./Transcript";
@@ -15,6 +16,7 @@ import logoUrl from "../assets/logo.png";
 import { PanelLeftOpen } from "lucide-react";
 
 export function AppShell() {
+  const { t } = useTranslation();
   const status = useSessionStore((s) => s.status);
   const abort = useSessionStore((s) => s.abort);
   const pendingPermission = useSessionStore((s) => s.pendingPermission);
@@ -76,7 +78,12 @@ export function AppShell() {
           <Transcript />
           {(pendingQuestion || planPending) && (
             <div className="mx-auto w-full max-w-4xl px-6">
-              {pendingQuestion ? <QuestionCard request={pendingQuestion} /> : <PlanActions />}
+              {/* Keyed so a new question set never inherits stale step/answer state. */}
+              {pendingQuestion ? (
+                <QuestionCard key={pendingQuestion.id} request={pendingQuestion} />
+              ) : (
+                <PlanActions />
+              )}
             </div>
           )}
           <Composer />
@@ -85,7 +92,7 @@ export function AppShell() {
           <div
             onMouseDown={startResize}
             className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-accent"
-            title="Drag to resize"
+            title={t("panel.dragResize")}
           />
         )}
         {sideTab && !artifactCollapsed && (
@@ -98,11 +105,11 @@ export function AppShell() {
           // transcript takes the width back.
           <button
             onClick={toggleArtifactCollapsed}
-            title="Show preview"
+            title={t("panel.showPreview")}
             className="flex w-9 shrink-0 flex-col items-center gap-2 border-l border-border bg-surface py-3 text-faint hover:text-text"
           >
             <PanelLeftOpen size={15} />
-            <span className="[writing-mode:vertical-rl] text-[11px] tracking-wide">Preview</span>
+            <span className="[writing-mode:vertical-rl] text-[11px] tracking-wide">{t("panel.preview")}</span>
           </button>
         )}
       </div>

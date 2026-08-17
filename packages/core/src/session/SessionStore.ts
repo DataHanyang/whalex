@@ -53,6 +53,14 @@ export type SessionRecord =
   | { type: "workflow"; workflowId: string; name: string; ts: number }
   | { type: "compaction"; summary: string; upto: number; beforePct: number; afterPct: number; ts: number }
   | { type: "rewind"; boundary: number; ts: number }
+  | { type: "file_change"; path: string; oldText: string; newText: string; ts: number }
+  | {
+      type: "usage";
+      inputTokens: number;
+      outputTokens: number;
+      cachedInputTokens: number;
+      ts: number;
+    }
   | { type: "title"; title: string; ts: number };
 
 export function whalexHome(): string {
@@ -75,6 +83,10 @@ export class SessionStore {
   readonly records: SessionRecord[] = [];
   private filePath: string;
   private ephemeral = false;
+
+  get isEphemeral(): boolean {
+    return this.ephemeral;
+  }
 
   private constructor(
     readonly sessionId: string,
@@ -315,6 +327,47 @@ export class SessionStore {
       }
     }
     return msgs;
+  }
+
+  /**
+   * Persist cumulative token/cost totals so resuming a session restores its
+   * usage meter instead of restarting from zero. Append-only; the last record
+   * wins on load.
+   */
+  recordUsageTotals(t: { inputTokens: number; outputTokens: number; cachedInputTokens: number }): void {
+    // append() already skips the disk write for ephemeral sessions; keeping the
+    // record in memory is harmless (ignored by messages()/transcript()).
+    this.append({
+      type: "usage",
+      inputTokens: t.inputTokens,
+      outputTokens: t.outputTokens,
+      cachedInputTokens: t.cachedInputTokens,
+      ts: Date.now(),
+    });
+  }
+
+  /**
+   * Record a file change made by a nested agent (subagent/workflow) so
+   * checkpoints and rewind treat it like a first-class edit. These records are
+   * ignored when building wire messages (they carry no tool_call_id).
+   */
+  recordFileChange(diff: { path: string; oldText: string; newText: string }): void {
+    this.append({ type: "file_change", path: diff.path, oldText: diff.oldText, newText: diff.newText, ts: Date.now() });
+  }
+
+  /** The most recent persisted usage totals, or null if none recorded yet. */
+  lastUsageTotals(): { inputTokens: number; outputTokens: number; cachedInputTokens: number } | null {
+    for (let i = this.records.length - 1; i >= 0; i--) {
+      const rec = this.records[i]!;
+      if (rec.type === "usage") {
+        return {
+          inputTokens: rec.inputTokens,
+          outputTokens: rec.outputTokens,
+          cachedInputTokens: rec.cachedInputTokens,
+        };
+      }
+    }
+    return null;
   }
 
   /** Rebuilds the renderer transcript for session resume. */

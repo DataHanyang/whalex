@@ -1,5 +1,6 @@
 import type { ProviderClient } from "../providers/Provider.js";
 import type { SessionStore } from "../session/SessionStore.js";
+import { ContextManager } from "./ContextManager.js";
 
 const SUMMARY_PROMPT = `You are compacting a long coding-agent conversation to free up context.
 Summarize everything below into a compact but complete brief that lets the agent continue seamlessly. Include:
@@ -9,22 +10,36 @@ Summarize everything below into a compact but complete brief that lets the agent
 - Key facts learned about the codebase (paths, structure, conventions)
 - Any pending todos or next steps
 
+If the input begins with a "[Summary of the conversation before this segment]", fold it into a single updated brief together with the newer activity — do not discard earlier facts.
 Be concrete — keep file paths, function names, and decisions. Omit chit-chat. Output only the brief.`;
 
+export interface CompactResult {
+  ok: boolean;
+  summary?: string;
+  error?: string;
+}
+
 /**
- * Summarizes the older part of a session into a single brief, so the running
- * conversation fits back inside the context window. The summary is recorded
- * as a compaction record in the JSONL; SessionStore.messages() replaces the
- * summarized turns with it on the next request.
+ * Summarizes the part of a session since the last compaction into a single
+ * brief. Returns the summary text; the caller records it (with accurate
+ * before/after percentages) via SessionStore.appendCompaction, and
+ * SessionStore.messages() then replaces the summarized turns with it.
+ *
+ * Only the segment *after* the previous compaction is re-summarized (the prior
+ * summary is prepended so nothing is lost), so cost stays bounded instead of
+ * growing with the whole session. The input is tail-truncated to roughly half
+ * the model window so the summary call itself can't overflow — the very
+ * failure that triggered compaction.
  */
 export async function compactSession(
   provider: ProviderClient,
   session: SessionStore,
   model: string,
   signal: AbortSignal,
-): Promise<{ ok: boolean; error?: string }> {
-  const transcript = renderTranscriptForSummary(session);
-  if (!transcript.trim()) return { ok: false, error: "Nothing to compact." };
+  opts: { contextWindow?: number } = {},
+): Promise<CompactResult> {
+  const transcript = renderTranscriptForSummary(session, opts.contextWindow);
+  if (!transcript.trim()) return { ok: false, error: "Nothing new to compact." };
 
   let summary = "";
   try {
@@ -45,13 +60,24 @@ export async function compactSession(
   }
 
   if (!summary.trim()) return { ok: false, error: "Summary was empty." };
-  session.appendCompaction(summary);
-  return { ok: true };
+  return { ok: true, summary };
 }
 
-function renderTranscriptForSummary(session: SessionStore): string {
+function renderTranscriptForSummary(session: SessionStore, contextWindow = 128_000): string {
+  // Honor rewinds (records the user discarded must not resurrect via the
+  // summary) and only re-summarize since the last compaction.
+  const records = session.effectiveRecords();
+  let start = 0;
+  let priorSummary = "";
+  records.forEach((rec, i) => {
+    if (rec.type === "compaction") {
+      start = i + 1;
+      priorSummary = rec.summary;
+    }
+  });
+
   const parts: string[] = [];
-  for (const rec of session.records) {
+  for (const rec of records.slice(start)) {
     switch (rec.type) {
       case "user":
         parts.push(`USER: ${rec.text}`);
@@ -67,5 +93,22 @@ function renderTranscriptForSummary(session: SessionStore): string {
         break;
     }
   }
-  return parts.join("\n\n");
+  let body = parts.join("\n\n");
+  if (!body.trim()) return "";
+
+  // Tail-truncate the new activity so priorSummary + activity stays within
+  // ~half the window; the summary call must not itself overflow.
+  const budgetTokens = Math.floor(contextWindow * 0.5);
+  const reserve = ContextManager.estimateTokens(priorSummary) + 400;
+  const activityBudget = Math.max(1000, budgetTokens - reserve);
+  if (ContextManager.estimateTokens(body) > activityBudget) {
+    // ~3 chars/token is between the ASCII (4) and CJK (1.5) heuristics — a
+    // conservative cap that keeps the most recent activity.
+    const keepChars = activityBudget * 3;
+    body = "…(earlier activity truncated — see the previous summary)…\n\n" + body.slice(-keepChars);
+  }
+
+  return priorSummary
+    ? `[Summary of the conversation before this segment]\n${priorSummary}\n\n[Activity since that summary]\n${body}`
+    : body;
 }

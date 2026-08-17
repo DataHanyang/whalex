@@ -45,6 +45,27 @@ describe("SessionStore", () => {
     expect(joined).not.toContain("old message");
   });
 
+  it("persists and restores cumulative usage totals", () => {
+    const s = SessionStore.createEphemeral("C:/proj");
+    expect(s.lastUsageTotals()).toBeNull();
+    s.recordUsageTotals({ inputTokens: 1000, outputTokens: 200, cachedInputTokens: 50 });
+    s.recordUsageTotals({ inputTokens: 3000, outputTokens: 600, cachedInputTokens: 120 });
+    // The most recent totals win on resume.
+    expect(s.lastUsageTotals()).toEqual({
+      inputTokens: 3000,
+      outputTokens: 600,
+      cachedInputTokens: 120,
+    });
+  });
+
+  it("keeps usage records out of the wire message list", () => {
+    const s = SessionStore.createEphemeral("C:/proj");
+    s.append({ type: "user", id: "u1", text: "hi", ts: 1 });
+    s.recordUsageTotals({ inputTokens: 10, outputTokens: 2, cachedInputTokens: 0 });
+    // A usage record carries no tool_call_id and must not become a message.
+    expect(s.messages()).toEqual([{ role: "user", content: "hi" }]);
+  });
+
   it("rebuilds a resumable transcript", () => {
     const s = SessionStore.createEphemeral("C:/proj");
     s.append({ type: "user", id: "u1", text: "make a thing", ts: 1 });

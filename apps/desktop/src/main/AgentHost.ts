@@ -27,7 +27,9 @@ import {
   type McpStatus,
   type PermissionResponse,
   type SlashCommand,
+  type Todo,
   type TranscriptItem,
+  type UsageInfo,
   type WorkflowState,
 } from "@whalex/shared";
 import type { SettingsManager } from "./settings.js";
@@ -49,7 +51,33 @@ interface HostedSession {
   pendingPermission: import("@whalex/shared").PermissionRequest | null;
   /** Agent-result cache shared by every workflow run in this session. */
   workflowCache: Map<string, unknown>;
+  /**
+   * Snapshot of live, not-yet-committed state (streaming message, workflow,
+   * todos, usage, status). Replayed verbatim when the UI reattaches so a
+   * session switched away from and back to resumes its picture instead of
+   * appearing frozen — the streaming bubble in particular is not in the
+   * transcript yet.
+   */
+  live: LiveSnapshot;
 }
+
+interface LiveSnapshot {
+  status: Extract<AgentEvent, { type: "status" }>["state"] | null;
+  /** The in-flight assistant message id, or null once it's committed. */
+  msgId: string | null;
+  text: string;
+  reasoning: string;
+  workflow: WorkflowState | null;
+  todos: Todo[] | null;
+  usage: UsageInfo | null;
+}
+
+function emptyLive(): LiveSnapshot {
+  return { status: null, msgId: null, text: "", reasoning: "", workflow: null, todos: null, usage: null };
+}
+
+/** Artifacts are cached in-process; cap the map so a tray-resident app doesn't grow forever. */
+const MAX_ARTIFACTS = 200;
 
 const CPU = os.cpus().length;
 
@@ -202,6 +230,7 @@ export class AgentHost {
       workflowCache: new Map(),
       pendingQuestion: null,
       pendingPermission: null,
+      live: emptyLive(),
       loop: new AgentLoop({
         provider,
         registry,
@@ -408,9 +437,10 @@ export class AgentHost {
     if (!hosted) return { handled: false };
     switch (command) {
       case "compact": {
+        // manualCompact records the compaction (with the real summary and
+        // percentages) itself — the host only surfaces the result.
         const res = await hosted.loop.manualCompact();
         if (res.ok) {
-          hosted.store.appendCompaction("", res.beforePct, res.afterPct);
           this.emit(sessionId, hosted, {
             type: "compaction",
             beforePct: res.beforePct,
@@ -533,44 +563,114 @@ User: ${firstUser.text.slice(0, 400)}
   disposeAll(): void {
     for (const hosted of this.sessions.values()) hosted.loop.abort();
     this.sessions.clear();
+    this.artifacts.clear();
     void this.mcp.disposeAll();
   }
 
-  /** Re-send the state a reattaching renderer needs to resume the picture. */
+  /**
+   * Re-send the state a reattaching renderer needs to resume the picture.
+   * transcript() supplies committed history; this fills in everything still
+   * live and uncommitted: the streaming assistant bubble, the workflow panel,
+   * todos, the usage meter, status, and any open interactive request. These
+   * are enqueued raw (not through emit) so replaying them doesn't disturb the
+   * snapshot they were read from.
+   */
   private replayPending(sessionId: string, hosted: HostedSession): void {
+    const live = hosted.live;
     if (hosted.loop.isRunning) {
-      this.emitDirect(sessionId, { type: "status", state: "thinking" });
+      this.enqueue(sessionId, hosted, { type: "status", state: live.status ?? "thinking" });
+      // The in-flight assistant message hasn't been written to the transcript
+      // yet — rebuild its bubble from the accumulated stream so subsequent
+      // live deltas continue it instead of vanishing.
+      if (live.msgId) {
+        this.enqueue(sessionId, hosted, { type: "message-start", messageId: live.msgId });
+        if (live.reasoning)
+          this.enqueue(sessionId, hosted, { type: "reasoning-delta", messageId: live.msgId, delta: live.reasoning });
+        if (live.text)
+          this.enqueue(sessionId, hosted, { type: "text-delta", messageId: live.msgId, delta: live.text });
+      }
     }
-    if (hosted.pendingQuestion) {
-      this.emitDirect(sessionId, { type: "question-request", request: hosted.pendingQuestion });
-    }
-    if (hosted.pendingPermission) {
-      this.emitDirect(sessionId, { type: "permission-request", request: hosted.pendingPermission });
-    }
-    if (hosted.superCode) {
-      this.emitDirect(sessionId, { type: "supercode", on: true });
-    }
+    if (live.workflow) this.enqueue(sessionId, hosted, { type: "workflow-update", workflow: live.workflow });
+    if (live.todos) this.enqueue(sessionId, hosted, { type: "todo-update", todos: live.todos });
+    if (live.usage) this.enqueue(sessionId, hosted, { type: "usage", usage: live.usage });
+    if (hosted.pendingQuestion)
+      this.enqueue(sessionId, hosted, { type: "question-request", request: hosted.pendingQuestion });
+    if (hosted.pendingPermission)
+      this.enqueue(sessionId, hosted, { type: "permission-request", request: hosted.pendingPermission });
+    if (hosted.superCode) this.enqueue(sessionId, hosted, { type: "supercode", on: true });
+    this.flush();
   }
 
   private emit(sessionId: string, hosted: HostedSession, event: AgentEvent): void {
-    if (event.type === "artifact") {
-      this.artifacts.set(event.artifactId, {
-        artifactId: event.artifactId,
-        title: event.title,
-        kind: event.kind,
-        path: event.path,
-        url: event.url,
-        content: event.content,
-        language: event.language,
-      });
+    this.updateLive(hosted, event);
+    this.enqueue(sessionId, hosted, event);
+  }
+
+  /** Track cached artifacts, pending requests, and the live snapshot. */
+  private updateLive(hosted: HostedSession, event: AgentEvent): void {
+    switch (event.type) {
+      case "artifact":
+        if (this.artifacts.size >= MAX_ARTIFACTS && !this.artifacts.has(event.artifactId)) {
+          const oldest = this.artifacts.keys().next().value;
+          if (oldest !== undefined) this.artifacts.delete(oldest);
+        }
+        this.artifacts.set(event.artifactId, {
+          artifactId: event.artifactId,
+          title: event.title,
+          kind: event.kind,
+          path: event.path,
+          url: event.url,
+          content: event.content,
+          language: event.language,
+        });
+        break;
+      case "question-request":
+        hosted.pendingQuestion = event.request;
+        break;
+      case "permission-request":
+        hosted.pendingPermission = event.request;
+        break;
+      case "permission-resolved":
+        hosted.pendingPermission = null;
+        break;
+      case "status":
+        hosted.live.status = event.state;
+        break;
+      case "message-start":
+        hosted.live.msgId = event.messageId;
+        hosted.live.text = "";
+        hosted.live.reasoning = "";
+        break;
+      case "text-delta":
+        if (event.messageId === hosted.live.msgId) hosted.live.text += event.delta;
+        break;
+      case "reasoning-delta":
+        if (event.messageId === hosted.live.msgId) hosted.live.reasoning += event.delta;
+        break;
+      case "usage":
+        hosted.live.usage = event.usage;
+        // The assistant message is committed to the transcript before its
+        // usage event fires, so the streaming bubble no longer needs replay.
+        hosted.live.msgId = null;
+        break;
+      case "workflow-update":
+        hosted.live.workflow = event.workflow;
+        break;
+      case "todo-update":
+        hosted.live.todos = event.todos;
+        break;
+      case "done":
+        hosted.pendingQuestion = null;
+        hosted.pendingPermission = null;
+        hosted.live.status = null;
+        hosted.live.msgId = null;
+        break;
+      default:
+        break;
     }
-    if (event.type === "question-request") hosted.pendingQuestion = event.request;
-    else if (event.type === "permission-request") hosted.pendingPermission = event.request;
-    else if (event.type === "permission-resolved") hosted.pendingPermission = null;
-    else if (event.type === "done") {
-      hosted.pendingQuestion = null;
-      hosted.pendingPermission = null;
-    }
+  }
+
+  private enqueue(sessionId: string, hosted: HostedSession, event: AgentEvent): void {
     this.queue.push({ sessionId, seq: hosted.seq++, event });
     if (event.type === "permission-request" || event.type === "done" || event.type === "error") {
       this.flush();

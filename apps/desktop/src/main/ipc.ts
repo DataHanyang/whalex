@@ -168,6 +168,12 @@ export function registerIpc(deps: {
       return { path: res.canceled ? null : (res.filePaths[0] ?? null) };
     },
     "shell:openExternal": async (req) => {
+      // Web/mail only — file://, smb:// etc. would hand the OS an arbitrary
+      // local target on behalf of renderer-displayed (untrusted) content.
+      const proto = new URL(req.url).protocol;
+      if (proto !== "http:" && proto !== "https:" && proto !== "mailto:") {
+        throw new Error(`Refusing to open ${proto} URL`);
+      }
       await shell.openExternal(req.url);
     },
   };
