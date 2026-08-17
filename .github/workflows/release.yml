@@ -11,7 +11,24 @@ permissions:
   contents: write
 
 jobs:
+  # Fail fast if the tag doesn't match the app version — otherwise the
+  # auto-updater metadata and installer filenames disagree with the tag.
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check tag matches apps/desktop/package.json version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PKG_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match apps/desktop/package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "Tag $GITHUB_REF_NAME matches package version $PKG_VERSION"
+
   build:
+    needs: verify-version
     strategy:
       fail-fast: false
       matrix:
@@ -28,6 +45,29 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      - name: Get Electron version
+        id: electron
+        shell: bash
+        run: echo "version=$(node -p "require('./apps/desktop/package.json').devDependencies.electron")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Electron binaries
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ steps.electron.outputs.version }}
+
+      - name: Cache Electron binaries (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: ${{ runner.os }}-electron-${{ steps.electron.outputs.version }}
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --filter "./packages/*" build
@@ -48,3 +88,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No signing identity on the runner → don't attempt to sign.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # Once every platform has uploaded its installers to the draft release,
+  # attach a SHA256SUMS.txt covering all assets.
+  checksums:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate and upload SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --dir assets
+          cd assets
+          rm -f SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$GITHUB_REF_NAME" SHA256SUMS.txt --clobber

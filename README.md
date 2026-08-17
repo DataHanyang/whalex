@@ -81,7 +81,7 @@ pnpm install
 pnpm dev        # launch the desktop app (run from the repo root)
 ```
 
-Requirements: **Node ≥ 20**, **pnpm 9**, a **DeepSeek API key**.
+Requirements: **Node ≥ 22.12**, **pnpm 9**, a **DeepSeek API key**.
 
 ## 🧭 How it works
 
@@ -210,7 +210,7 @@ scoring. Token counts come from each tool's own usage report.
 **†** Completed run measured on a second machine. **\*** Estimated from the session transcript
 (the run passed a 25-minute cap; its artifact scores 100%). One run per task — enough to show
 order-of-magnitude cost differences, not to rank model intelligence. Rates verified 16 Aug 2026.
-Full write-up: [docs/bench/report.html](docs/bench/report.html).</sub>
+Full write-up: [docs/bench/report.html](docs/bench/report.html) (GitHub shows the raw HTML — download it and open in a browser).</sub>
 
 ## 🐳 SuperCode — Ultracode-class orchestration at DeepSeek prices
 
@@ -373,7 +373,7 @@ Built with a `WHALEX_EDITION` flag: **`oss`** (default, BYOK + GitHub auto-updat
 
 ## 🔏 Releasing &amp; code signing
 
-Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes a **draft** release. Code signing is applied automatically when secrets are present:
+Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes a **draft** release. **Builds are currently unsigned** (the workflow disables signing outright), so expect the usual first-launch OS warnings. Adding signing is planned; the options on the table:
 
 - **Windows** — `WIN_CSC_LINK` / `WIN_CSC_KEY_PASSWORD`, or Azure Trusted Signing (~$10/mo, removes SmartScreen warnings). Free option for OSS: [SignPath.io](https://signpath.io).
 - **macOS** — `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` + `CSC_LINK` (Apple Developer, $99/yr).
@@ -404,15 +404,15 @@ configure. There is no account, no telemetry, and no middleman server.
 ## 💾 Installing, per OS
 
 ### Windows
-1. Download **`WhaleX-Setup-0.2.1.exe`** from [Releases](https://github.com/leejoong/whalex/releases).
+1. Download the Windows installer (**`WhaleX-Setup-<version>.exe`**) from the [latest release](https://github.com/leejoong/whalex/releases/latest).
 2. Run it. SmartScreen will warn because the build is unsigned — click **More info → Run anyway**.
 3. The app installs per-user (no admin rights needed) and creates Start-menu and desktop shortcuts.
 4. First launch: paste your DeepSeek API key, pick a working folder, choose a permission mode.
 5. Updates arrive in-app — a toast appears, one click restarts into the new version.
 
 ### macOS
-1. Download **`WhaleX-0.2.1-arm64-mac.zip`** (Apple Silicon) or **`WhaleX-0.2.1-x64-mac.zip`**
-   (Intel) and unzip it.
+1. Download **`WhaleX-<version>-arm64-mac.zip`** (Apple Silicon) or **`WhaleX-<version>-x64-mac.zip`**
+   (Intel) from the [latest release](https://github.com/leejoong/whalex/releases/latest) and unzip it.
 2. Drag **WhaleX.app** into **Applications**.
 3. The app is unsigned/un-notarised, so plain double-click is blocked: **right-click → Open → Open**
    (needed only once). On newer macOS you may instead need **System Settings → Privacy & Security →
@@ -420,11 +420,11 @@ configure. There is no account, no telemetry, and no middleman server.
 4. First launch: key → folder → go, same as Windows.
 
 ### Linux
-1. Download **`WhaleX-0.2.1.AppImage`**.
+1. Download **`WhaleX-<version>.AppImage`** from the [latest release](https://github.com/leejoong/whalex/releases/latest).
 2. Make it executable and run:
    ```bash
-   chmod +x WhaleX-0.2.1.AppImage
-   ./WhaleX-0.2.1.AppImage
+   chmod +x WhaleX-*.AppImage
+   ./WhaleX-*.AppImage
    ```
 3. If your distro lacks FUSE 2 (`libfuse.so.2` error): install `libfuse2`, or run with
    `--appimage-extract-and-run`.
@@ -438,7 +438,7 @@ pnpm install
 pnpm dev                              # run the app in dev mode
 pnpm --filter @whalex/desktop dist    # or build an installer
 ```
-Requirements: **Node ≥ 20**, **pnpm 9**, a **DeepSeek API key**.
+Requirements: **Node ≥ 22.12**, **pnpm 9**, a **DeepSeek API key**.
 
 ## 📄 License
 
