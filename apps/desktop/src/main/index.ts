@@ -43,7 +43,27 @@ if (process.env.WHALEX_CDP_PORT) {
 // A second window for side-by-side sessions: WHALEX_INSTANCE isolates the
 // Electron userData (and its single-instance lock); ~/.whalex stays shared.
 if (process.env.WHALEX_INSTANCE) {
-  app.setPath("userData", path.join(app.getPath("userData"), `instance-${process.env.WHALEX_INSTANCE}`));
+  const primaryUserData = app.getPath("userData");
+  const instanceDir = path.join(primaryUserData, `instance-${process.env.WHALEX_INSTANCE}`);
+  // safeStorage (Chromium OSCrypt) keeps its AES key in userData/"Local
+  // State". A fresh instance dir would mint its OWN key, and the shared
+  // ~/.whalex/secrets.bin — encrypted under the primary key — would silently
+  // stop decrypting: second windows ran keyless. Seed every instance with the
+  // primary key file so all instances read and write the same vault.
+  try {
+    const src = path.join(primaryUserData, "Local State");
+    if (fs.existsSync(src)) {
+      fs.mkdirSync(instanceDir, { recursive: true });
+      // Overwrite on every boot: an instance that once minted its own key
+      // must be pulled back onto the primary key, not left diverged.
+      fs.copyFileSync(src, path.join(instanceDir, "Local State"));
+    }
+  } catch (err) {
+    // Worst case the instance mints a fresh key and API keys need re-entering
+    // there — boot must not fail over vault seeding.
+    logLine(`instance Local State seed failed: ${String(err)}`);
+  }
+  app.setPath("userData", instanceDir);
 }
 if (!app.requestSingleInstanceLock()) {
   // app.quit() is async and doesn't stop this script — whenReady would still
