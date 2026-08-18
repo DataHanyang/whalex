@@ -1,4 +1,5 @@
 import os from "node:os";
+import { Notification, app } from "electron";
 import type { BrowserWindow } from "electron";
 import {
   AgentLoop,
@@ -608,6 +609,48 @@ User: ${firstUser.text.slice(0, 400)}
   private emit(sessionId: string, hosted: HostedSession, event: AgentEvent): void {
     this.updateLive(hosted, event);
     this.enqueue(sessionId, hosted, event);
+    if (event.type === "done") this.notifyTurnDone(hosted, event.stopReason);
+  }
+
+  /**
+   * OS notification when a turn finishes while the user is looking elsewhere
+   * (window unfocused or hidden in the tray). Aborts are the user's own
+   * action; length-stops continue silently in the UI — neither notifies.
+   */
+  private notifyTurnDone(hosted: HostedSession, stopReason: string): void {
+    if (stopReason !== "stop" && stopReason !== "error") return;
+    const win = this.getWindow();
+    if (win && !win.isDestroyed() && win.isFocused()) return;
+    if (!Notification.isSupported()) return;
+    let lang = this.settings.get().language;
+    if (lang === "system") {
+      const sys = app.getLocale().slice(0, 2);
+      lang = (["en", "ko", "zh", "ja", "fr"] as const).find((l) => l === sys) ?? "en";
+    }
+    const TEXT = {
+      en: { done: "Task finished", error: "Stopped with an error" },
+      ko: { done: "작업이 끝났습니다", error: "오류로 중단됐습니다" },
+      zh: { done: "任务已完成", error: "因错误而停止" },
+      ja: { done: "作業が完了しました", error: "エラーで停止しました" },
+      fr: { done: "Tâche terminée", error: "Arrêtée sur une erreur" },
+    } as const;
+    const text = TEXT[lang as keyof typeof TEXT] ?? TEXT.en;
+    const title = hosted.store
+      .effectiveRecords()
+      .filter((r) => r.type === "title")
+      .pop();
+    const n = new Notification({
+      title: title?.type === "title" ? title.title : "WhaleX",
+      body: stopReason === "error" ? text.error : text.done,
+    });
+    n.on("click", () => {
+      const w = this.getWindow();
+      if (w && !w.isDestroyed()) {
+        w.show();
+        w.focus();
+      }
+    });
+    n.show();
   }
 
   /** Track cached artifacts, pending requests, and the live snapshot. */
