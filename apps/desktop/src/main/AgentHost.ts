@@ -539,7 +539,7 @@ export class AgentHost {
           {
             role: "user",
             content:
-              `Give a 3-6 word title for this coding session, in the user's language. ` +
+              `Give a terse 2-4 word title for this coding session, in the user's language. ` +
               `Output ONLY the title, no quotes.
 
 User: ${userText.slice(0, 400)}`,
