@@ -1,6 +1,6 @@
 {
   "name": "@whalex/cli",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "type": "module",
   "bin": {
     "whalex": "./dist/main.js"
