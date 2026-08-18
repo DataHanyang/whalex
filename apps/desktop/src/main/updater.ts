@@ -140,12 +140,14 @@ export class Updater {
     }
     autoUpdater.autoInstallOnAppQuit = false; // we own the handoff now
     const batPath = path.join(app.getPath("temp"), "whalex-update-waiter.cmd");
+    const ps1Path = path.join(app.getPath("temp"), "whalex-update-waiter.ps1");
     const waiterLog = path.join(os.homedir(), ".whalex", "waiter.log");
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
     const ok = await new Promise<boolean>((resolve) => {
       try {
         fs.writeFileSync(batPath, WAITER_BAT.replace(/\n/g, "\r\n"));
+        fs.writeFileSync(ps1Path, WAITER_PS1);
         const p = spawn("cmd.exe", ["/c", batPath], {
           stdio: "ignore",
           windowsHide: true,
@@ -155,6 +157,7 @@ export class Updater {
             WX_EXENAME: path.basename(process.execPath),
             WX_APPEXE: process.execPath,
             WX_INSTALLER: installerPath,
+            WX_PS1: ps1Path,
           },
         });
         let settled = false;
@@ -226,21 +229,43 @@ if not errorlevel 1 (
   if !w! lss 240 (ping -n 2 127.0.0.1 >nul & goto waitloop)
 )
 echo [%time%] app gone after !w! polls>>"%WX_LOG%"
-set /a n=0
-:tryinstall
-set /a n+=1
-echo [%time%] attempt !n!>>"%WX_LOG%"
-powershell -NoProfile -Command "try { $before = (Get-Item $env:WX_APPEXE -ErrorAction Stop).LastWriteTimeUtc; $p = Start-Process -FilePath $env:WX_INSTALLER -ArgumentList '--updated','/S','--force-run' -PassThru -ErrorAction Stop; $p.WaitForExit(); Start-Sleep 3; $after = (Get-Item $env:WX_APPEXE -ErrorAction Stop).LastWriteTimeUtc; Add-Content $env:WX_LOG ('[ps] exit=' + $p.ExitCode + ' changed=' + ($after -gt $before)); if ($after -gt $before) { exit 0 } else { exit 1 } } catch { Add-Content $env:WX_LOG ('[ps] EXCEPTION ' + $_); exit 2 }"
-if !errorlevel!==0 goto done
-if !n! lss 5 (ping -n 9 127.0.0.1 >nul & goto tryinstall)
-echo [%time%] giving up>>"%WX_LOG%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%WX_PS1%"
 exit
-:done
-echo [%time%] install verified>>"%WX_LOG%"
-ping -n 16 127.0.0.1 >nul
-tasklist /FI "IMAGENAME eq %WX_EXENAME%" /NH 2>nul | find /I "%WX_EXENAME%" >nul
-if errorlevel 1 (start "" "%WX_APPEXE%" & echo [%time%] relaunched directly>>"%WX_LOG%") else (echo [%time%] app already relaunched>>"%WX_LOG%")
-exit
+`;
+
+/**
+ * Install + verify + retry, all in ONE PowerShell process — the cmd layer's
+ * between-attempt gap is where the field supervisor once vanished. Success
+ * is the app exe's mtime changing (exit codes are advisory; null from
+ * hidden consoles). Five attempts ride out Defender's block-at-first-sight
+ * on the freshly downloaded unsigned installer.
+ */
+const WAITER_PS1 = String.raw`
+$log = $env:WX_LOG
+function L($m) { Add-Content -Encoding UTF8 $log ((Get-Date -Format HH:mm:ss.f) + " " + $m) }
+for ($i = 1; $i -le 5; $i++) {
+  L ("attempt " + $i)
+  try {
+    $before = (Get-Item $env:WX_APPEXE -ErrorAction Stop).LastWriteTimeUtc
+    $p = Start-Process -FilePath $env:WX_INSTALLER -ArgumentList '--updated','/S','--force-run' -PassThru -ErrorAction Stop
+    $p.WaitForExit()
+    Start-Sleep 3
+    $after = (Get-Item $env:WX_APPEXE -ErrorAction Stop).LastWriteTimeUtc
+    L ("exit=" + $p.ExitCode + " changed=" + ($after -gt $before))
+    if ($after -gt $before) {
+      Start-Sleep 8
+      $name = [IO.Path]::GetFileNameWithoutExtension($env:WX_EXENAME)
+      if (-not (Get-Process -Name $name -ErrorAction SilentlyContinue)) {
+        Start-Process -FilePath $env:WX_APPEXE
+        L "relaunched directly"
+      } else { L "already relaunched" }
+      exit 0
+    }
+  } catch { L ("EXCEPTION " + $_) }
+  Start-Sleep 8
+}
+L "giving up"
+exit 1
 `;
 
 function releaseNotes(info: { releaseNotes?: string | Array<{ note?: string | null }> | null }): string {
