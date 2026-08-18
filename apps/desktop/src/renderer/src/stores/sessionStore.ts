@@ -570,6 +570,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set((s) => ({
           status: "idle",
           pendingPermission: null,
+          // An open question card is moot once the turn ends (abort/error) —
+          // main clears its copy on done too; leaving ours up strands the card.
+          pendingQuestion: null,
           turnStartedAt: null,
           lastTurnMs: s.turnStartedAt ? Date.now() - s.turnStartedAt : s.lastTurnMs,
           transcript: s.transcript.map((item) =>
