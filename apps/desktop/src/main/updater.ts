@@ -22,6 +22,14 @@ const RELEASES_URL = isCloud
 export class Updater {
   private lastStatus: UpdateStatus = { state: "idle" };
 
+  /**
+   * Set by main: runs the app's shutdown cleanup (dispose sessions, kill dev
+   * servers, release the before-quit preventDefault) BEFORE the installer is
+   * handed the baton. Without this the process outlives the handoff and the
+   * installer complains it cannot close the app.
+   */
+  prepareShutdown: () => Promise<void> = async () => {};
+
   constructor(private getWindow: () => BrowserWindow | null) {
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = !MAC_NO_INSTALL;
@@ -90,7 +98,9 @@ export class Updater {
       void shell.openExternal(RELEASES_URL);
       return;
     }
-    autoUpdater.quitAndInstall();
+    // Silent install + relaunch: no NSIS wizard, the app just comes back on
+    // the new version. Cleanup must finish first so quit isn't intercepted.
+    void this.prepareShutdown().finally(() => autoUpdater.quitAndInstall(true, true));
   }
 
   current(): UpdateStatus {

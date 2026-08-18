@@ -225,17 +225,26 @@ void app.whenReady().then(() => {
   // One-shot: hold the quit until dev-server trees are killed (bounded at 3s),
   // otherwise they end up orphaned on Windows and squat the ports.
   let cleanupDone = false;
+  const shutdownCleanup = async () => {
+    host.disposeAll();
+    await Promise.race([preview.stopAll(), new Promise((r) => setTimeout(r, 3000))]);
+  };
   app.on("before-quit", (e) => {
     quitting = true;
     if (cleanupDone) return;
     cleanupDone = true;
     e.preventDefault();
-    host.disposeAll();
-    void Promise.race([
-      preview.stopAll(),
-      new Promise((r) => setTimeout(r, 3000)),
-    ]).finally(() => app.quit());
+    void shutdownCleanup().finally(() => app.quit());
   });
+  // The updater runs the same cleanup BEFORE handing off to the installer;
+  // with cleanupDone already set, its app.quit() sails through un-prevented
+  // and the installer never sees a lingering process.
+  updater.prepareShutdown = async () => {
+    quitting = true;
+    if (cleanupDone) return;
+    cleanupDone = true;
+    await shutdownCleanup();
+  };
 });
 
 app.on("window-all-closed", () => {
