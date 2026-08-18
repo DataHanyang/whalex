@@ -148,7 +148,12 @@ export class Updater {
       try {
         fs.writeFileSync(batPath, WAITER_BAT.replace(/\n/g, "\r\n"));
         fs.writeFileSync(ps1Path, WAITER_PS1);
+        // detached + unref: the supervisor must be in its own process group.
+        // Field history: a non-detached child was reaped along with the
+        // app's teardown on exit — the waiter logged "parked" and vanished,
+        // stranding a downloaded update forever (seen on 0.2.19 → 0.2.21).
         const p = spawn("cmd.exe", ["/c", batPath], {
+          detached: true,
           stdio: "ignore",
           windowsHide: true,
           env: {
@@ -168,6 +173,7 @@ export class Updater {
             resolve(false);
           }
         });
+        p.unref();
         setTimeout(() => {
           if (!settled) {
             settled = true;
@@ -227,6 +233,8 @@ tasklist /FI "IMAGENAME eq %WX_EXENAME%" /NH 2>nul | find /I "%WX_EXENAME%" >nul
 if not errorlevel 1 (
   set /a w+=1
   if !w! lss 240 (ping -n 2 127.0.0.1 >nul & goto waitloop)
+  echo [%time%] app still running after !w! polls - aborting, not installing over a live app>>"%WX_LOG%"
+  exit
 )
 echo [%time%] app gone after !w! polls>>"%WX_LOG%"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%WX_PS1%"
