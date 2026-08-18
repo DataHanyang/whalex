@@ -1,4 +1,5 @@
-import { shell, type BrowserWindow } from "electron";
+import { spawn } from "node:child_process";
+import { app, shell, type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import type { UpdateStatus } from "@whalex/shared";
 import { isCloud, CLOUD_CONFIG } from "./edition.js";
@@ -30,7 +31,16 @@ export class Updater {
    */
   prepareShutdown: () => Promise<void> = async () => {};
 
+  /** Set by main: appends to ~/.whalex/main.log so updater failures are visible. */
+  log: (msg: string) => void = () => {};
+
   constructor(private getWindow: () => BrowserWindow | null) {
+    autoUpdater.logger = {
+      info: (m: unknown) => this.log(`[updater] ${String(m)}`),
+      warn: (m: unknown) => this.log(`[updater] warn: ${String(m)}`),
+      error: (m: unknown) => this.log(`[updater] error: ${String(m)}`),
+      debug: () => {},
+    };
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = !MAC_NO_INSTALL;
     // Cloud edition ships from our own bucket; OSS uses the GitHub feed
@@ -100,7 +110,61 @@ export class Updater {
     }
     // Silent install + relaunch: no NSIS wizard, the app just comes back on
     // the new version. Cleanup must finish first so quit isn't intercepted.
-    void this.prepareShutdown().finally(() => autoUpdater.quitAndInstall(true, true));
+    void this.prepareShutdown().finally(() => void this.launchInstallerAndQuit());
+  }
+
+  /**
+   * Spawn the installer OURSELVES and only quit once the spawn stuck.
+   * quitAndInstall fire-and-forgets the spawn and quits on the next tick;
+   * when the AV scanner still holds the just-downloaded exe (it finished
+   * seconds ago — the auto-restart flow installs immediately), the async
+   * spawn error fires after the process is already gone and the installer
+   * never launches. Seen in the field on the 0.2.4→0.2.5 hop.
+   */
+  private async launchInstallerAndQuit(): Promise<void> {
+    const installerPath = (autoUpdater as unknown as { installerPath: string | null }).installerPath;
+    if (!installerPath) {
+      // Nothing downloaded through this session — let electron-updater try.
+      autoUpdater.quitAndInstall(true, true);
+      return;
+    }
+    autoUpdater.autoInstallOnAppQuit = false; // we own the handoff now
+    const args = ["--updated", "/S", "--force-run"];
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      const ok = await new Promise<boolean>((resolve) => {
+        try {
+          const p = spawn(installerPath, args, { detached: true, stdio: "ignore" });
+          let settled = false;
+          p.once("error", (err) => {
+            this.log(`[updater] installer spawn error (attempt ${attempt}): ${String(err)}`);
+            if (!settled) {
+              settled = true;
+              resolve(false);
+            }
+          });
+          p.unref();
+          // Async spawn errors (EACCES/EBUSY from a scanner lock) land within
+          // milliseconds; give them a beat before declaring success.
+          setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              resolve(p.pid !== undefined);
+            }
+          }, 500);
+        } catch (err) {
+          this.log(`[updater] installer spawn threw (attempt ${attempt}): ${String(err)}`);
+          resolve(false);
+        }
+      });
+      if (ok) {
+        this.log(`[updater] installer launched (attempt ${attempt}); quitting for update`);
+        app.quit();
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    this.log("[updater] installer failed to launch after 10 attempts");
+    this.set({ state: "error", error: "Installer failed to launch — try again or install from the Releases page." });
   }
 
   current(): UpdateStatus {

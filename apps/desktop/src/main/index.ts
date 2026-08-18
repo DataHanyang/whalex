@@ -194,6 +194,7 @@ void app.whenReady().then(() => {
   });
 
   const updater = new Updater(() => mainWindow);
+  updater.log = logLine;
   const preview = new PreviewManager();
   const plugins = new PluginManager(settings);
   host.pluginSkillDirs = () => plugins.skillDirs();
