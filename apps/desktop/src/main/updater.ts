@@ -114,65 +114,72 @@ export class Updater {
   }
 
   /**
-   * Spawn the installer OURSELVES and only quit once the spawn stuck.
-   * quitAndInstall fire-and-forgets the spawn and quits on the next tick;
-   * when the AV scanner still holds the just-downloaded exe (it finished
-   * seconds ago — the auto-restart flow installs immediately), the async
-   * spawn error fires after the process is already gone and the installer
-   * never launches. Seen in the field on the 0.2.4→0.2.5 hop.
+   * Die first, install second. Every install-before-quit ordering lost some
+   * race in the field: quitAndInstall's fire-and-forget spawn lost to the AV
+   * scanner holding the fresh exe, and even a confirmed spawn lost to the
+   * app's own half-quit wedge (window closed, process alive ~50s) — the
+   * silent installer sees a running app and gives up. So on Windows we park
+   * a detached waiter that blocks on our PID actually exiting, THEN runs the
+   * installer (with its own retries for scanner locks), and we exit — with a
+   * force-exit watchdog in case quit wedges again.
    */
   private async launchInstallerAndQuit(): Promise<void> {
     const installerPath = (autoUpdater as unknown as { installerPath: string | null }).installerPath;
-    if (!installerPath) {
-      // Nothing downloaded through this session — let electron-updater try.
+    if (!installerPath || process.platform !== "win32") {
+      // Nothing downloaded through this session (or non-NSIS platform) —
+      // let electron-updater try its own path.
       autoUpdater.quitAndInstall(true, true);
       return;
     }
     autoUpdater.autoInstallOnAppQuit = false; // we own the handoff now
-    const args = ["--updated", "/S", "--force-run"];
-    for (let attempt = 1; attempt <= 10; attempt++) {
-      const ok = await new Promise<boolean>((resolve) => {
-        try {
-          const p = spawn(installerPath, args, { detached: true, stdio: "ignore" });
-          let settled = false;
-          p.once("error", (err) => {
-            this.log(`[updater] installer spawn error (attempt ${attempt}): ${String(err)}`);
-            if (!settled) {
-              settled = true;
-              resolve(false);
-            }
-          });
-          p.unref();
-          // Async spawn errors (EACCES/EBUSY from a scanner lock) land within
-          // milliseconds; give them a beat before declaring success.
-          setTimeout(() => {
-            if (!settled) {
-              settled = true;
-              resolve(p.pid !== undefined);
-            }
-          }, 500);
-        } catch (err) {
-          this.log(`[updater] installer spawn threw (attempt ${attempt}): ${String(err)}`);
-          resolve(false);
-        }
-      });
-      if (ok) {
-        this.log(`[updater] installer launched (attempt ${attempt}); quitting for update`);
-        app.quit();
-        // Half-quit wedge guard: on the 0.2.5 hops the window closed but the
-        // process lingered, so the installer saw a running app and bailed
-        // (or popped "cannot be closed"). If quit hasn't terminated us
-        // shortly, force-exit — the detached installer takes it from there.
+    const waiterScript =
+      `Wait-Process -Id ${process.pid} -Timeout 120 -ErrorAction SilentlyContinue; ` +
+      `Start-Sleep -Milliseconds 500; ` +
+      `for ($i = 0; $i -lt 10; $i++) { ` +
+      `try { Start-Process -FilePath '${installerPath.replace(/'/g, "''")}' -ArgumentList '--updated','/S','--force-run'; break } ` +
+      `catch { Start-Sleep -Seconds 2 } }`;
+    const ok = await new Promise<boolean>((resolve) => {
+      try {
+        const p = spawn("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", waiterScript], {
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        let settled = false;
+        p.once("error", (err) => {
+          this.log(`[updater] waiter spawn error: ${String(err)}`);
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
+        });
+        p.unref();
         setTimeout(() => {
-          this.log("[updater] quit wedged — forcing exit for installer");
-          app.exit(0);
-        }, 8000);
-        return;
+          if (!settled) {
+            settled = true;
+            resolve(p.pid !== undefined);
+          }
+        }, 500);
+      } catch (err) {
+        this.log(`[updater] waiter spawn threw: ${String(err)}`);
+        resolve(false);
       }
-      await new Promise((r) => setTimeout(r, 1500));
+    });
+    if (!ok) {
+      // PowerShell unavailable?! Fall back to the stock path rather than
+      // stranding the user with a downloaded-but-never-installed update.
+      this.log("[updater] waiter failed to start — falling back to quitAndInstall");
+      autoUpdater.quitAndInstall(true, true);
+      return;
     }
-    this.log("[updater] installer failed to launch after 10 attempts");
-    this.set({ state: "error", error: "Installer failed to launch — try again or install from the Releases page." });
+    this.log(`[updater] waiter parked on pid ${process.pid}; quitting for update`);
+    app.quit();
+    // Half-quit wedge guard: window closed but process alive starves the
+    // waiter's Wait-Process. If quit hasn't terminated us shortly, force it.
+    setTimeout(() => {
+      this.log("[updater] quit wedged — forcing exit for installer");
+      app.exit(0);
+    }, 8000);
   }
 
   current(): UpdateStatus {
