@@ -91,6 +91,18 @@ export class AgentLoop {
     return this.running;
   }
 
+  /**
+   * Hosts extend the live tool registry (e.g. SuperCode's workflow tool) or
+   * inspect the provider; expose those instead of reaching into `opts`.
+   */
+  get registry(): ToolRegistry {
+    return this.opts.registry;
+  }
+
+  get provider(): ProviderClient {
+    return this.opts.provider;
+  }
+
   /** Messages typed while the loop is running; injected before the next round. */
   private steerQueue: string[] = [];
 
