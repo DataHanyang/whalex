@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { app, shell, type BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import type { UpdateStatus } from "@whalex/shared";
@@ -117,11 +120,13 @@ export class Updater {
    * Die first, install second. Every install-before-quit ordering lost some
    * race in the field: quitAndInstall's fire-and-forget spawn lost to the AV
    * scanner holding the fresh exe, and even a confirmed spawn lost to the
-   * app's own half-quit wedge (window closed, process alive ~50s) — the
-   * silent installer sees a running app and gives up. So on Windows we park
-   * a detached waiter that blocks on our PID actually exiting, THEN runs the
-   * installer (with its own retries for scanner locks), and we exit — with a
-   * force-exit watchdog in case quit wedges again.
+   * app's own half-quit wedge (window closed, process alive 50-90s with
+   * timers stalled) — the silent installer sees a running app and gives up.
+   * So on Windows we park a detached waiter (this Electron binary re-run as
+   * plain node — PowerShell cannot start detached without a console) that
+   * polls for our PID to vanish, THEN runs the installer with scanner-lock
+   * retries. We exit with app.exit(): cleanup already ran, and a graceful
+   * quit is exactly the thing that wedges.
    */
   private async launchInstallerAndQuit(): Promise<void> {
     const installerPath = (autoUpdater as unknown as { installerPath: string | null }).installerPath;
@@ -132,18 +137,16 @@ export class Updater {
       return;
     }
     autoUpdater.autoInstallOnAppQuit = false; // we own the handoff now
-    const waiterScript =
-      `Wait-Process -Id ${process.pid} -Timeout 120 -ErrorAction SilentlyContinue; ` +
-      `Start-Sleep -Milliseconds 500; ` +
-      `for ($i = 0; $i -lt 10; $i++) { ` +
-      `try { Start-Process -FilePath '${installerPath.replace(/'/g, "''")}' -ArgumentList '--updated','/S','--force-run'; break } ` +
-      `catch { Start-Sleep -Seconds 2 } }`;
+    const waiterJs = path.join(app.getPath("temp"), "whalex-update-waiter.js");
+    const waiterLog = path.join(os.homedir(), ".whalex", "waiter.log");
     const ok = await new Promise<boolean>((resolve) => {
       try {
-        const p = spawn("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", waiterScript], {
+        fs.writeFileSync(waiterJs, WAITER_SRC);
+        const p = spawn(process.execPath, [waiterJs, String(process.pid), installerPath, waiterLog], {
           detached: true,
           stdio: "ignore",
           windowsHide: true,
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
         });
         let settled = false;
         p.once("error", (err) => {
@@ -166,20 +169,14 @@ export class Updater {
       }
     });
     if (!ok) {
-      // PowerShell unavailable?! Fall back to the stock path rather than
+      // Waiter unavailable?! Fall back to the stock path rather than
       // stranding the user with a downloaded-but-never-installed update.
       this.log("[updater] waiter failed to start — falling back to quitAndInstall");
       autoUpdater.quitAndInstall(true, true);
       return;
     }
-    this.log(`[updater] waiter parked on pid ${process.pid}; quitting for update`);
-    app.quit();
-    // Half-quit wedge guard: window closed but process alive starves the
-    // waiter's Wait-Process. If quit hasn't terminated us shortly, force it.
-    setTimeout(() => {
-      this.log("[updater] quit wedged — forcing exit for installer");
-      app.exit(0);
-    }, 8000);
+    this.log(`[updater] waiter parked on pid ${process.pid}; exiting for update`);
+    app.exit(0);
   }
 
   current(): UpdateStatus {
@@ -192,6 +189,51 @@ export class Updater {
     if (win && !win.isDestroyed()) win.webContents.send("update:status", status);
   }
 }
+
+/**
+ * Runs as plain node (ELECTRON_RUN_AS_NODE) fully detached from the app:
+ * argv = [appPid, installerPath, logPath]. Polls until the app PID is gone
+ * (2 min cap), then launches the NSIS installer silently with retries — a
+ * fresh download can still be locked by the AV scanner for a few seconds.
+ */
+const WAITER_SRC = `
+const { spawn } = require("child_process");
+const fs = require("fs");
+const [pid, installer, logPath] = process.argv.slice(2);
+const log = (m) => { try { fs.appendFileSync(logPath, new Date().toISOString() + " " + m + "\\n"); } catch {} };
+const alive = (p) => { try { process.kill(p, 0); return true; } catch { return false; } };
+log("parked watching pid " + pid);
+const t0 = Date.now();
+(function wait() {
+  if (alive(+pid) && Date.now() - t0 < 120000) return setTimeout(wait, 500);
+  log("app gone at +" + Math.round((Date.now() - t0) / 1000) + "s");
+  let attempt = 0;
+  (function run() {
+    attempt++;
+    try {
+      const c = spawn(installer, ["--updated", "/S", "--force-run"], { detached: true, stdio: "ignore" });
+      let failed = false;
+      c.once("error", (e) => {
+        failed = true;
+        log("spawn error (attempt " + attempt + "): " + e);
+        if (attempt < 10) setTimeout(run, 2000);
+        else process.exit(1);
+      });
+      c.unref();
+      setTimeout(() => {
+        if (!failed) {
+          log("installer launched (attempt " + attempt + ")");
+          process.exit(0);
+        }
+      }, 1000);
+    } catch (e) {
+      log("spawn threw (attempt " + attempt + "): " + e);
+      if (attempt < 10) setTimeout(run, 2000);
+      else process.exit(1);
+    }
+  })();
+})();
+`;
 
 function releaseNotes(info: { releaseNotes?: string | Array<{ note?: string | null }> | null }): string {
   const notes = info.releaseNotes;
