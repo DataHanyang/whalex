@@ -120,7 +120,7 @@ export class McpManager {
       return new StdioClientTransport({
         command,
         args: config.args,
-        env: { ...(process.env as Record<string, string>), ...config.env },
+        env: { ...inheritableEnv(), ...config.env },
       });
     }
     const url = new URL(config.url);
@@ -252,4 +252,43 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   // Clear the timer whichever side wins, so a fast success doesn't keep the
   // event loop alive for the full timeout.
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Environment passed to stdio MCP servers. Third-party server processes used
+ * to inherit the whole process.env — API keys included. Now only the
+ * variables a child process needs to run at all are inherited; anything a
+ * server genuinely needs is declared explicitly in its config.env.
+ */
+function inheritableEnv(): Record<string, string> {
+  const ALLOW = [
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "SYSTEMDRIVE",
+    "WINDIR",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "PROGRAMFILES",
+    "PROGRAMDATA",
+    "ALLUSERSPROFILE",
+    "SHELL",
+    "USER",
+    "LOGNAME",
+    "LANG",
+    "LC_ALL",
+    "TZ",
+  ];
+  const out: Record<string, string> = {};
+  // Windows env var names are case-insensitive; match by uppercased key.
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && ALLOW.includes(key.toUpperCase())) out[key] = value;
+  }
+  return out;
 }
