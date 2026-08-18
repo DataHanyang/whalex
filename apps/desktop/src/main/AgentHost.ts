@@ -546,7 +546,10 @@ User: ${userText.slice(0, 400)}`,
           },
         ],
         temperature: 0.3,
-        maxTokens: 24,
+        // V4 flash spends hidden reasoning tokens before any visible text;
+        // a tight cap (24) used to exhaust the budget mid-reasoning and
+        // return an empty title every time. Leave generous headroom.
+        maxTokens: 500,
         signal: new AbortController().signal,
       })) {
         if (d.type === "text") text += d.text;
