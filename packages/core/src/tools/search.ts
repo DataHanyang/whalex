@@ -63,12 +63,16 @@ export const grepTool: ToolDef<z.infer<typeof GrepInput>> = {
   kind: "read",
   summarize: (i) => `Grep /${i.pattern}/${i.glob ? ` in ${i.glob}` : ""}`,
   async execute(input, ctx) {
-    let rgPath: string;
-    try {
-      const rg = await import("@vscode/ripgrep");
-      rgPath = rg.rgPath;
-    } catch {
-      return toolError("ripgrep binary is not available.");
+    // WHALEX_RG_PATH points at a system ripgrep — used where the bundled
+    // platform binary is absent (e.g. the Linux benchmark containers).
+    let rgPath = process.env.WHALEX_RG_PATH ?? "";
+    if (!rgPath) {
+      try {
+        const rg = await import("@vscode/ripgrep");
+        rgPath = rg.rgPath;
+      } catch {
+        return toolError("ripgrep binary is not available.");
+      }
     }
     const args = ["--line-number", "--no-heading", "--color", "never", "--max-count", "200"];
     if (input.ignore_case) args.push("-i");

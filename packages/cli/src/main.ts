@@ -8,12 +8,17 @@
  */
 import path from "node:path";
 import readline from "node:readline/promises";
+import os from "node:os";
 import {
   AgentLoop,
   OpenAICompatProvider,
   PermissionEngine,
   SessionStore,
+  SUPERCODE_PROTOCOL,
+  WorkflowRunner,
   createBuiltinRegistry,
+  createWorkflowTool,
+  type ToolDef,
 } from "@whalex/core";
 import { DEEPSEEK_BASE_URL, resolveModelInfo } from "@whalex/shared";
 
@@ -35,7 +40,9 @@ async function main(): Promise<void> {
   const modelInfo = resolveModelInfo(modelId);
 
   const provider = new OpenAICompatProvider({ baseUrl: DEEPSEEK_BASE_URL, apiKey });
-  const registry = createBuiltinRegistry({ includeVerifyPage: true });
+  const registry = createBuiltinRegistry({
+    includeVerifyPage: process.env.WHALEX_VERIFY !== "0",
+  });
   const permMode = (process.env.WHALEX_PERMISSION_MODE ?? "default") as
     | "default"
     | "acceptEdits"
@@ -52,16 +59,67 @@ async function main(): Promise<void> {
     temperature: 0.2,
   });
 
-  // Non-interactive one-shot mode (CI / benchmarks): run a single prompt to
+  // SuperCode: same wiring the desktop's AgentHost.enableWorkflow applies —
+  // protocol prompt, workflow tool, orchestrator at max reasoning effort.
+  //   WHALEX_SUPERCODE=1 [WHALEX_MAX_AGENTS=400] [WHALEX_FLEET_EFFORT=medium]
+  const superCode = process.env.WHALEX_SUPERCODE === "1";
+  let workflowRan = false;
+  let fleetTokens = 0;
+  let fleetCostUsd = 0;
+  if (superCode) {
+    loop.setProtocolPrompt(SUPERCODE_PROTOCOL);
+    if (modelInfo.supportsReasoning) loop.updateTuning({ reasoningEffort: "max" });
+    const workflowCache = new Map<string, unknown>();
+    registry.register(
+      createWorkflowTool(
+        (name) =>
+          new WorkflowRunner(
+            {
+              provider,
+              permissions,
+              modelInfo,
+              temperature: 0.2,
+              reasoningEffort: process.env.WHALEX_FLEET_EFFORT ?? "medium",
+              cwd,
+              maxAgents: Number(process.env.WHALEX_MAX_AGENTS ?? 400),
+              concurrency: Math.max(4, Math.min(24, os.cpus().length * 2)),
+              cache: workflowCache,
+              onUpdate: (state) => {
+                fleetTokens = state.totalTokens;
+                fleetCostUsd = state.costUsd;
+                const last = state.log[state.log.length - 1];
+                if (last) console.log(`${DIM}[fleet] ${last}${RESET}`);
+              },
+              signal: new AbortController().signal,
+            },
+            name,
+          ),
+        (_workflowId, name) => {
+          workflowRan = true;
+          console.log(`${CYAN}[workflow] ${name}${RESET}`);
+        },
+      ) as unknown as ToolDef<never>,
+    );
+  }
+
+  // Non-interactive one-shot mode (CI / benchmarks): run a prompt to
   // completion, auto-resolving permission requests per the selected mode, then
-  // emit a machine-readable metrics line and exit.
+  // emit a machine-readable metrics line and exit. In SuperCode the protocol
+  // wants an interview + plan approval; headless stands in for the user by
+  // auto-answering questions and nudging the model onward (the desktop's
+  // Accept click), up to a bounded number of turns.
   //   WHALEX_PROMPT="build X" WHALEX_PERMISSION_MODE=bypassPermissions \
   //   WHALEX_MODEL=deepseek-v4-pro DEEPSEEK_API_KEY=sk-... whalex <workdir>
   const execPrompt = process.env.WHALEX_PROMPT;
   if (execPrompt) {
     const startedAt = Date.now();
-    try {
-      for await (const ev of loop.run(execPrompt)) {
+    const AUTO_ANSWER =
+      "Headless run — the user pre-approved everything: pick whatever you judge best; " +
+      "the deepest budget tier is approved; the plan is accepted. Do not ask further " +
+      "questions; proceed to full execution now.";
+
+    const runTurn = async (prompt: string): Promise<void> => {
+      for await (const ev of loop.run(prompt)) {
         switch (ev.type) {
           case "text-delta":
             process.stdout.write(ev.delta);
@@ -72,6 +130,19 @@ async function main(): Promise<void> {
           case "tool-result": {
             const mark = ev.ok ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
             console.log(`${mark} ${DIM}(${ev.durationMs}ms)${RESET}`);
+            break;
+          }
+          case "question-request": {
+            // Stand in for the user. The loop registers the answer resolver
+            // only after this event handler returns (the yield resumes), so an
+            // immediate answerQuestion() finds no pending question and the
+            // process would drain its event loop and exit silently. Retry on a
+            // timer until the resolver exists.
+            const qid = ev.request.id;
+            const tryAnswer = () => {
+              if (!loop.answerQuestion(qid, AUTO_ANSWER)) setTimeout(tryAnswer, 50);
+            };
+            setTimeout(tryAnswer, 0);
             break;
           }
           case "permission-request":
@@ -89,16 +160,36 @@ async function main(): Promise<void> {
             break;
         }
       }
+    };
+
+    try {
+      await runTurn(execPrompt);
+      // SuperCode plans first and waits for the user's Accept. Headless, the
+      // accept is a follow-up message; two nudges bound the loop.
+      let nudges = 0;
+      while (superCode && !workflowRan && nudges < 2) {
+        nudges += 1;
+        console.log(`\n${YELLOW}[auto-accept ${nudges}]${RESET}`);
+        await runTurn(
+          "Plan accepted — permissions are now full-auto. Execute the plan to completion " +
+            "now (use the workflow fleet as planned). Do not ask anything further.",
+        );
+      }
     } catch (err) {
       console.error(`${RED}${err instanceof Error ? err.message : String(err)}${RESET}`);
     }
     const u = loop.context.snapshot();
     const metrics = {
       model: modelId,
+      superCode,
+      workflowRan,
       inputTokens: u.inputTokens,
       outputTokens: u.outputTokens,
       cachedInputTokens: u.cachedInputTokens,
       costUsd: u.costUsd,
+      fleetTokens,
+      fleetCostUsd,
+      totalCostUsd: (u.costUsd ?? 0) + fleetCostUsd,
       wallMs: Date.now() - startedAt,
     };
     console.log(`\n__WHALEX_METRICS__ ${JSON.stringify(metrics)}`);
