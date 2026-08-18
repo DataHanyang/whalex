@@ -61,7 +61,7 @@ export type SessionRecord =
       cachedInputTokens: number;
       ts: number;
     }
-  | { type: "title"; title: string; ts: number };
+  | { type: "title"; title: string; ts: number; auto?: boolean };
 
 export function whalexHome(): string {
   return path.join(os.homedir(), ".whalex");
@@ -209,8 +209,11 @@ export class SessionStore {
       fs.appendFileSync(this.filePath, JSON.stringify(record) + "\n", "utf8");
     }
     if (record.type === "user" && this.records.filter((r) => r.type === "user").length === 1) {
+      // Provisional placeholder from the first message; the host replaces it
+      // with an LLM-written title after the first exchange (auto marks it
+      // replaceable — see AgentHost.autoTitle).
       const title = record.text.replace(/\s+/g, " ").trim().slice(0, 60);
-      this.append({ type: "title", title, ts: Date.now() });
+      this.append({ type: "title", title, ts: Date.now(), auto: true });
     }
   }
 

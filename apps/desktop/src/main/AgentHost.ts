@@ -516,7 +516,7 @@ export class AgentHost {
     try {
       const opts = (hosted.loop as unknown as { opts: { provider: import("@whalex/core").OpenAICompatProvider } }).opts;
       const recs = hosted.store.effectiveRecords();
-      if (recs.some((r) => r.type === "title")) return;
+      if (recs.some((r) => r.type === "title" && !r.auto)) return;
       const firstUser = recs.find((r) => r.type === "user");
       const firstAssistant = recs.find((r) => r.type === "assistant" && r.text);
       if (!firstUser || firstUser.type !== "user") return;
