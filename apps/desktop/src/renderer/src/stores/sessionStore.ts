@@ -300,6 +300,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   handleEnvelope(env) {
+    // Session titles apply to whichever session they name, active or not.
+    if (env.event.type === "session-title") {
+      const title = env.event.title;
+      set((s) => ({
+        sessions: s.sessions.map((m) =>
+          m.sessionId === env.sessionId ? { ...m, title } : m,
+        ),
+      }));
+      return;
+    }
     if (env.sessionId !== get().activeSessionId) {
       // Background sessions keep their transcripts in main, but completion
       // should reach the sidebar immediately, not on the 10s poll.
@@ -565,8 +575,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }));
         break;
       case "done":
-        // Pick up the auto-generated session title shortly after the turn.
-        setTimeout(() => void get().refreshSessions(), 2500);
         set((s) => ({
           status: "idle",
           pendingPermission: null,

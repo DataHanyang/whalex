@@ -126,6 +126,8 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     workflow: z.lazy(() => WorkflowStateSchema),
   }),
   z.object({ type: z.literal("supercode"), on: z.boolean() }),
+  /** LLM-generated session title, pushed as soon as it's ready. */
+  z.object({ type: z.literal("session-title"), title: z.string() }),
   z.object({ type: z.literal("permission-request"), request: PermissionRequestSchema }),
   z.object({ type: z.literal("question-request"), request: UserQuestionSchema }),
   z.object({

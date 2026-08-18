@@ -22,6 +22,7 @@ import {
   type ToolDef,
 } from "@whalex/core";
 import {
+  KNOWN_MODELS,
   resolveModelInfo,
   type AgentEvent,
   type AgentEventEnvelope,
@@ -359,8 +360,13 @@ export class AgentHost {
     }
 
     // Goal mode: run autonomously toward the goal, self-evaluating completion.
+    const isFirstTurn = !hosted.store.effectiveRecords().some((r) => r.type === "user");
     const stream = hosted.goalMode ? hosted.loop.runGoal(text) : hosted.loop.run(text);
     void this.pump(sessionId, hosted, stream);
+    // Title generation runs concurrently with the first response, off the
+    // question alone — the sidebar gets a real title without waiting for
+    // the (possibly long) first turn to finish.
+    if (isFirstTurn) void this.autoTitle(sessionId, hosted, text, model);
   }
 
   private enableWorkflow(sessionId: string, hosted: HostedSession, model: string): void {
@@ -421,7 +427,6 @@ export class AgentHost {
   ): Promise<void> {
     try {
       for await (const event of stream) this.emit(sessionId, hosted, event);
-      void this.autoTitle(sessionId, hosted);
     } catch (err) {
       this.emit(sessionId, hosted, {
         type: "error",
@@ -510,21 +515,26 @@ export class AgentHost {
   }
 
   /**
-   * Names the session after its first exchange: a quick cheap completion
-   * writes a `title` record, which session:list surfaces in the sidebar.
+   * Names the session from its first question: a quick cheap completion runs
+   * concurrently with the first response, writes a `title` record, and pushes
+   * a session-title event so the sidebar updates the moment it's ready.
    */
-  private async autoTitle(sessionId: string, hosted: HostedSession): Promise<void> {
+  private async autoTitle(
+    sessionId: string,
+    hosted: HostedSession,
+    userText: string,
+    model: string,
+  ): Promise<void> {
     try {
-      const opts = (hosted.loop as unknown as { opts: { provider: import("@whalex/core").OpenAICompatProvider } }).opts;
-      const recs = hosted.store.effectiveRecords();
-      if (recs.some((r) => r.type === "title" && !r.auto)) return;
-      const firstUser = recs.find((r) => r.type === "user");
-      const firstAssistant = recs.find((r) => r.type === "assistant" && r.text);
-      if (!firstUser || firstUser.type !== "user") return;
-      const controller = new AbortController();
+      const opts = (hosted.loop as unknown as { opts: { provider: OpenAICompatProvider } }).opts;
+      const hasManualTitle = () =>
+        hosted.store.effectiveRecords().some((r) => r.type === "title" && !r.auto);
+      if (hasManualTitle()) return;
       let text = "";
       for await (const d of opts.provider.streamChat({
-        model: "deepseek-v4-flash",
+        // Known DeepSeek models imply the DeepSeek endpoint, where flash is
+        // the cheap pick; custom providers (Ollama etc.) only serve their own.
+        model: model in KNOWN_MODELS ? "deepseek-v4-flash" : model,
         messages: [
           {
             role: "user",
@@ -532,19 +542,19 @@ export class AgentHost {
               `Give a 3-6 word title for this coding session, in the user's language. ` +
               `Output ONLY the title, no quotes.
 
-User: ${firstUser.text.slice(0, 400)}
-` +
-              `Assistant: ${(firstAssistant?.type === "assistant" ? firstAssistant.text ?? "" : "").slice(0, 300)}`,
+User: ${userText.slice(0, 400)}`,
           },
         ],
         temperature: 0.3,
         maxTokens: 24,
-        signal: controller.signal,
+        signal: new AbortController().signal,
       })) {
         if (d.type === "text") text += d.text;
       }
       const title = text.replace(/["\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
-      if (title) hosted.store.append({ type: "title", title, ts: Date.now() });
+      if (!title || hasManualTitle()) return;
+      hosted.store.append({ type: "title", title, ts: Date.now() });
+      this.emitDirect(sessionId, { type: "session-title", title });
     } catch {
       // A missing title is not worth surfacing.
     }
