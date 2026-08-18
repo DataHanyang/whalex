@@ -117,16 +117,18 @@ export class Updater {
   }
 
   /**
-   * Die first, install second. Every install-before-quit ordering lost some
-   * race in the field: quitAndInstall's fire-and-forget spawn lost to the AV
-   * scanner holding the fresh exe, and even a confirmed spawn lost to the
-   * app's own half-quit wedge (window closed, process alive 50-90s with
-   * timers stalled) — the silent installer sees a running app and gives up.
-   * So on Windows we park a detached waiter (this Electron binary re-run as
-   * plain node — PowerShell cannot start detached without a console) that
-   * polls for our PID to vanish, THEN runs the installer with scanner-lock
-   * retries. We exit with app.exit(): cleanup already ran, and a graceful
-   * quit is exactly the thing that wedges.
+   * Die first, install second, supervised by something that isn't us.
+   * Field history: quitAndInstall's fire-and-forget spawn lost to Defender's
+   * block-at-first-sight on the fresh unsigned exe; the app's own shutdown
+   * wedges 20-100s so the NSIS installer (which only waits ~8s) saw a
+   * "running app" and silently gave up; a node waiter running AS the app
+   * binary got taskkilled by the installer's own app-check. The supervisor
+   * is therefore a hidden cmd.exe batch (not the app's exe name, survives
+   * parent death, PowerShell can't start detached): it waits until tasklist
+   * shows no app processes, then runs the installer and verifies success by
+   * the app exe's mtime actually changing — exit codes are unreliable from a
+   * hidden console — retrying up to 5 times, and relaunches the app if
+   * --force-run didn't. Log: ~/.whalex/waiter.log.
    */
   private async launchInstallerAndQuit(): Promise<void> {
     const installerPath = (autoUpdater as unknown as { installerPath: string | null }).installerPath;
@@ -137,26 +139,32 @@ export class Updater {
       return;
     }
     autoUpdater.autoInstallOnAppQuit = false; // we own the handoff now
-    const waiterJs = path.join(app.getPath("temp"), "whalex-update-waiter.js");
+    const batPath = path.join(app.getPath("temp"), "whalex-update-waiter.cmd");
     const waiterLog = path.join(os.homedir(), ".whalex", "waiter.log");
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
     const ok = await new Promise<boolean>((resolve) => {
       try {
-        fs.writeFileSync(waiterJs, WAITER_SRC);
-        const p = spawn(process.execPath, [waiterJs, process.execPath, installerPath, waiterLog], {
-          detached: true,
+        fs.writeFileSync(batPath, WAITER_BAT.replace(/\n/g, "\r\n"));
+        const p = spawn("cmd.exe", ["/c", batPath], {
           stdio: "ignore",
           windowsHide: true,
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+          env: {
+            ...env,
+            WX_LOG: waiterLog,
+            WX_EXENAME: path.basename(process.execPath),
+            WX_APPEXE: process.execPath,
+            WX_INSTALLER: installerPath,
+          },
         });
         let settled = false;
         p.once("error", (err) => {
-          this.log(`[updater] waiter spawn error: ${String(err)}`);
+          this.log(`[updater] supervisor spawn error: ${String(err)}`);
           if (!settled) {
             settled = true;
             resolve(false);
           }
         });
-        p.unref();
         setTimeout(() => {
           if (!settled) {
             settled = true;
@@ -164,18 +172,18 @@ export class Updater {
           }
         }, 500);
       } catch (err) {
-        this.log(`[updater] waiter spawn threw: ${String(err)}`);
+        this.log(`[updater] supervisor spawn threw: ${String(err)}`);
         resolve(false);
       }
     });
     if (!ok) {
-      // Waiter unavailable?! Fall back to the stock path rather than
+      // Supervisor unavailable?! Fall back to the stock path rather than
       // stranding the user with a downloaded-but-never-installed update.
-      this.log("[updater] waiter failed to start — falling back to quitAndInstall");
+      this.log("[updater] supervisor failed to start — falling back to quitAndInstall");
       autoUpdater.quitAndInstall(true, true);
       return;
     }
-    this.log(`[updater] waiter parked (${path.basename(process.execPath)}); exiting for update`);
+    this.log("[updater] cmd supervisor parked; exiting for update");
     app.exit(0);
   }
 
@@ -200,91 +208,39 @@ export class Updater {
  * waits ~8s before silently giving up. The waiter has the patience the
  * installer lacks (150s), with AV-scanner-lock retries on the spawn.
  */
-const WAITER_SRC = `
-const { spawn, execFile } = require("child_process");
-const fs = require("fs");
-const [appExe, installer, logPath] = process.argv.slice(2);
-const exeName = require("path").basename(appExe);
-const log = (m) => { try { fs.appendFileSync(logPath, new Date().toISOString() + " " + m + "\\n"); } catch {} };
-// The waiter runs AS the app binary; ELECTRON_RUN_AS_NODE must not leak to
-// the installer or the relaunched app comes up as a bare node process.
-const env = { ...process.env };
-delete env.ELECTRON_RUN_AS_NODE;
-log("parked; waiting for " + exeName + " (except pid " + process.pid + ") to vanish");
-const t0 = Date.now();
-const others = (cb) =>
-  execFile("tasklist", ["/FI", "IMAGENAME eq " + exeName, "/FO", "CSV", "/NH"], (err, out) => {
-    if (err) return cb([]);
-    const pids = [];
-    for (const line of String(out).split(/\\r?\\n/)) {
-      const m = line.match(/^"[^"]+","(\\d+)"/);
-      if (m && Number(m[1]) !== process.pid) pids.push(Number(m[1]));
-    }
-    cb(pids);
-  });
-const relaunchIfNeeded = () => {
-  // --force-run usually restarts the app; if not (or if the installer killed
-  // this waiter's tracking of it), start it ourselves and be done.
-  others((pids) => {
-    if (pids.length === 0) {
-      try {
-        spawn(appExe, [], { detached: true, stdio: "ignore", env }).unref();
-        log("relaunched app directly");
-      } catch (e) {
-        log("relaunch failed: " + e);
-      }
-    } else log("app already relaunched (" + pids.join(",") + ")");
-    process.exit(0);
-  });
-};
-let attempt = 0;
-const install = () => {
-  attempt++;
-  // Supervised, NOT detached: Defender's block-at-first-sight can kill the
-  // first execution of a freshly downloaded unsigned installer; the verdict
-  // is cached, so a retried run goes through. Exit code tells us which.
-  let child;
-  try {
-    child = spawn(installer, ["--updated", "/S", "--force-run"], { stdio: "ignore", env });
-  } catch (e) {
-    log("spawn threw (attempt " + attempt + "): " + e);
-    return retry();
-  }
-  const timer = setTimeout(() => {
-    log("installer timeout (attempt " + attempt + ")");
-    try { child.kill(); } catch {}
-    retry();
-  }, 300000);
-  child.once("error", (e) => {
-    clearTimeout(timer);
-    log("spawn error (attempt " + attempt + "): " + e);
-    retry();
-  });
-  child.once("exit", (code) => {
-    clearTimeout(timer);
-    log("installer exited code " + code + " (attempt " + attempt + ")");
-    if (code === 0) return setTimeout(relaunchIfNeeded, 15000);
-    retry();
-  });
-};
-let retried = false;
-const retry = () => {
-  if (retried) return; // exit/error can both fire
-  retried = true;
-  setTimeout(() => {
-    retried = false;
-    if (attempt < 5) install();
-    else { log("giving up after " + attempt + " attempts"); process.exit(1); }
-  }, 8000);
-};
-(function wait() {
-  others((pids) => {
-    if (pids.length > 0 && Date.now() - t0 < 150000) return setTimeout(wait, 1000);
-    if (pids.length > 0) log("timeout; stragglers " + pids.join(",") + " — installing anyway");
-    else log("app fully gone at +" + Math.round((Date.now() - t0) / 1000) + "s");
-    install();
-  });
-})();
+/**
+ * Hidden cmd.exe supervisor (parameterized via WX_* env vars). Waits for
+ * every app process to leave tasklist, runs the installer, verifies the
+ * app exe's mtime changed (ground truth — exit codes are null from hidden
+ * consoles), retries up to 5 times, relaunches if --force-run didn't.
+ * Validated end-to-end against a fake installer before shipping.
+ */
+const WAITER_BAT = `@echo off
+setlocal enabledelayedexpansion
+echo [%time%] supervisor parked>>"%WX_LOG%"
+set /a w=0
+:waitloop
+tasklist /FI "IMAGENAME eq %WX_EXENAME%" /NH 2>nul | find /I "%WX_EXENAME%" >nul
+if not errorlevel 1 (
+  set /a w+=1
+  if !w! lss 240 (ping -n 2 127.0.0.1 >nul & goto waitloop)
+)
+echo [%time%] app gone after !w! polls>>"%WX_LOG%"
+set /a n=0
+:tryinstall
+set /a n+=1
+echo [%time%] attempt !n!>>"%WX_LOG%"
+powershell -NoProfile -Command "try { $before = (Get-Item $env:WX_APPEXE -ErrorAction Stop).LastWriteTimeUtc; $p = Start-Process -FilePath $env:WX_INSTALLER -ArgumentList '--updated','/S','--force-run' -PassThru -ErrorAction Stop; $p.WaitForExit(); Start-Sleep 3; $after = (Get-Item $env:WX_APPEXE -ErrorAction Stop).LastWriteTimeUtc; Add-Content $env:WX_LOG ('[ps] exit=' + $p.ExitCode + ' changed=' + ($after -gt $before)); if ($after -gt $before) { exit 0 } else { exit 1 } } catch { Add-Content $env:WX_LOG ('[ps] EXCEPTION ' + $_); exit 2 }"
+if !errorlevel!==0 goto done
+if !n! lss 5 (ping -n 9 127.0.0.1 >nul & goto tryinstall)
+echo [%time%] giving up>>"%WX_LOG%"
+exit
+:done
+echo [%time%] install verified>>"%WX_LOG%"
+ping -n 16 127.0.0.1 >nul
+tasklist /FI "IMAGENAME eq %WX_EXENAME%" /NH 2>nul | find /I "%WX_EXENAME%" >nul
+if errorlevel 1 (start "" "%WX_APPEXE%" & echo [%time%] relaunched directly>>"%WX_LOG%") else (echo [%time%] app already relaunched>>"%WX_LOG%")
+exit
 `;
 
 function releaseNotes(info: { releaseNotes?: string | Array<{ note?: string | null }> | null }): string {
