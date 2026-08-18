@@ -159,6 +159,14 @@ export class Updater {
       if (ok) {
         this.log(`[updater] installer launched (attempt ${attempt}); quitting for update`);
         app.quit();
+        // Half-quit wedge guard: on the 0.2.5 hops the window closed but the
+        // process lingered, so the installer saw a running app and bailed
+        // (or popped "cannot be closed"). If quit hasn't terminated us
+        // shortly, force-exit — the detached installer takes it from there.
+        setTimeout(() => {
+          this.log("[updater] quit wedged — forcing exit for installer");
+          app.exit(0);
+        }, 8000);
         return;
       }
       await new Promise((r) => setTimeout(r, 1500));
