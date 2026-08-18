@@ -29,15 +29,27 @@ export class OpenAICompatProvider implements ProviderClient {
   private redactor = new Redactor();
 
   private client: OpenAI;
+  private readonly opts: OpenAICompatOptions;
 
   constructor(opts: OpenAICompatOptions) {
-    this.client = new OpenAI({
-      baseURL: opts.baseUrl,
+    this.opts = opts;
+    this.client = this.makeClient(opts.apiKey);
+  }
+
+  private makeClient(apiKey: string | null): OpenAI {
+    return new OpenAI({
+      baseURL: this.opts.baseUrl,
       // The SDK requires a string; keyless endpoints (Ollama) accept anything.
-      apiKey: opts.apiKey ?? "sk-no-key",
-      defaultHeaders: opts.defaultHeaders,
+      apiKey: apiKey ?? "sk-no-key",
+      defaultHeaders: this.opts.defaultHeaders,
       maxRetries: 2,
     });
+  }
+
+  /** Swap credentials on a live provider — a session opened before the user
+   *  saved a key must not keep the keyless fallback for its lifetime. */
+  setApiKey(apiKey: string | null): void {
+    this.client = this.makeClient(apiKey);
   }
 
   async *streamChat(req: ChatRequest): AsyncIterable<ProviderDelta> {

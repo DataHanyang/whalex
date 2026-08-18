@@ -67,6 +67,9 @@ export function registerIpc(deps: {
     },
     "secrets:set": (req) => {
       vault.set(req.ref, req.value);
+      // Push the new key into live sessions — their providers were built
+      // before the key existed and would otherwise keep the keyless fallback.
+      host.applyLiveSettings();
     },
     "provider:test": async (req) => {
       try {

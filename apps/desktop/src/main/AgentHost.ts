@@ -93,7 +93,8 @@ export class AgentHost {
   private flushTimer: NodeJS.Timeout | null = null;
   private artifacts = new Map<string, import("@whalex/shared").Artifact>();
   readonly mcp = new McpManager();
-  private providers = new Set<OpenAICompatProvider>();
+  /** Live providers → the vault ref their key came from (null = keyless). */
+  private providers = new Map<OpenAICompatProvider, string | null>();
   readonly skills = new SkillRegistry();
   /** Supplied by the plugin manager so plugin-bundled skills get scanned. */
   pluginSkillDirs: () => string[] = () => [];
@@ -267,7 +268,7 @@ export class AgentHost {
     const apiKey = ps.apiKeyRef ? this.vault.get(ps.apiKeyRef) : null;
     const provider = new OpenAICompatProvider({ baseUrl: ps.baseUrl, apiKey });
     provider.redactSecrets = s.redactSecrets;
-    this.providers.add(provider);
+    this.providers.set(provider, ps.apiKeyRef ?? null);
     return provider;
   }
 
@@ -281,7 +282,10 @@ export class AgentHost {
     for (const hosted of this.sessions.values()) {
       hosted.loop.updateTuning({ reasoningEffort: s.reasoningEffort, temperature: s.temperature });
     }
-    for (const p of this.providers) p.redactSecrets = s.redactSecrets;
+    for (const [p, keyRef] of this.providers) {
+      p.redactSecrets = s.redactSecrets;
+      p.setApiKey(keyRef ? this.vault.get(keyRef) : null);
+    }
   }
 
   setSuperCode(sessionId: string, on: boolean): void {

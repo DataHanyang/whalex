@@ -110,6 +110,7 @@ function ApiKeyTab() {
   const { t } = useTranslation();
   const secrets = useAppStore((s) => s.secrets);
   const refreshModels = useAppStore((s) => s.refreshModels);
+  const refreshState = useAppStore((s) => s.refreshState);
   const [key, setKey] = useState("");
   const [state, setState] = useState<{ s: "idle" | "testing" | "ok" | "err"; msg?: string }>({ s: "idle" });
   const tail = secrets["deepseek-api-key"];
@@ -121,6 +122,7 @@ function ApiKeyTab() {
       await whalex.invoke("secrets:set", { ref: "deepseek-api-key", value: key.trim() });
       setKey("");
       setState({ s: "ok", msg: t("settings.apikey.connected", { count: res.models.length }) });
+      await refreshState();
       await refreshModels();
     } else {
       setState({ s: "err", msg: res.error });
