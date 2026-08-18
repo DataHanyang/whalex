@@ -38,6 +38,16 @@ export function QuestionCard({ request }: { request: UserQuestion }) {
     }
   };
 
+  /**
+   * Multi-select picks and the free-text "other" field are one answer, not
+   * two competing ones — submitting from either the button or the text field
+   * sends everything currently selected plus whatever was typed.
+   */
+  const submitCombined = () => {
+    const parts = [...(q.multiSelect ? picked : []), other.trim()].filter(Boolean);
+    if (parts.length) submitStep(parts.join(", "));
+  };
+
   return (
     <div className="my-3 rounded-xl border border-accent/40 bg-accent-soft/40 p-4">
       <div className="mb-1 flex items-center gap-2 text-[12px] font-medium text-accent">
@@ -110,8 +120,8 @@ export function QuestionCard({ request }: { request: UserQuestion }) {
         })}
         {q.multiSelect && (
           <button
-            onClick={() => picked.length && submitStep(picked.join(", "))}
-            disabled={!picked.length}
+            onClick={submitCombined}
+            disabled={!picked.length && !other.trim()}
             className="mt-1 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-40"
           >
             {t("question.submit")} {picked.length > 0 && `(${picked.length})`}
@@ -123,7 +133,7 @@ export function QuestionCard({ request }: { request: UserQuestion }) {
         className="mt-2 flex items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (other.trim()) submitStep(other.trim());
+          submitCombined();
         }}
       >
         <input
