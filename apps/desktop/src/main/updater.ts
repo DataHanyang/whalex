@@ -142,7 +142,7 @@ export class Updater {
     const ok = await new Promise<boolean>((resolve) => {
       try {
         fs.writeFileSync(waiterJs, WAITER_SRC);
-        const p = spawn(process.execPath, [waiterJs, String(process.pid), installerPath, waiterLog], {
+        const p = spawn(process.execPath, [waiterJs, path.basename(process.execPath), installerPath, waiterLog], {
           detached: true,
           stdio: "ignore",
           windowsHide: true,
@@ -175,7 +175,7 @@ export class Updater {
       autoUpdater.quitAndInstall(true, true);
       return;
     }
-    this.log(`[updater] waiter parked on pid ${process.pid}; exiting for update`);
+    this.log(`[updater] waiter parked (${path.basename(process.execPath)}); exiting for update`);
     app.exit(0);
   }
 
@@ -192,46 +192,62 @@ export class Updater {
 
 /**
  * Runs as plain node (ELECTRON_RUN_AS_NODE) fully detached from the app:
- * argv = [appPid, installerPath, logPath]. Polls until the app PID is gone
- * (2 min cap), then launches the NSIS installer silently with retries — a
- * fresh download can still be locked by the AV scanner for a few seconds.
+ * argv = [exeName, installerPath, logPath]. Waits until NO process with the
+ * app's exe name remains in tasklist (excluding itself — the waiter IS the
+ * app binary) before launching the installer. tasklist-level death matters:
+ * the app's shutdown can hang 20-100s in kernel teardown where even
+ * taskkill /f doesn't reap it immediately, and the NSIS installer only
+ * waits ~8s before silently giving up. The waiter has the patience the
+ * installer lacks (150s), with AV-scanner-lock retries on the spawn.
  */
 const WAITER_SRC = `
-const { spawn } = require("child_process");
+const { spawn, execFile } = require("child_process");
 const fs = require("fs");
-const [pid, installer, logPath] = process.argv.slice(2);
+const [exeName, installer, logPath] = process.argv.slice(2);
 const log = (m) => { try { fs.appendFileSync(logPath, new Date().toISOString() + " " + m + "\\n"); } catch {} };
-const alive = (p) => { try { process.kill(p, 0); return true; } catch { return false; } };
-log("parked watching pid " + pid);
+log("parked; waiting for " + exeName + " (except pid " + process.pid + ") to vanish");
 const t0 = Date.now();
+const others = (cb) =>
+  execFile("tasklist", ["/FI", "IMAGENAME eq " + exeName, "/FO", "CSV", "/NH"], (err, out) => {
+    if (err) return cb([]);
+    const pids = [];
+    for (const line of String(out).split(/\\r?\\n/)) {
+      const m = line.match(/^"[^"]+","(\\d+)"/);
+      if (m && Number(m[1]) !== process.pid) pids.push(Number(m[1]));
+    }
+    cb(pids);
+  });
 (function wait() {
-  if (alive(+pid) && Date.now() - t0 < 120000) return setTimeout(wait, 500);
-  log("app gone at +" + Math.round((Date.now() - t0) / 1000) + "s");
-  let attempt = 0;
-  (function run() {
-    attempt++;
-    try {
-      const c = spawn(installer, ["--updated", "/S", "--force-run"], { detached: true, stdio: "ignore" });
-      let failed = false;
-      c.once("error", (e) => {
-        failed = true;
-        log("spawn error (attempt " + attempt + "): " + e);
+  others((pids) => {
+    if (pids.length > 0 && Date.now() - t0 < 150000) return setTimeout(wait, 1000);
+    if (pids.length > 0) log("timeout; stragglers " + pids.join(",") + " — launching anyway");
+    else log("app fully gone at +" + Math.round((Date.now() - t0) / 1000) + "s");
+    let attempt = 0;
+    (function run() {
+      attempt++;
+      try {
+        const c = spawn(installer, ["--updated", "/S", "--force-run"], { detached: true, stdio: "ignore" });
+        let failed = false;
+        c.once("error", (e) => {
+          failed = true;
+          log("spawn error (attempt " + attempt + "): " + e);
+          if (attempt < 10) setTimeout(run, 2000);
+          else process.exit(1);
+        });
+        c.unref();
+        setTimeout(() => {
+          if (!failed) {
+            log("installer launched (attempt " + attempt + "); waiter exiting");
+            process.exit(0);
+          }
+        }, 300);
+      } catch (e) {
+        log("spawn threw (attempt " + attempt + "): " + e);
         if (attempt < 10) setTimeout(run, 2000);
         else process.exit(1);
-      });
-      c.unref();
-      setTimeout(() => {
-        if (!failed) {
-          log("installer launched (attempt " + attempt + ")");
-          process.exit(0);
-        }
-      }, 1000);
-    } catch (e) {
-      log("spawn threw (attempt " + attempt + "): " + e);
-      if (attempt < 10) setTimeout(run, 2000);
-      else process.exit(1);
-    }
-  })();
+      }
+    })();
+  });
 })();
 `;
 
