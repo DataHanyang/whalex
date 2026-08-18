@@ -49,7 +49,18 @@ export function Onboarding() {
     await startSession(folder);
   };
 
-  const setLanguage = (language: "ko" | "en") => void updateSettings({ language });
+  type Language = "ko" | "en" | "zh" | "ja" | "fr";
+  const LANGUAGES: Array<[Language, string]> = [
+    ["ko", "한국어"],
+    ["en", "English"],
+    ["zh", "中文"],
+    ["ja", "日本語"],
+    ["fr", "Français"],
+  ];
+  const setLanguage = (language: Language) => void updateSettings({ language });
+  const isActive = (code: Language) =>
+    settings?.language === code ||
+    (settings?.language === "system" && navigator.language.startsWith(code));
 
   return (
     <div className="flex h-full flex-col">
@@ -63,20 +74,17 @@ export function Onboarding() {
               <p className="mx-auto mt-3 max-w-sm text-[13.5px] text-muted">
                 {t("onboarding.welcome.subtitle")}
               </p>
-              <div className="mt-5 flex items-center justify-center gap-2 text-[12.5px]">
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5 text-[12.5px]">
                 <span className="text-faint">{t("onboarding.language")}:</span>
-                <button
-                  onClick={() => setLanguage("ko")}
-                  className={`rounded-md px-2.5 py-1 ${settings?.language === "ko" || (settings?.language === "system" && navigator.language.startsWith("ko")) ? "bg-accent-soft text-accent" : "hover:bg-surface-2"}`}
-                >
-                  한국어
-                </button>
-                <button
-                  onClick={() => setLanguage("en")}
-                  className={`rounded-md px-2.5 py-1 ${settings?.language === "en" ? "bg-accent-soft text-accent" : "hover:bg-surface-2"}`}
-                >
-                  English
-                </button>
+                {LANGUAGES.map(([code, label]) => (
+                  <button
+                    key={code}
+                    onClick={() => setLanguage(code)}
+                    className={`rounded-md px-2.5 py-1 ${isActive(code) ? "bg-accent-soft text-accent" : "hover:bg-surface-2"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
               <button
                 onClick={() => setStep("apiKey")}

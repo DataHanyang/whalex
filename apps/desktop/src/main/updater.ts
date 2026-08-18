@@ -61,17 +61,25 @@ export class Updater {
     }
   }
 
+  private downloadInFlight = false;
+
   async download(): Promise<void> {
-    // Unsigned mac: the toast's download action sends the user to the
+    // Unsigned mac: the update action sends the user to the
     // Releases page instead — the closest the current status schema allows.
     if (MAC_NO_INSTALL) {
       await shell.openExternal(RELEASES_URL);
       return;
     }
+    // The renderer disables its buttons, but a second window or a slow click
+    // path must not start a concurrent download of the same update.
+    if (this.downloadInFlight) return;
+    this.downloadInFlight = true;
     try {
       await autoUpdater.downloadUpdate();
     } catch (err) {
       this.set({ state: "error", error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      this.downloadInFlight = false;
     }
   }
 

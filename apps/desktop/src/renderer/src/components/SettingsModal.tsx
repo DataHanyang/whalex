@@ -576,6 +576,12 @@ function UpdatesTab() {
   const { t } = useTranslation();
   const version = useAppStore((s) => s.version);
   const status = useUiStore((s) => s.updateStatus);
+  const [busy, setBusy] = useState(false);
+  // Reset once the main process reports progress (or the update errors out),
+  // so the button never stays stuck disabled after a failed attempt.
+  useEffect(() => {
+    if (status.state !== "available") setBusy(false);
+  }, [status.state]);
   const statusText =
     status.state === "current"
       ? t("settings.update.current")
@@ -605,10 +611,14 @@ function UpdatesTab() {
         </button>
         {status.state === "available" && (
           <button
-            onClick={() => void whalex.invoke("update:download", undefined)}
-            className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover"
+            onClick={() => {
+              setBusy(true);
+              void whalex.invoke("update:download", undefined);
+            }}
+            disabled={busy}
+            className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-60"
           >
-            {t("settings.update.download")}
+            {busy ? t("update.starting") : t("settings.update.download")}
           </button>
         )}
         {status.state === "downloaded" && (
