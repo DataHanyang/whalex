@@ -142,7 +142,7 @@ export class Updater {
     const ok = await new Promise<boolean>((resolve) => {
       try {
         fs.writeFileSync(waiterJs, WAITER_SRC);
-        const p = spawn(process.execPath, [waiterJs, path.basename(process.execPath), installerPath, waiterLog], {
+        const p = spawn(process.execPath, [waiterJs, process.execPath, installerPath, waiterLog], {
           detached: true,
           stdio: "ignore",
           windowsHide: true,
@@ -203,8 +203,13 @@ export class Updater {
 const WAITER_SRC = `
 const { spawn, execFile } = require("child_process");
 const fs = require("fs");
-const [exeName, installer, logPath] = process.argv.slice(2);
+const [appExe, installer, logPath] = process.argv.slice(2);
+const exeName = require("path").basename(appExe);
 const log = (m) => { try { fs.appendFileSync(logPath, new Date().toISOString() + " " + m + "\\n"); } catch {} };
+// The waiter runs AS the app binary; ELECTRON_RUN_AS_NODE must not leak to
+// the installer or the relaunched app comes up as a bare node process.
+const env = { ...process.env };
+delete env.ELECTRON_RUN_AS_NODE;
 log("parked; waiting for " + exeName + " (except pid " + process.pid + ") to vanish");
 const t0 = Date.now();
 const others = (cb) =>
@@ -217,36 +222,67 @@ const others = (cb) =>
     }
     cb(pids);
   });
+const relaunchIfNeeded = () => {
+  // --force-run usually restarts the app; if not (or if the installer killed
+  // this waiter's tracking of it), start it ourselves and be done.
+  others((pids) => {
+    if (pids.length === 0) {
+      try {
+        spawn(appExe, [], { detached: true, stdio: "ignore", env }).unref();
+        log("relaunched app directly");
+      } catch (e) {
+        log("relaunch failed: " + e);
+      }
+    } else log("app already relaunched (" + pids.join(",") + ")");
+    process.exit(0);
+  });
+};
+let attempt = 0;
+const install = () => {
+  attempt++;
+  // Supervised, NOT detached: Defender's block-at-first-sight can kill the
+  // first execution of a freshly downloaded unsigned installer; the verdict
+  // is cached, so a retried run goes through. Exit code tells us which.
+  let child;
+  try {
+    child = spawn(installer, ["--updated", "/S", "--force-run"], { stdio: "ignore", env });
+  } catch (e) {
+    log("spawn threw (attempt " + attempt + "): " + e);
+    return retry();
+  }
+  const timer = setTimeout(() => {
+    log("installer timeout (attempt " + attempt + ")");
+    try { child.kill(); } catch {}
+    retry();
+  }, 300000);
+  child.once("error", (e) => {
+    clearTimeout(timer);
+    log("spawn error (attempt " + attempt + "): " + e);
+    retry();
+  });
+  child.once("exit", (code) => {
+    clearTimeout(timer);
+    log("installer exited code " + code + " (attempt " + attempt + ")");
+    if (code === 0) return setTimeout(relaunchIfNeeded, 15000);
+    retry();
+  });
+};
+let retried = false;
+const retry = () => {
+  if (retried) return; // exit/error can both fire
+  retried = true;
+  setTimeout(() => {
+    retried = false;
+    if (attempt < 5) install();
+    else { log("giving up after " + attempt + " attempts"); process.exit(1); }
+  }, 8000);
+};
 (function wait() {
   others((pids) => {
     if (pids.length > 0 && Date.now() - t0 < 150000) return setTimeout(wait, 1000);
-    if (pids.length > 0) log("timeout; stragglers " + pids.join(",") + " — launching anyway");
+    if (pids.length > 0) log("timeout; stragglers " + pids.join(",") + " — installing anyway");
     else log("app fully gone at +" + Math.round((Date.now() - t0) / 1000) + "s");
-    let attempt = 0;
-    (function run() {
-      attempt++;
-      try {
-        const c = spawn(installer, ["--updated", "/S", "--force-run"], { detached: true, stdio: "ignore" });
-        let failed = false;
-        c.once("error", (e) => {
-          failed = true;
-          log("spawn error (attempt " + attempt + "): " + e);
-          if (attempt < 10) setTimeout(run, 2000);
-          else process.exit(1);
-        });
-        c.unref();
-        setTimeout(() => {
-          if (!failed) {
-            log("installer launched (attempt " + attempt + "); waiter exiting");
-            process.exit(0);
-          }
-        }, 300);
-      } catch (e) {
-        log("spawn threw (attempt " + attempt + "): " + e);
-        if (attempt < 10) setTimeout(run, 2000);
-        else process.exit(1);
-      }
-    })();
+    install();
   });
 })();
 `;
