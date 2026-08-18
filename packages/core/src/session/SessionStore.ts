@@ -2,7 +2,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { SessionMeta, Todo, TranscriptItem } from "@whalex/shared";
 import type { ChatMessage } from "../providers/Provider.js";
 import type { AssembledToolCall } from "../agent/ToolCallAssembler.js";
@@ -68,7 +68,22 @@ export function whalexHome(): string {
 }
 
 export function sanitizeCwd(cwd: string): string {
-  return path.resolve(cwd).replace(/[^a-zA-Z0-9가-힣]/g, "-");
+  // A readable basename plus a hash of the full path. Squashing the whole
+  // path into '-' separators made distinct cwds collide (C:/a/b vs C:/a-b);
+  // the hash keys the folder, the basename is only for humans browsing it.
+  const resolved = path.resolve(cwd);
+  // Windows paths are case-insensitive — the same folder opened as c:\X and
+  // C:\x must map to one session store.
+  const canonical = process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  const hash = createHash("sha256").update(canonical).digest("hex").slice(0, 12);
+  // Basename from the canonical form too, so C:\App and c:\app produce one
+  // folder name, not two names aliasing the same NTFS directory.
+  const base =
+    path
+      .basename(canonical)
+      .replace(/[^a-zA-Z0-9가-힣_-]/g, "-")
+      .slice(0, 40) || "root";
+  return `${base}-${hash}`;
 }
 
 function projectDir(cwd: string): string {
