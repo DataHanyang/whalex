@@ -1,4 +1,4 @@
-import type { ModelInfo, UsageInfo } from "@whalex/shared";
+import { effectivePricing, type ModelInfo, type UsageInfo } from "@whalex/shared";
 import type { ProviderUsage } from "../providers/Provider.js";
 
 /**
@@ -15,6 +15,7 @@ export class ContextManager {
   private totalInput = 0;
   private totalOutput = 0;
   private totalCachedInput = 0;
+  private totalCostUsd = 0;
 
   constructor(private model: ModelInfo) {}
 
@@ -23,10 +24,16 @@ export class ContextManager {
   }
 
   /** Restore cumulative totals when resuming a session (cost/usage meter). */
-  restoreTotals(t: { inputTokens: number; outputTokens: number; cachedInputTokens: number }): void {
+  restoreTotals(t: {
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+    costUsd?: number;
+  }): void {
     this.totalInput = t.inputTokens;
     this.totalOutput = t.outputTokens;
     this.totalCachedInput = t.cachedInputTokens;
+    this.totalCostUsd = t.costUsd ?? 0;
   }
 
   static estimateTokens(text: string): number {
@@ -52,6 +59,17 @@ export class ContextManager {
     this.totalInput += usage.promptTokens;
     this.totalOutput += usage.completionTokens;
     this.totalCachedInput += usage.cachedPromptTokens;
+    // Cost accrues per request at that moment's rate — DeepSeek's peak and
+    // off-peak prices differ, so pricing totals after the fact would drift.
+    const pricing = this.model.pricing;
+    if (pricing) {
+      const p = effectivePricing(pricing);
+      this.totalCostUsd +=
+        ((usage.promptTokens - usage.cachedPromptTokens) * p.input +
+          usage.cachedPromptTokens * (p.cachedInput ?? p.input) +
+          usage.completionTokens * p.output) /
+        1_000_000;
+    }
   }
 
   /** After a compaction the window is small again; the next response corrects it. */
@@ -74,20 +92,13 @@ export class ContextManager {
   }
 
   snapshot(): UsageInfo {
-    const pricing = this.model.pricing;
-    const costUsd = pricing
-      ? ((this.totalInput - this.totalCachedInput) * pricing.input +
-          this.totalCachedInput * (pricing.cachedInput ?? pricing.input) +
-          this.totalOutput * pricing.output) /
-        1_000_000
-      : 0;
     return {
       inputTokens: this.totalInput,
       outputTokens: this.totalOutput,
       cachedInputTokens: this.totalCachedInput,
       contextTokens: this.contextTokens(),
       contextPct: this.contextPct(),
-      costUsd,
+      costUsd: this.totalCostUsd,
     };
   }
 }

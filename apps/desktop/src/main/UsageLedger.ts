@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveModelInfo, type UsageWarning } from "@whalex/shared";
+import { effectivePricing, resolveModelInfo, type UsageWarning } from "@whalex/shared";
 import { whalexHome } from "@whalex/core";
 import type { SettingsManager } from "./settings.js";
 
@@ -53,10 +53,11 @@ export class UsageLedger {
     cachedPromptTokens: number;
   }): void {
     const pricing = resolveModelInfo(info.model).pricing;
-    const usd = pricing
-      ? ((info.promptTokens - info.cachedPromptTokens) * pricing.input +
-          info.cachedPromptTokens * (pricing.cachedInput ?? pricing.input) +
-          info.completionTokens * pricing.output) /
+    const p = pricing ? effectivePricing(pricing) : null;
+    const usd = p
+      ? ((info.promptTokens - info.cachedPromptTokens) * p.input +
+          info.cachedPromptTokens * (p.cachedInput ?? p.input) +
+          info.completionTokens * p.output) /
         1_000_000
       : 0;
     const day = (this.data.days[localDate()] ??= emptyDay());

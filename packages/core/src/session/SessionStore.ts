@@ -59,6 +59,8 @@ export type SessionRecord =
       inputTokens: number;
       outputTokens: number;
       cachedInputTokens: number;
+      /** Accrued at per-request rates (peak/off-peak differ); optional for old records. */
+      costUsd?: number;
       ts: number;
     }
   | { type: "title"; title: string; ts: number; auto?: boolean };
@@ -358,7 +360,12 @@ export class SessionStore {
    * usage meter instead of restarting from zero. Append-only; the last record
    * wins on load.
    */
-  recordUsageTotals(t: { inputTokens: number; outputTokens: number; cachedInputTokens: number }): void {
+  recordUsageTotals(t: {
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+    costUsd?: number;
+  }): void {
     // append() already skips the disk write for ephemeral sessions; keeping the
     // record in memory is harmless (ignored by messages()/transcript()).
     this.append({
@@ -366,6 +373,7 @@ export class SessionStore {
       inputTokens: t.inputTokens,
       outputTokens: t.outputTokens,
       cachedInputTokens: t.cachedInputTokens,
+      costUsd: t.costUsd,
       ts: Date.now(),
     });
   }
@@ -380,7 +388,12 @@ export class SessionStore {
   }
 
   /** The most recent persisted usage totals, or null if none recorded yet. */
-  lastUsageTotals(): { inputTokens: number; outputTokens: number; cachedInputTokens: number } | null {
+  lastUsageTotals(): {
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+    costUsd?: number;
+  } | null {
     for (let i = this.records.length - 1; i >= 0; i--) {
       const rec = this.records[i]!;
       if (rec.type === "usage") {
@@ -388,6 +401,7 @@ export class SessionStore {
           inputTokens: rec.inputTokens,
           outputTokens: rec.outputTokens,
           cachedInputTokens: rec.cachedInputTokens,
+          costUsd: rec.costUsd,
         };
       }
     }

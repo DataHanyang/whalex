@@ -603,6 +603,7 @@ export class AgentLoop {
         inputTokens: snap.inputTokens,
         outputTokens: snap.outputTokens,
         cachedInputTokens: snap.cachedInputTokens,
+        costUsd: snap.costUsd,
       });
       await this.hooks()
         .run({ event: "Stop", sessionId: session.sessionId, cwd: session.cwd })
