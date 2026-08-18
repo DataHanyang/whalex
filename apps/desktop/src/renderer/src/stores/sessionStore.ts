@@ -252,9 +252,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       workflow: null,
       browser: { tabs: [], activeTabId: null },
       sideTab: null,
-      superCode: false,
-      goalMode: false,
-      permissionMode: "default",
+      // Restore what the host engine is actually using — a reattached session
+      // must not silently fall back to default mode/model in the UI.
+      superCode: res.superCode ?? false,
+      goalMode: res.goalMode ?? false,
+      permissionMode: res.permissionMode ?? "default",
+      model: res.model ?? get().model,
       preSuperCodeMode: null,
     });
     void whalex.invoke("browser:hide", undefined);

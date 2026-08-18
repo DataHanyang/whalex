@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow, Menu, Tray, app, nativeTheme, protocol, shell } from "electron";
+import { BrowserWindow, Menu, Notification, Tray, app, nativeTheme, protocol, shell } from "electron";
 import { AgentHost } from "./AgentHost.js";
 import { SettingsManager } from "./settings.js";
 import { SecretVault } from "./secrets.js";
@@ -14,6 +14,7 @@ import { BrowserManager } from "./BrowserManager.js";
 import { ComputerManager } from "./ComputerManager.js";
 import { AuthManager } from "./auth.js";
 import { RoutineManager } from "./RoutineManager.js";
+import { UsageLedger } from "./UsageLedger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -211,7 +212,24 @@ void app.whenReady().then(() => {
   const routines = new RoutineManager(settings, host);
   routines.start();
 
-  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines });
+  const usage = new UsageLedger(settings);
+  host.usageLedger = usage;
+  usage.onWarning = (w) => {
+    // Surface in-app (status bar banner) and as an OS toast — a spend alert
+    // is exactly the kind of thing that must reach a tray-resident app's user.
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("usage:warning", w);
+    }
+    if (Notification.isSupported()) {
+      const body =
+        w.kind === "balance"
+          ? `Balance low: ${w.usd.toFixed(2)} (threshold ${w.limit.toFixed(2)})`
+          : `${w.kind === "daily" ? "Daily" : "Monthly"} spend $${w.usd.toFixed(2)} — ${w.pct}% of your $${w.limit.toFixed(2)} limit`;
+      new Notification({ title: "WhaleX usage", body }).show();
+    }
+  };
+
+  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage });
   createWindow();
   createTray();
   // Relaunching the app (e.g. from the Start menu) while it sits in the tray
@@ -232,6 +250,7 @@ void app.whenReady().then(() => {
   let cleanupDone = false;
   const shutdownCleanup = async () => {
     routines.stop();
+    usage.flush();
     host.disposeAll();
     await Promise.race([preview.stopAll(), new Promise((r) => setTimeout(r, 3000))]);
   };

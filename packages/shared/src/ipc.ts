@@ -100,6 +100,12 @@ export const IPC_INVOKE = {
       cwd: z.string(),
       transcript: z.array(TranscriptItemSchema),
       running: z.boolean().optional(),
+      // Actual host-side session state, so a reattaching UI restores what the
+      // engine is really using instead of resetting to defaults.
+      model: z.string().optional(),
+      permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan"]).optional(),
+      goalMode: z.boolean().optional(),
+      superCode: z.boolean().optional(),
     }),
   },
   "session:send": {
@@ -208,6 +214,44 @@ export const IPC_INVOKE = {
     req: z.object({ id: z.string() }),
     res: z.object({ ok: z.boolean(), error: z.string().optional() }),
   },
+  "usage:summary": {
+    req: z.object({
+      days: z.number().int().min(1).max(90).optional(),
+      /** Also query the provider's account balance (network call). */
+      includeBalance: z.boolean().optional(),
+    }),
+    res: z.object({
+      days: z.array(
+        z.object({
+          date: z.string(),
+          usd: z.number(),
+          input: z.number(),
+          output: z.number(),
+          cachedInput: z.number(),
+        }),
+      ),
+      todayUsd: z.number(),
+      monthUsd: z.number(),
+      byModel: z.record(
+        z.object({
+          usd: z.number(),
+          input: z.number(),
+          output: z.number(),
+          cachedInput: z.number(),
+        }),
+      ),
+      /** null when the active provider has no balance API (Ollama etc.). */
+      balance: z
+        .object({
+          currency: z.string(),
+          total: z.number(),
+          granted: z.number(),
+          toppedUp: z.number(),
+        })
+        .nullable(),
+      balanceError: z.string().optional(),
+    }),
+  },
   "update:check": {
     req: z.void(),
     res: z.void(),
@@ -263,10 +307,20 @@ export const IPC_INVOKE = {
   },
 } as const;
 
+export const UsageWarningSchema = z.object({
+  kind: z.enum(["daily", "monthly", "balance"]),
+  /** Percent of the limit spent (daily/monthly kinds). */
+  pct: z.number().optional(),
+  usd: z.number(),
+  limit: z.number(),
+});
+export type UsageWarning = z.infer<typeof UsageWarningSchema>;
+
 export const IPC_EVENTS = {
   "agent:event": AgentEventEnvelopeSchema,
   "mcp:status": z.array(McpStatusSchema),
   "update:status": UpdateStatusSchema,
+  "usage:warning": UsageWarningSchema,
 } as const;
 
 export type IpcInvokeChannel = keyof typeof IPC_INVOKE;

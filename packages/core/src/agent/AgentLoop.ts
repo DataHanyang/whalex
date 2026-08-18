@@ -103,6 +103,10 @@ export class AgentLoop {
     return this.opts.provider;
   }
 
+  get modelId(): string {
+    return this.opts.modelInfo.id;
+  }
+
   /** Messages typed while the loop is running; injected before the next round. */
   private steerQueue: string[] = [];
 

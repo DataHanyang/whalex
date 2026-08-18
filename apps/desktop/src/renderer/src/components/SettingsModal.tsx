@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Activity,
   Blocks,
   CalendarClock,
   Cpu,
@@ -15,7 +16,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { MCP_PRESETS, type McpServerConfig, type Routine, type SkillInfo } from "@whalex/shared";
+import {
+  MCP_PRESETS,
+  type IpcResponse,
+  type McpServerConfig,
+  type Routine,
+  type SkillInfo,
+} from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore, type SettingsTab } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
@@ -27,6 +34,7 @@ const TABS: Array<{ id: SettingsTab; labelKey: string; icon: typeof Settings2 }>
   { id: "mcp", labelKey: "settings.tab.mcp", icon: Plug },
   { id: "skills", labelKey: "settings.tab.skills", icon: Sparkles },
   { id: "routines", labelKey: "settings.tab.routines", icon: CalendarClock },
+  { id: "usage", labelKey: "settings.tab.usage", icon: Activity },
   { id: "plugins", labelKey: "settings.tab.plugins", icon: Blocks },
   { id: "appearance", labelKey: "settings.tab.appearance", icon: Palette },
   { id: "updates", labelKey: "settings.tab.updates", icon: RefreshCw },
@@ -654,6 +662,152 @@ function UpdatesTab() {
   );
 }
 
+function UsageTab() {
+  const { t } = useTranslation();
+  const settings = useAppStore((s) => s.settings)!;
+  const update = useAppStore((s) => s.updateSettings);
+  const [data, setData] = useState<IpcResponse<"usage:summary"> | null>(null);
+  const limits = settings.usageLimits;
+
+  useEffect(() => {
+    void whalex
+      .invoke("usage:summary", { days: 30, includeBalance: true })
+      .then(setData)
+      .catch(() => {});
+  }, []);
+
+  const maxUsd = Math.max(0.000001, ...(data?.days.map((d) => d.usd) ?? [0]));
+  const fmtTokens = (n: number) =>
+    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
+  const numInput = (
+    value: number,
+    onChange: (n: number) => void,
+    step = 1,
+  ): React.ReactNode => (
+    <input
+      type="number"
+      min={0}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
+      className="w-24 rounded-md border border-border bg-surface px-2 py-1 text-right text-[12.5px]"
+    />
+  );
+
+  return (
+    <div>
+      <Row label={t("usage.balance")}>
+        {data?.balance ? (
+          <span
+            className="text-[13px] font-semibold tabular-nums"
+            title={`${t("usage.balance.granted")} ${data.balance.granted} · ${t("usage.balance.toppedUp")} ${data.balance.toppedUp}`}
+          >
+            {data.balance.currency} {data.balance.total.toFixed(2)}
+          </span>
+        ) : data?.balanceError ? (
+          <span className="text-[12px] text-danger">{data.balanceError}</span>
+        ) : (
+          <span className="text-[12px] text-faint">{t("usage.balance.none")}</span>
+        )}
+      </Row>
+      <Row label={t("usage.today")}>
+        <span className="tabular-nums">${(data?.todayUsd ?? 0).toFixed(2)}</span>
+      </Row>
+      <Row label={t("usage.month")}>
+        <span className="tabular-nums">
+          ${(data?.monthUsd ?? 0).toFixed(2)}
+          {limits.monthlyUsd > 0 && (
+            <span className="text-faint"> / ${limits.monthlyUsd.toFixed(2)}</span>
+          )}
+        </span>
+      </Row>
+
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">{t("usage.last30")}</div>
+      <div className="flex h-24 items-end gap-[2px] rounded-md border border-border bg-surface-2/40 p-2">
+        {(data?.days ?? []).map((d, i, arr) => (
+          <div
+            key={d.date}
+            title={`${d.date} · $${d.usd.toFixed(3)} · ↑${fmtTokens(d.input)} ↓${fmtTokens(d.output)}`}
+            className="group flex h-full flex-1 items-end"
+          >
+            <div
+              className={`w-full rounded-sm transition-colors group-hover:bg-accent ${
+                i === arr.length - 1 ? "bg-accent" : "bg-accent/40"
+              }`}
+              style={{ height: `${Math.max(d.usd > 0 ? 4 : 1, (d.usd / maxUsd) * 100)}%` }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {data && Object.keys(data.byModel).length > 0 && (
+        <table className="mt-3 w-full text-[12px]">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wide text-faint">
+              <th className="py-1 font-medium">{t("usage.model")}</th>
+              <th className="py-1 text-right font-medium">{t("usage.tokens")}</th>
+              <th className="py-1 text-right font-medium">{t("usage.cacheRate")}</th>
+              <th className="py-1 text-right font-medium">{t("usage.cost")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(data.byModel)
+              .sort(([, a], [, b]) => b.usd - a.usd)
+              .map(([model, b]) => (
+                <tr key={model} className="border-t border-border">
+                  <td className="py-1.5 font-mono">{model}</td>
+                  <td className="py-1.5 text-right tabular-nums">
+                    ↑{fmtTokens(b.input)} ↓{fmtTokens(b.output)}
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums">
+                    {b.input > 0 ? Math.round((b.cachedInput / b.input) * 100) : 0}%
+                  </td>
+                  <td className="py-1.5 text-right tabular-nums">${b.usd.toFixed(3)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      )}
+
+      <div className="mt-5 mb-1 text-[12px] font-semibold text-muted">{t("usage.limits")}</div>
+      <div className="mb-2 text-[11.5px] text-faint">{t("usage.limits.desc")}</div>
+      <Row label={t("usage.limits.daily")}>
+        {numInput(limits.dailyUsd, (n) => void update({ usageLimits: { ...limits, dailyUsd: n } }), 0.5)}
+      </Row>
+      <Row label={t("usage.limits.monthly")}>
+        {numInput(limits.monthlyUsd, (n) => void update({ usageLimits: { ...limits, monthlyUsd: n } }), 1)}
+      </Row>
+      <Row label={t("usage.limits.warnAt")}>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={limits.warnAtPct}
+          onChange={(e) =>
+            void update({
+              usageLimits: {
+                ...limits,
+                warnAtPct: Math.min(100, Math.max(1, Math.floor(Number(e.target.value)) || 80)),
+              },
+            })
+          }
+          className="w-24 rounded-md border border-border bg-surface px-2 py-1 text-right text-[12.5px]"
+        />
+      </Row>
+      <Row label={t("usage.limits.hardStop")}>
+        <ToggleSwitch
+          checked={limits.hardStop}
+          label={t("usage.limits.hardStop")}
+          onChange={(v) => void update({ usageLimits: { ...limits, hardStop: v } })}
+        />
+      </Row>
+      <Row label={t("usage.limits.lowBalance")}>
+        {numInput(limits.lowBalance, (n) => void update({ usageLimits: { ...limits, lowBalance: n } }), 1)}
+      </Row>
+    </div>
+  );
+}
+
 /** 2021-08-01 was a Sunday; +weekday lands on the right localized day name. */
 function weekdayName(weekday: number, lang: string): string {
   return new Intl.DateTimeFormat(lang, { weekday: "short" }).format(new Date(2021, 7, 1 + weekday));
@@ -1007,6 +1161,7 @@ export function SettingsModal() {
             {tab === "mcp" && <McpTab />}
             {tab === "skills" && <SkillsTab />}
             {tab === "routines" && <RoutinesTab />}
+            {tab === "usage" && <UsageTab />}
             {tab === "plugins" && <PluginsTab />}
             {tab === "appearance" && <AppearanceTab />}
             {tab === "updates" && <UpdatesTab />}

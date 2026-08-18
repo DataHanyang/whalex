@@ -160,6 +160,19 @@ export const SettingsSchema = z.object({
   customInstructions: z.string().default(""),
   /** Scheduled prompts that run unattended while the app sits in the tray. */
   routines: z.array(RoutineSchema).default([]),
+  /** Spend guardrails, enforced against the local usage ledger. 0 = off. */
+  usageLimits: z
+    .object({
+      dailyUsd: z.number().min(0).default(0),
+      monthlyUsd: z.number().min(0).default(0),
+      /** Warn when a limit's spend crosses this percentage. */
+      warnAtPct: z.number().int().min(1).max(100).default(80),
+      /** Refuse to start new turns once a limit is fully spent. */
+      hardStop: z.boolean().default(false),
+      /** Warn when the DeepSeek account balance drops below this (USD/CNY as reported). */
+      lowBalance: z.number().min(0).default(0),
+    })
+    .default({}),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

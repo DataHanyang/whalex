@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { McpStatus, UpdateStatus } from "@whalex/shared";
+import type { McpStatus, UpdateStatus, UsageWarning } from "@whalex/shared";
 import { whalex } from "../lib/ipc";
 
 export type SettingsTab =
@@ -9,6 +9,7 @@ export type SettingsTab =
   | "mcp"
   | "skills"
   | "routines"
+  | "usage"
   | "plugins"
   | "appearance"
   | "updates";
@@ -27,6 +28,9 @@ interface UiState {
   artifactWidth: number;
   mcpStatus: McpStatus[];
   updateStatus: UpdateStatus;
+  /** Latest spend-limit alert; shown until dismissed. */
+  usageWarning: UsageWarning | null;
+  dismissUsageWarning(): void;
   openSettings(tab?: SettingsTab): void;
   closeSettings(): void;
   openRewind(): void;
@@ -48,6 +52,11 @@ export const useUiStore = create<UiState>((set) => ({
   confirmOpen: false,
   mcpStatus: [],
   updateStatus: { state: "idle" },
+  usageWarning: null,
+
+  dismissUsageWarning() {
+    set({ usageWarning: null });
+  },
 
   openSettings(tab = "general") {
     set({ settingsOpen: true, settingsTab: tab });
@@ -76,6 +85,7 @@ export const useUiStore = create<UiState>((set) => ({
   listen() {
     whalex.on("mcp:status", (statuses) => set({ mcpStatus: statuses }));
     whalex.on("update:status", (status) => set({ updateStatus: status }));
+    whalex.on("usage:warning", (warning) => set({ usageWarning: warning }));
     void whalex.invoke("mcp:status", undefined).then((s) => set({ mcpStatus: s }));
   },
 }));

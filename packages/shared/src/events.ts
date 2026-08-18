@@ -22,6 +22,8 @@ export const AgentErrorCodeSchema = z.enum([
   "rate_limit",
   "invalid_key",
   "insufficient_balance",
+  /** A user-set spend limit (Settings → Usage) blocked the turn. */
+  "usage_limit",
   "network",
   "aborted",
   "context_overflow",

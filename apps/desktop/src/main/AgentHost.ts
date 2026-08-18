@@ -101,6 +101,8 @@ export class AgentHost {
   readonly skills = new SkillRegistry();
   /** Supplied by the plugin manager so plugin-bundled skills get scanned. */
   pluginSkillDirs: () => string[] = () => [];
+  /** Wired by index.ts; records every request's tokens and enforces limits. */
+  usageLedger: import("./UsageLedger.js").UsageLedger | null = null;
   private hooks: HookManager;
 
   getArtifact(id: string): import("@whalex/shared").Artifact | null {
@@ -152,7 +154,7 @@ export class AgentHost {
   async start(
     cwd: string,
     resumeSessionId?: string,
-  ): Promise<{ sessionId: string; cwd: string; transcript: TranscriptItem[]; running?: boolean }> {
+  ): Promise<import("@whalex/shared").IpcResponse<"session:start">> {
     // Reattach: switching back to a session this process is already hosting
     // must NOT create a second loop over the same file — the original keeps
     // running and the UI just catches up from the transcript + live events.
@@ -166,6 +168,10 @@ export class AgentHost {
           cwd: live.store.cwd,
           transcript: live.store.transcript(),
           running: live.loop.isRunning,
+          model: live.loop.modelId,
+          permissionMode: live.modeOverride ?? this.settings.get().permissions.mode,
+          goalMode: live.goalMode,
+          superCode: live.superCode,
         };
       }
     }
@@ -257,7 +263,15 @@ export class AgentHost {
       }),
     };
     this.sessions.set(sessionId, hosted);
-    return { sessionId, cwd, transcript: store.transcript() };
+    return {
+      sessionId,
+      cwd,
+      transcript: store.transcript(),
+      model: modelInfo.id,
+      permissionMode: s.permissions.mode,
+      goalMode: false,
+      superCode: false,
+    };
   }
 
   isSessionRunning(sessionId: string): boolean {
@@ -297,6 +311,7 @@ export class AgentHost {
     const apiKey = ps.apiKeyRef ? this.vault.get(ps.apiKeyRef) : null;
     const provider = new OpenAICompatProvider({ baseUrl: ps.baseUrl, apiKey });
     provider.redactSecrets = s.redactSecrets;
+    provider.onUsage = (info) => this.usageLedger?.record(info);
     this.providers.set(provider, ps.apiKeyRef ?? null);
     return provider;
   }
@@ -360,6 +375,22 @@ export class AgentHost {
       // round, and a model switch applies to the next completion too.
       hosted.loop.setModel(resolveModelInfo(model));
       hosted.loop.steer(text);
+      return;
+    }
+    // Hard budget stop: refuse to start a new turn once a spend limit is
+    // fully consumed (steering into an already-running turn stays possible).
+    const budgetStop = this.usageLedger?.hardStopReason();
+    if (budgetStop) {
+      this.emitDirect(sessionId, {
+        type: "error",
+        code: "usage_limit",
+        message:
+          `Usage limit reached: $${budgetStop.usd.toFixed(2)} of the $${budgetStop.limit.toFixed(2)} ` +
+          `${budgetStop.kind} limit. Raise or disable the limit in Settings → Usage to continue.`,
+      });
+      // Close the turn like the pump's error path does, so the UI returns
+      // to idle instead of spinning on "thinking".
+      this.emitDirect(sessionId, { type: "done", stopReason: "error" });
       return;
     }
     const perms = this.settings.get().permissions;

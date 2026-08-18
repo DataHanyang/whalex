@@ -15,6 +15,7 @@ import type { PreviewManager } from "./PreviewManager.js";
 import type { PluginManager } from "./PluginManager.js";
 import type { AuthManager } from "./auth.js";
 import type { RoutineManager } from "./RoutineManager.js";
+import type { UsageLedger } from "./UsageLedger.js";
 import { EDITION, isCloud, CLOUD_CONFIG } from "./edition.js";
 
 type Handlers = {
@@ -32,8 +33,9 @@ export function registerIpc(deps: {
   browser: import("./BrowserManager.js").BrowserManager;
   auth: AuthManager;
   routines: RoutineManager;
+  usage: UsageLedger;
 }): void {
-  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines } = deps;
+  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage } = deps;
 
   const makeProvider = (providerId: string, apiKeyOverride?: string) => {
     // Cloud edition routes through the hosted proxy with the session token.
@@ -127,6 +129,49 @@ export function registerIpc(deps: {
       preview.start(req.sessionId, req.command, req.port, req.cwd ?? process.cwd()),
     "preview:stop": (req) => preview.stop(req.sessionId),
     "routines:run": (req) => routines.runNow(req.id),
+    "usage:summary": async (req) => {
+      const s = usage.summary(req.days ?? 30);
+      let balance: { currency: string; total: number; granted: number; toppedUp: number } | null =
+        null;
+      let balanceError: string | undefined;
+      if (req.includeBalance) {
+        // Balance is a DeepSeek platform API; other OpenAI-compatible
+        // providers (Ollama etc.) simply have none — balance stays null.
+        const st = settings.get();
+        const p = st.providers.find((x) => x.id === st.activeProviderId);
+        const key = p?.apiKeyRef ? vault.get(p.apiKeyRef) : null;
+        if (p && key && /api\.deepseek\.com/i.test(p.baseUrl)) {
+          try {
+            const res = await fetch(`${p.baseUrl.replace(/\/+$/, "")}/user/balance`, {
+              headers: { Authorization: `Bearer ${key}` },
+              signal: AbortSignal.timeout(8000),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const body = (await res.json()) as {
+              balance_infos?: Array<{
+                currency?: string;
+                total_balance?: string;
+                granted_balance?: string;
+                topped_up_balance?: string;
+              }>;
+            };
+            const info = body.balance_infos?.[0];
+            if (info) {
+              balance = {
+                currency: info.currency ?? "USD",
+                total: Number(info.total_balance ?? 0),
+                granted: Number(info.granted_balance ?? 0),
+                toppedUp: Number(info.topped_up_balance ?? 0),
+              };
+              usage.checkBalance(balance.total);
+            }
+          } catch (err) {
+            balanceError = err instanceof Error ? err.message : String(err);
+          }
+        }
+      }
+      return { ...s, balance, balanceError };
+    },
     "update:check": () => updater.check(),
     "update:download": () => updater.download(),
     "update:install": () => {

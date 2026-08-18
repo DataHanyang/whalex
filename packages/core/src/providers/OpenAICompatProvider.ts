@@ -26,6 +26,17 @@ export class OpenAICompatProvider implements ProviderClient {
    * Session-stable placeholders keep the conversation coherent.
    */
   redactSecrets = true;
+  /**
+   * Fires once per completed request with that request's token usage.
+   * The host hangs a usage ledger here; one hook on the shared provider
+   * instance captures the main loop, subagents, workflows, and title calls.
+   */
+  onUsage?: (info: {
+    model: string;
+    promptTokens: number;
+    completionTokens: number;
+    cachedPromptTokens: number;
+  }) => void;
   private redactor = new Redactor();
 
   private client: OpenAI;
@@ -149,6 +160,13 @@ export class OpenAICompatProvider implements ProviderClient {
       throw classifyError(err);
     }
 
+    if (usage && this.onUsage) {
+      try {
+        this.onUsage({ model: req.model, ...usage });
+      } catch {
+        // A ledger bug must never break streaming.
+      }
+    }
     yield { type: "finish", reason: finishReason, usage };
   }
 

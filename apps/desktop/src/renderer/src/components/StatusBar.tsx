@@ -1,7 +1,64 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Clock } from "lucide-react";
+import { Clock, TriangleAlert, X } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUiStore } from "../stores/uiStore";
+import { whalex } from "../lib/ipc";
+
+/** Today's ledger spend; refreshed lazily so the bar stays cheap. */
+function TodaySpend() {
+  const { t } = useTranslation();
+  const openSettings = useUiStore((s) => s.openSettings);
+  const [usd, setUsd] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const refresh = () =>
+      void whalex
+        .invoke("usage:summary", { days: 1 })
+        .then((s) => alive && setUsd(s.todayUsd))
+        .catch(() => {});
+    refresh();
+    const id = setInterval(refresh, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  if (usd === null || usd === 0) return null;
+  return (
+    <button
+      onClick={() => openSettings("usage")}
+      className="hover:text-text"
+      title={t("statusbar.todayTip")}
+    >
+      {t("statusbar.today", { usd: usd.toFixed(2) })}
+    </button>
+  );
+}
+
+/** Spend-limit alert pushed from main; sticky until dismissed. */
+function UsageWarningChip() {
+  const { t } = useTranslation();
+  const warning = useUiStore((s) => s.usageWarning);
+  const dismiss = useUiStore((s) => s.dismissUsageWarning);
+  const openSettings = useUiStore((s) => s.openSettings);
+  if (!warning) return null;
+  const label =
+    warning.kind === "balance"
+      ? t("usage.warn.balance", { usd: warning.usd.toFixed(2) })
+      : t(`usage.warn.${warning.kind}`, { pct: warning.pct, limit: warning.limit.toFixed(2) });
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-warn/15 px-2 py-0.5 text-warn">
+      <TriangleAlert size={11} />
+      <button onClick={() => openSettings("usage")} className="hover:underline">
+        {label}
+      </button>
+      <button onClick={dismiss} aria-label={t("common.cancel")} className="hover:text-text">
+        <X size={10} />
+      </button>
+    </span>
+  );
+}
 
 function formatDuration(ms: number): string {
   const s = ms / 1000;
@@ -71,6 +128,8 @@ export function StatusBar() {
         </span>
       )}
       <div className="flex-1" />
+      <UsageWarningChip />
+      <TodaySpend />
       <ElapsedTime />
       {usage && (
         <>
