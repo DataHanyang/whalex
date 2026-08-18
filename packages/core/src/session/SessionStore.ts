@@ -208,7 +208,13 @@ export class SessionStore {
     if (!this.ephemeral) {
       fs.appendFileSync(this.filePath, JSON.stringify(record) + "\n", "utf8");
     }
-    if (record.type === "user" && this.records.filter((r) => r.type === "user").length === 1) {
+    if (
+      record.type === "user" &&
+      this.records.filter((r) => r.type === "user").length === 1 &&
+      // A manual title set before the first message (e.g. a routine naming
+      // its session) must not be shadowed by the placeholder.
+      !this.records.some((r) => r.type === "title" && !r.auto)
+    ) {
       // Provisional placeholder from the first message; the host replaces it
       // with an LLM-written title after the first exchange (auto marks it
       // replaceable — see AgentHost.autoTitle).

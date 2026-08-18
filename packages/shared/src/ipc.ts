@@ -204,6 +204,10 @@ export const IPC_INVOKE = {
     req: z.object({ sessionId: z.string() }),
     res: z.void(),
   },
+  "routines:run": {
+    req: z.object({ id: z.string() }),
+    res: z.object({ ok: z.boolean(), error: z.string().optional() }),
+  },
   "update:check": {
     req: z.void(),
     res: z.void(),

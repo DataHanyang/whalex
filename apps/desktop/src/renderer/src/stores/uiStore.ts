@@ -8,6 +8,7 @@ export type SettingsTab =
   | "models"
   | "mcp"
   | "skills"
+  | "routines"
   | "plugins"
   | "appearance"
   | "updates";

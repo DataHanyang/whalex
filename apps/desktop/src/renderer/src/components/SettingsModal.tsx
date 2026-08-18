@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Blocks,
+  CalendarClock,
   Cpu,
+  FolderOpen,
   KeyRound,
   Palette,
+  Play,
   Plug,
   RefreshCw,
   Settings2,
@@ -12,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { MCP_PRESETS, type McpServerConfig, type SkillInfo } from "@whalex/shared";
+import { MCP_PRESETS, type McpServerConfig, type Routine, type SkillInfo } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore, type SettingsTab } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
@@ -23,6 +26,7 @@ const TABS: Array<{ id: SettingsTab; labelKey: string; icon: typeof Settings2 }>
   { id: "models", labelKey: "settings.tab.models", icon: Cpu },
   { id: "mcp", labelKey: "settings.tab.mcp", icon: Plug },
   { id: "skills", labelKey: "settings.tab.skills", icon: Sparkles },
+  { id: "routines", labelKey: "settings.tab.routines", icon: CalendarClock },
   { id: "plugins", labelKey: "settings.tab.plugins", icon: Blocks },
   { id: "appearance", labelKey: "settings.tab.appearance", icon: Palette },
   { id: "updates", labelKey: "settings.tab.updates", icon: RefreshCw },
@@ -102,6 +106,22 @@ function GeneralTab() {
           />
         </Row>
       ))}
+      <div className="mt-5 mb-1 text-[12px] font-semibold text-muted">
+        {t("settings.instructions")}
+      </div>
+      <div className="mb-2 text-[11.5px] text-faint">{t("settings.instructions.desc")}</div>
+      <textarea
+        defaultValue={settings.customInstructions}
+        onBlur={(e) => {
+          const v = e.target.value;
+          if (v !== settings.customInstructions) void update({ customInstructions: v });
+        }}
+        placeholder={t("settings.instructions.placeholder")}
+        rows={6}
+        aria-label={t("settings.instructions")}
+        className="w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-accent"
+      />
+      <div className="mb-3 text-[11px] text-faint">{t("settings.instructions.applies")}</div>
     </div>
   );
 }
@@ -192,11 +212,11 @@ function ModelsTab() {
         <input
           type="number"
           min={1}
-          max={200}
+          max={1000}
           value={settings.superCode.maxAgents}
           onChange={(e) => {
-            // Never persist an empty/0/NaN cap — clamp into [1, 200].
-            const n = Math.min(200, Math.max(1, Math.floor(Number(e.target.value)) || 1));
+            // Never persist an empty/0/NaN cap — clamp into [1, 1000].
+            const n = Math.min(1000, Math.max(1, Math.floor(Number(e.target.value)) || 1));
             void update({ superCode: { ...settings.superCode, maxAgents: n } });
           }}
           className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
@@ -634,6 +654,301 @@ function UpdatesTab() {
   );
 }
 
+/** 2021-08-01 was a Sunday; +weekday lands on the right localized day name. */
+function weekdayName(weekday: number, lang: string): string {
+  return new Intl.DateTimeFormat(lang, { weekday: "short" }).format(new Date(2021, 7, 1 + weekday));
+}
+
+function scheduleSummary(
+  r: Routine,
+  t: (k: string, o?: Record<string, unknown>) => string,
+  lang: string,
+): string {
+  const s = r.schedule;
+  switch (s.kind) {
+    case "interval":
+      return t("settings.routines.summary.interval", { n: s.minutes });
+    case "daily":
+      return t("settings.routines.summary.daily", { time: s.time });
+    case "weekly":
+      return t("settings.routines.summary.weekly", { day: weekdayName(s.weekday, lang), time: s.time });
+    case "once":
+      return t("settings.routines.summary.once", {
+        at: new Date(s.at).toLocaleString(lang, { dateStyle: "short", timeStyle: "short" }),
+      });
+  }
+}
+
+/** Epoch ms ↔ the value format <input type="datetime-local"> speaks. */
+function toLocalInput(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function RoutinesTab() {
+  const { t, i18n } = useTranslation();
+  const settings = useAppStore((s) => s.settings)!;
+  const update = useAppStore((s) => s.updateSettings);
+  const refreshState = useAppStore((s) => s.refreshState);
+  const [editing, setEditing] = useState<Routine | null>(null);
+  const [runState, setRunState] = useState<Record<string, string>>({});
+  const lang = i18n.language;
+
+  const blank = (): Routine => ({
+    id: crypto.randomUUID(),
+    name: "",
+    prompt: "",
+    cwd: settings.defaultCwd ?? settings.recentCwds[0] ?? "",
+    schedule: { kind: "daily", time: "09:00" },
+    permissionMode: "acceptEdits",
+    enabled: true,
+  });
+
+  const save = async () => {
+    if (!editing) return;
+    const r = { ...editing, name: editing.name.trim() || t("settings.routines.untitled") };
+    const exists = settings.routines.some((x) => x.id === r.id);
+    await update({
+      routines: exists
+        ? settings.routines.map((x) => (x.id === r.id ? r : x))
+        : [...settings.routines, r],
+    });
+    setEditing(null);
+  };
+
+  const runNow = async (id: string) => {
+    setRunState((m) => ({ ...m, [id]: "…" }));
+    const res = await whalex.invoke("routines:run", { id });
+    setRunState((m) => ({
+      ...m,
+      [id]: res.ok ? t("settings.routines.started") : (res.error ?? "error"),
+    }));
+    // Main patched lastRunAt/lastSessionId behind our back — pull it in.
+    await refreshState();
+  };
+
+  const setSchedule = (schedule: Routine["schedule"]) =>
+    setEditing((e) => (e ? { ...e, schedule } : e));
+
+  if (editing) {
+    const s = editing.schedule;
+    return (
+      <div className="flex flex-col gap-3 py-1">
+        <label className="flex flex-col gap-1 text-[12px] text-muted">
+          {t("settings.routines.name")}
+          <input
+            value={editing.name}
+            onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+            placeholder={t("settings.routines.namePlaceholder")}
+            className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text outline-none focus:border-accent"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-[12px] text-muted">
+          {t("settings.routines.prompt")}
+          <textarea
+            value={editing.prompt}
+            onChange={(e) => setEditing({ ...editing, prompt: e.target.value })}
+            placeholder={t("settings.routines.promptPlaceholder")}
+            rows={4}
+            className="resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] leading-relaxed text-text outline-none focus:border-accent"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-[12px] text-muted">
+          {t("settings.routines.cwd")}
+          <div className="flex gap-1.5">
+            <input
+              value={editing.cwd}
+              onChange={(e) => setEditing({ ...editing, cwd: e.target.value })}
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1.5 font-mono text-[12px] text-text outline-none focus:border-accent"
+            />
+            <button
+              onClick={() =>
+                void whalex.invoke("dialog:pickFolder", undefined).then((r) => {
+                  if (r.path) setEditing((e) => (e ? { ...e, cwd: r.path! } : e));
+                })
+              }
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-[12px] text-muted hover:bg-surface-2"
+            >
+              <FolderOpen size={13} />
+            </button>
+          </div>
+        </label>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-[12px] text-muted">
+            {t("settings.routines.schedule")}
+            <select
+              value={s.kind}
+              onChange={(e) => {
+                const kind = e.target.value as Routine["schedule"]["kind"];
+                if (kind === "interval") setSchedule({ kind, minutes: 60 });
+                else if (kind === "daily") setSchedule({ kind, time: "09:00" });
+                else if (kind === "weekly") setSchedule({ kind, weekday: 1, time: "09:00" });
+                else setSchedule({ kind: "once", at: Date.now() + 3_600_000 });
+              }}
+              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
+            >
+              <option value="interval">{t("settings.routines.kind.interval")}</option>
+              <option value="daily">{t("settings.routines.kind.daily")}</option>
+              <option value="weekly">{t("settings.routines.kind.weekly")}</option>
+              <option value="once">{t("settings.routines.kind.once")}</option>
+            </select>
+          </label>
+          {s.kind === "interval" && (
+            <label className="flex flex-col gap-1 text-[12px] text-muted">
+              {t("settings.routines.minutes")}
+              <input
+                type="number"
+                min={5}
+                max={10080}
+                value={s.minutes}
+                onChange={(e) =>
+                  setSchedule({
+                    kind: "interval",
+                    minutes: Math.min(10080, Math.max(5, Math.floor(Number(e.target.value)) || 5)),
+                  })
+                }
+                className="w-24 rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
+              />
+            </label>
+          )}
+          {s.kind === "weekly" && (
+            <select
+              value={s.weekday}
+              aria-label={t("settings.routines.schedule")}
+              onChange={(e) => setSchedule({ ...s, weekday: Number(e.target.value) })}
+              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
+            >
+              {[0, 1, 2, 3, 4, 5, 6].map((d) => (
+                <option key={d} value={d}>
+                  {weekdayName(d, lang)}
+                </option>
+              ))}
+            </select>
+          )}
+          {(s.kind === "daily" || s.kind === "weekly") && (
+            <input
+              type="time"
+              value={s.time}
+              aria-label={t("settings.routines.schedule")}
+              onChange={(e) => setSchedule({ ...s, time: e.target.value || "09:00" })}
+              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
+            />
+          )}
+          {s.kind === "once" && (
+            <input
+              type="datetime-local"
+              value={toLocalInput(s.at)}
+              aria-label={t("settings.routines.schedule")}
+              onChange={(e) => {
+                const ms = new Date(e.target.value).getTime();
+                if (!Number.isNaN(ms)) setSchedule({ kind: "once", at: ms });
+              }}
+              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
+            />
+          )}
+        </div>
+        <label className="flex flex-col gap-1 text-[12px] text-muted">
+          {t("settings.routines.mode")}
+          <select
+            value={editing.permissionMode}
+            onChange={(e) =>
+              setEditing({ ...editing, permissionMode: e.target.value as Routine["permissionMode"] })
+            }
+            className="w-fit rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
+          >
+            <option value="acceptEdits">{t("settings.mode.acceptEdits")}</option>
+            <option value="default">{t("settings.mode.default")}</option>
+            <option value="bypassPermissions">{t("settings.mode.bypass")}</option>
+          </select>
+        </label>
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={() => void save()}
+            disabled={!editing.prompt.trim() || !editing.cwd.trim()}
+            className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+          >
+            {t("settings.routines.save")}
+          </button>
+          <button
+            onClick={() => setEditing(null)}
+            className="rounded-md border border-border px-3 py-1.5 text-[12.5px] text-muted hover:bg-surface-2"
+          >
+            {t("common.cancel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-3 text-[11.5px] text-faint">{t("settings.routines.desc")}</div>
+      {settings.routines.length === 0 && (
+        <div className="mb-3 rounded-md border border-dashed border-border px-3 py-4 text-center text-[12px] text-faint">
+          {t("settings.routines.empty")}
+        </div>
+      )}
+      {settings.routines.map((r) => (
+        <div key={r.id} className="flex items-center gap-2 border-b border-border py-2.5">
+          <button
+            onClick={() => setEditing(r)}
+            className="min-w-0 flex-1 text-left"
+            title={r.prompt}
+          >
+            <div className="truncate text-[13px]">{r.name}</div>
+            <div className="truncate text-[11.5px] text-faint">
+              {scheduleSummary(r, t, lang)} · {r.cwd}
+              {r.lastRunAt
+                ? ` · ${t("settings.routines.lastRun", {
+                    at: new Date(r.lastRunAt).toLocaleString(lang, {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    }),
+                  })}`
+                : ""}
+            </div>
+          </button>
+          {runState[r.id] && (
+            <span className="max-w-32 truncate text-[11px] text-muted">{runState[r.id]}</span>
+          )}
+          <button
+            onClick={() => void runNow(r.id)}
+            title={t("settings.routines.runNow")}
+            className="rounded p-1 text-muted hover:text-accent"
+          >
+            <Play size={14} />
+          </button>
+          <ToggleSwitch
+            checked={r.enabled}
+            label={r.name}
+            onChange={(v) =>
+              void update({
+                routines: settings.routines.map((x) => (x.id === r.id ? { ...x, enabled: v } : x)),
+              })
+            }
+          />
+          <button
+            onClick={() =>
+              void update({ routines: settings.routines.filter((x) => x.id !== r.id) })
+            }
+            title={t("settings.mcp.delete")}
+            className="rounded p-1 text-faint hover:text-danger"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() => setEditing(blank())}
+        className="mt-3 rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover"
+      >
+        {t("settings.routines.add")}
+      </button>
+    </div>
+  );
+}
+
 export function SettingsModal() {
   const { t } = useTranslation();
   const open = useUiStore((s) => s.settingsOpen);
@@ -691,6 +1006,7 @@ export function SettingsModal() {
             {tab === "models" && <ModelsTab />}
             {tab === "mcp" && <McpTab />}
             {tab === "skills" && <SkillsTab />}
+            {tab === "routines" && <RoutinesTab />}
             {tab === "plugins" && <PluginsTab />}
             {tab === "appearance" && <AppearanceTab />}
             {tab === "updates" && <UpdatesTab />}

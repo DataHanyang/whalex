@@ -28,6 +28,7 @@ import {
   type AgentEventEnvelope,
   type McpStatus,
   type PermissionResponse,
+  type Routine,
   type SlashCommand,
   type Todo,
   type TranscriptItem,
@@ -242,7 +243,14 @@ export class AgentHost {
         modelInfo,
         temperature: s.temperature,
         reasoningEffort: s.reasoningEffort,
-        extraSystemPrompt: this.skills.catalog(),
+        extraSystemPrompt: [
+          s.customInstructions.trim()
+            ? `# User instructions\nThe user set these app-wide instructions in Settings; they apply to every session and project:\n\n${s.customInstructions.trim().slice(0, 20_000)}`
+            : "",
+          this.skills.catalog(),
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         extraTools: () => this.mcp.toolDefs(),
         hooks: this.hooks,
         autoCompact: s.autoCompact,
@@ -254,6 +262,25 @@ export class AgentHost {
 
   isSessionRunning(sessionId: string): boolean {
     return this.sessions.get(sessionId)?.loop.isRunning ?? false;
+  }
+
+  /**
+   * Fires a routine: a fresh session in the routine's cwd runs the saved
+   * prompt unattended, in the background — browser-event routing stays with
+   * whatever session the user is actually looking at.
+   */
+  async runRoutine(routine: Routine, model: string): Promise<{ sessionId: string }> {
+    const prevBrowserSession = this.activeSessionForBrowser;
+    const { sessionId } = await this.start(routine.cwd);
+    this.activeSessionForBrowser = prevBrowserSession;
+    const hosted = this.sessions.get(sessionId);
+    if (!hosted) throw new Error("Routine session failed to start.");
+    // Name the session after the routine — a manual title, so autoTitle skips it.
+    hosted.store.append({ type: "title", title: routine.name, ts: Date.now() });
+    this.emitDirect(sessionId, { type: "session-title", title: routine.name });
+    this.setMode(sessionId, routine.permissionMode);
+    this.send(sessionId, routine.prompt, model);
+    return { sessionId };
   }
 
   abortWorkflows(sessionId: string): void {
@@ -371,10 +398,9 @@ export class AgentHost {
 
   private enableWorkflow(sessionId: string, hosted: HostedSession, model: string): void {
     const s = this.settings.get();
-    const registry = (hosted.loop as unknown as { opts: { registry: { get(n: string): unknown; register(t: unknown): void } } })
-      .opts.registry;
+    const registry = hosted.loop.registry;
     if (registry.get("workflow")) return;
-    const provider = (hosted.loop as unknown as { opts: { provider: OpenAICompatProvider } }).opts.provider;
+    const provider = hosted.loop.provider;
     registry.register(
       createWorkflowTool(
         (name) =>
@@ -416,7 +442,7 @@ export class AgentHost {
             },
           });
         },
-      ),
+      ) as unknown as ToolDef<never>,
     );
   }
 
@@ -526,12 +552,11 @@ export class AgentHost {
     model: string,
   ): Promise<void> {
     try {
-      const opts = (hosted.loop as unknown as { opts: { provider: OpenAICompatProvider } }).opts;
       const hasManualTitle = () =>
         hosted.store.effectiveRecords().some((r) => r.type === "title" && !r.auto);
       if (hasManualTitle()) return;
       let text = "";
-      for await (const d of opts.provider.streamChat({
+      for await (const d of hosted.loop.provider.streamChat({
         // Known DeepSeek models imply the DeepSeek endpoint, where flash is
         // the cheap pick; custom providers (Ollama etc.) only serve their own.
         model: model in KNOWN_MODELS ? "deepseek-v4-flash" : model,

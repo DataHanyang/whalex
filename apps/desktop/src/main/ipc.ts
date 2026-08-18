@@ -14,6 +14,7 @@ import type { Updater } from "./updater.js";
 import type { PreviewManager } from "./PreviewManager.js";
 import type { PluginManager } from "./PluginManager.js";
 import type { AuthManager } from "./auth.js";
+import type { RoutineManager } from "./RoutineManager.js";
 import { EDITION, isCloud, CLOUD_CONFIG } from "./edition.js";
 
 type Handlers = {
@@ -30,8 +31,9 @@ export function registerIpc(deps: {
   plugins: PluginManager;
   browser: import("./BrowserManager.js").BrowserManager;
   auth: AuthManager;
+  routines: RoutineManager;
 }): void {
-  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth } = deps;
+  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines } = deps;
 
   const makeProvider = (providerId: string, apiKeyOverride?: string) => {
     // Cloud edition routes through the hosted proxy with the session token.
@@ -124,6 +126,7 @@ export function registerIpc(deps: {
     "preview:start": (req) =>
       preview.start(req.sessionId, req.command, req.port, req.cwd ?? process.cwd()),
     "preview:stop": (req) => preview.stop(req.sessionId),
+    "routines:run": (req) => routines.runNow(req.id),
     "update:check": () => updater.check(),
     "update:download": () => updater.download(),
     "update:install": () => {

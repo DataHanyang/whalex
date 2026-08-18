@@ -57,6 +57,35 @@ export const ReasoningEffortSchema = z.preprocess(
 );
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
 
+export const RoutineScheduleSchema = z.union([
+  z.object({ kind: z.literal("interval"), minutes: z.number().int().min(5).max(10080) }),
+  z.object({ kind: z.literal("daily"), time: z.string().regex(/^\d{2}:\d{2}$/) }),
+  z.object({
+    kind: z.literal("weekly"),
+    weekday: z.number().int().min(0).max(6),
+    time: z.string().regex(/^\d{2}:\d{2}$/),
+  }),
+  /** One-shot run at an epoch-ms timestamp; disabled automatically after firing. */
+  z.object({ kind: z.literal("once"), at: z.number() }),
+]);
+export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
+
+export const RoutineSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** The message sent to a fresh session when the routine fires. */
+  prompt: z.string(),
+  /** Working directory the routine session opens in. */
+  cwd: z.string(),
+  schedule: RoutineScheduleSchema,
+  /** Permission mode for the unattended run — plan mode makes no sense here. */
+  permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions"]).default("acceptEdits"),
+  enabled: z.boolean().default(true),
+  lastRunAt: z.number().optional(),
+  lastSessionId: z.string().optional(),
+});
+export type Routine = z.infer<typeof RoutineSchema>;
+
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
   language: z.enum(["system", "en", "ko", "zh", "ja", "fr"]).default("en"),
@@ -124,6 +153,13 @@ export const SettingsSchema = z.object({
     .default({}),
   /** Which subagent types the agent may spawn. */
   disabledAgentTypes: z.array(z.string()).default([]),
+  /**
+   * User-authored instructions injected into every session's system prompt,
+   * across all projects — the app-level counterpart of a project WHALEX.md.
+   */
+  customInstructions: z.string().default(""),
+  /** Scheduled prompts that run unattended while the app sits in the tray. */
+  routines: z.array(RoutineSchema).default([]),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

@@ -13,6 +13,7 @@ import { PluginManager } from "./PluginManager.js";
 import { BrowserManager } from "./BrowserManager.js";
 import { ComputerManager } from "./ComputerManager.js";
 import { AuthManager } from "./auth.js";
+import { RoutineManager } from "./RoutineManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -206,8 +207,11 @@ void app.whenReady().then(() => {
   host.setComputer(new ComputerManager(settings, vault));
   const auth = new AuthManager(vault);
   auth.wire(() => mainWindow);
+  // Routines fire while the app is tray-resident too — that's the point.
+  const routines = new RoutineManager(settings, host);
+  routines.start();
 
-  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth });
+  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines });
   createWindow();
   createTray();
   // Relaunching the app (e.g. from the Start menu) while it sits in the tray
@@ -227,6 +231,7 @@ void app.whenReady().then(() => {
   // otherwise they end up orphaned on Windows and squat the ports.
   let cleanupDone = false;
   const shutdownCleanup = async () => {
+    routines.stop();
     host.disposeAll();
     await Promise.race([preview.stopAll(), new Promise((r) => setTimeout(r, 3000))]);
   };
