@@ -87,7 +87,7 @@ const Item = memo(function Item({ item }: { item: TranscriptItem }) {
     case "workflow":
       return (
         <div className="transcript-item">
-          <WorkflowPanel workflowId={item.workflowId} />
+          <WorkflowPanel workflowId={item.workflowId} name={item.name} />
         </div>
       );
     case "subagent":
@@ -177,7 +177,7 @@ function EmptyState() {
 export function Transcript() {
   const { t } = useTranslation();
   const transcript = useSessionStore((s) => s.transcript);
-  const pendingPermission = useSessionStore((s) => s.pendingPermission);
+  const pendingPermission = useSessionStore((s) => s.pendingPermissions[0] ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const [showJump, setShowJump] = useState(false);

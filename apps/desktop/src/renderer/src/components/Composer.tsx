@@ -67,7 +67,7 @@ export function Composer() {
   };
   const taRef = useRef<HTMLTextAreaElement>(null);
   const status = useSessionStore((s) => s.status);
-  const pendingPermission = useSessionStore((s) => s.pendingPermission);
+  const pendingPermission = useSessionStore((s) => s.pendingPermissions[0] ?? null);
   const send = useSessionStore((s) => s.send);
   const abort = useSessionStore((s) => s.abort);
   const model = useSessionStore((s) => s.model);

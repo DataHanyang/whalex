@@ -23,7 +23,12 @@ interface SessionState {
   status: SessionStatus;
   usage: UsageInfo | null;
   todos: Todo[];
-  pendingPermission: PermissionRequest | null;
+  /**
+   * Approvals waiting on the user, oldest first — the card shows [0]. A
+   * SuperCode fleet can raise several at once and each blocks its own agent,
+   * so a newer request must never replace one still unanswered.
+   */
+  pendingPermissions: PermissionRequest[];
   pendingQuestion: import("@whalex/shared").UserQuestion | null;
   /** A plan artifact is awaiting the user's Accept / Revise / Reject. */
   planPending: boolean;
@@ -35,7 +40,8 @@ interface SessionState {
   artifacts: Artifact[];
   activeArtifactId: string | null;
   subagents: Record<string, { agentType: string; label: string; state: string; toolCount: number; tokens: number; lastActivity: string }>;
-  workflow: WorkflowState | null;
+  /** Every workflow of this session by id — finished ones keep rendering. */
+  workflows: Record<string, WorkflowState>;
   browser: { tabs: Array<{ id: string; url: string; title: string }>; activeTabId: string | null };
   /** Selected side-panel tab: "agents", `a:<artifactId>` or `b:<browserTabId>`. */
   sideTab: string | null;
@@ -61,6 +67,7 @@ interface SessionState {
   refreshSessions(): Promise<void>;
   deleteSession(sessionId: string, cwd: string): Promise<void>;
   rewind(boundary: number): Promise<void>;
+  openInitialSession(cwd: string): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
@@ -82,7 +89,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   status: "idle",
   usage: null,
   todos: [],
-  pendingPermission: null,
+  pendingPermissions: [],
   pendingQuestion: null,
   planPending: false,
   lastError: null,
@@ -91,7 +98,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   artifacts: [],
   activeArtifactId: null,
   subagents: {},
-  workflow: null,
+  workflows: {},
   browser: { tabs: [], activeTabId: null },
   sideTab: null,
   turnStartedAt: null,
@@ -219,6 +226,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
+  /**
+   * What the window opens on. A renderer reload (or crash) must reattach to a
+   * turn that is still running in main instead of opening a blank session:
+   * an orphaned turn keeps spending, its approval cards land nowhere, and
+   * Stop would abort the new empty session instead of the working one.
+   */
+  async openInitialSession(cwd) {
+    const attached = await whalex.invoke("session:attached", undefined);
+    if (attached.sessionId && attached.cwd && attached.running) {
+      await get().startSession(attached.cwd, attached.sessionId);
+      return;
+    }
+    await get().startSession(cwd);
+  },
+
   async startSession(cwd, resumeSessionId) {
     // Re-clicking the already-open session must not wipe its live state.
     if (resumeSessionId && resumeSessionId === get().activeSessionId) return;
@@ -227,29 +249,57 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const res = await whalex.invoke("session:start", { cwd, resumeSessionId });
     if (seq !== startSeq) return; // a newer click superseded this response
     // Re-derive planPending from the resumed transcript: a plan artifact with
-    // no later user message is still awaiting the user's decision. The host
-    // replays live workflow/usage/todos/streaming state separately.
+    // no later user message is still awaiting the user's decision.
     const lastPlanIdx = res.transcript.reduce(
       (acc, t, i) => (t.kind === "artifact" && t.artifactKind === "plan" ? i : acc),
       -1,
     );
     const laterUserMsg =
       lastPlanIdx >= 0 && res.transcript.slice(lastPlanIdx + 1).some((t) => t.kind === "user");
+    // Workflow panels: the persisted trees first, then the live ones on top —
+    // a run still in flight has fresher state in the snapshot than on disk.
+    const workflows: Record<string, WorkflowState> = {};
+    for (const item of res.transcript) {
+      if (item.kind === "workflow" && item.state) workflows[item.workflowId] = item.state;
+    }
+    for (const wf of res.live?.workflows ?? []) workflows[wf.workflowId] = wf;
+    // Todos are written to the session file as they change, so the pill comes
+    // back from the last record even for a session reloaded from disk.
+    const lastTodos = res.transcript.reduce<Todo[]>(
+      (acc, t) => (t.kind === "todos" ? t.todos : acc),
+      [],
+    );
+    // The bubble still streaming in main isn't in the transcript yet; re-hang
+    // it under the same id so later deltas continue it.
+    const transcript = res.live?.streaming
+      ? [
+          ...res.transcript,
+          {
+            kind: "assistant" as const,
+            id: res.live.streaming.messageId,
+            text: res.live.streaming.text,
+            reasoning: res.live.streaming.reasoning,
+            streaming: true,
+            interrupted: false,
+            ts: Date.now(),
+          },
+        ]
+      : res.transcript;
     set({
       cwd,
       activeSessionId: res.sessionId,
-      transcript: res.transcript,
-      status: res.running ? "thinking" : "idle",
-      usage: null,
-      todos: [],
-      pendingPermission: null,
-      pendingQuestion: null,
+      transcript,
+      status: res.live?.status ?? (res.running ? "thinking" : "idle"),
+      usage: res.live?.usage ?? null,
+      todos: res.live?.todos ?? lastTodos,
+      pendingPermissions: res.live?.permissionRequests ?? [],
+      pendingQuestion: res.live?.questionRequest ?? null,
       planPending: lastPlanIdx >= 0 && !laterUserMsg,
       lastError: null,
       artifacts: [],
       activeArtifactId: null,
       subagents: {},
-      workflow: null,
+      workflows,
       browser: { tabs: [], activeTabId: null },
       sideTab: null,
       // Restore what the host engine is actually using — a reattached session
@@ -290,7 +340,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   async respondPermission(res) {
-    set({ pendingPermission: null });
+    set((s) => ({ pendingPermissions: s.pendingPermissions.filter((p) => p.id !== res.id) }));
     await whalex.invoke("permission:respond", res);
   },
 
@@ -470,7 +520,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         break;
       case "workflow-update":
         set((s) => ({
-          workflow: ev.workflow,
+          workflows: { ...s.workflows, [ev.workflow.workflowId]: ev.workflow },
           transcript:
             s.transcript.some((t) => t.kind === "workflow" && t.workflowId === ev.workflow.workflowId)
               ? s.transcript
@@ -546,15 +596,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }));
         break;
       case "permission-request":
-        set({ pendingPermission: ev.request });
+        // Queue, never replace: an overwritten request is an agent that waits
+        // for an answer no one can give.
+        set((s) => ({
+          pendingPermissions: s.pendingPermissions.some((p) => p.id === ev.request.id)
+            ? s.pendingPermissions
+            : [...s.pendingPermissions, ev.request],
+        }));
         break;
       case "question-request":
         set({ pendingQuestion: ev.request });
         break;
       case "permission-resolved":
-        set((s) =>
-          s.pendingPermission?.id === ev.requestId ? { pendingPermission: null } : {},
-        );
+        set((s) => ({
+          pendingPermissions: s.pendingPermissions.filter((p) => p.id !== ev.requestId),
+        }));
         break;
       case "usage":
         set({ usage: ev.usage });
@@ -580,7 +636,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       case "done":
         set((s) => ({
           status: "idle",
-          pendingPermission: null,
+          pendingPermissions: [],
           // An open question card is moot once the turn ends (abort/error) —
           // main clears its copy on done too; leaving ours up strands the card.
           pendingQuestion: null,

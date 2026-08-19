@@ -12,7 +12,7 @@ export function App() {
   const edition = useAppStore((s) => s.edition);
   const signedIn = useAppStore((s) => s.signedIn);
   const init = useAppStore((s) => s.init);
-  const startSession = useSessionStore((s) => s.startSession);
+  const openInitialSession = useSessionStore((s) => s.openInitialSession);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
   const booted = useRef(false);
 
@@ -24,12 +24,13 @@ export function App() {
     }
   }, [init]);
 
-  // Auto-open a session in the default folder once onboarded.
+  // Auto-open once onboarded: a session still running in main wins over a
+  // blank one in the default folder, so a reload doesn't orphan live work.
   useEffect(() => {
     if (ready && settings?.onboardingComplete && settings.defaultCwd && !activeSessionId) {
-      void startSession(settings.defaultCwd);
+      void openInitialSession(settings.defaultCwd);
     }
-  }, [ready, settings, activeSessionId, startSession]);
+  }, [ready, settings, activeSessionId, openInitialSession]);
 
   if (!ready || !settings) {
     return <div className="titlebar-drag h-full" />;

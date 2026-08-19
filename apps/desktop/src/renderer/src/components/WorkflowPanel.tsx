@@ -3,12 +3,27 @@ import { useTranslation } from "react-i18next";
 import { Bot, Check, ChevronDown, ChevronRight, Loader2, Sparkles, X } from "lucide-react";
 import { useSessionStore } from "../stores/sessionStore";
 
-/** Live SuperCode progress tree: phases → agents, with token/cost counters. */
-export function WorkflowPanel({ workflowId }: { workflowId: string }) {
+/**
+ * SuperCode progress tree: phases → agents, with token/cost counters. Reads
+ * its own run out of the per-id map, so finished workflows keep rendering
+ * once a later one starts.
+ */
+export function WorkflowPanel({ workflowId, name }: { workflowId: string; name: string }) {
   const { t } = useTranslation();
-  const workflow = useSessionStore((s) => s.workflow);
-  const [open, setOpen] = useState(true);
-  if (!workflow || workflow.workflowId !== workflowId) return null;
+  const workflow = useSessionStore((s) => s.workflows[workflowId]);
+  // Settled runs open collapsed; a live one stays expanded while it works.
+  const [open, setOpen] = useState(
+    () => !workflow || workflow.state === "planning" || workflow.state === "running",
+  );
+  // Runs from before trees were persisted have no state to draw — name only.
+  if (!workflow) {
+    return (
+      <div className="my-2 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-[12.5px] text-muted">
+        <Sparkles size={14} className="text-accent" />
+        <span>SuperCode: {name}</span>
+      </div>
+    );
+  }
 
   const byPhase = new Map<string, typeof workflow.agents>();
   for (const a of workflow.agents) {

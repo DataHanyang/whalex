@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TodoSchema } from "./events.js";
+import { TodoSchema, WorkflowStateSchema } from "./events.js";
 
 export const SessionMetaSchema = z.object({
   sessionId: z.string(),
@@ -68,6 +68,12 @@ export const TranscriptItemSchema = z.discriminatedUnion("kind", [
     id: z.string(),
     workflowId: z.string(),
     name: z.string(),
+    /**
+     * Final (or last known) progress tree, persisted with the record so a
+     * finished workflow still renders after a reload. Absent for runs that
+     * predate persistence, and for a run still streaming live updates.
+     */
+    state: WorkflowStateSchema.optional(),
     ts: z.number(),
   }),
   z.object({

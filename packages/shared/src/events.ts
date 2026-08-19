@@ -185,6 +185,31 @@ export const WorkflowStateSchema = z.object({
 });
 export type WorkflowState = z.infer<typeof WorkflowStateSchema>;
 
+/**
+ * Everything a session holds that is live but not yet committed to the
+ * transcript. Returned with session:start so a reattaching renderer restores
+ * the whole picture in one atomic update — replaying it as events would race
+ * the response that sets the active session id.
+ */
+export const LiveSnapshotSchema = z.object({
+  status: z.enum(["thinking", "streaming", "tool", "idle"]).optional(),
+  /** The assistant bubble mid-stream; deltas keep appending to this id. */
+  streaming: z
+    .object({ messageId: z.string(), text: z.string(), reasoning: z.string() })
+    .optional(),
+  workflows: z.array(WorkflowStateSchema).default([]),
+  todos: z.array(TodoSchema).optional(),
+  usage: UsageInfoSchema.optional(),
+  /**
+   * Every approval still waiting on an answer. A fleet can raise several at
+   * once, and each one that never reaches the UI blocks its agent forever —
+   * so they queue rather than overwrite.
+   */
+  permissionRequests: z.array(PermissionRequestSchema).default([]),
+  questionRequest: UserQuestionSchema.optional(),
+});
+export type LiveSnapshot = z.infer<typeof LiveSnapshotSchema>;
+
 export const ArtifactSchema = z.object({
   artifactId: z.string(),
   title: z.string(),

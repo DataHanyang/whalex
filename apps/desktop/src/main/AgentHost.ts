@@ -28,6 +28,7 @@ import {
   resolveModelInfo,
   type AgentEvent,
   type AgentEventEnvelope,
+  type LiveSnapshot,
   type McpStatus,
   type PermissionResponse,
   type Routine,
@@ -53,34 +54,50 @@ interface HostedSession {
   modeOverride: import("@whalex/shared").PermissionMode | null;
   /** Abort controllers of live workflow runs; fired on session abort. */
   workflowAborts: Set<AbortController>;
-  /** Outstanding interactive requests, replayed when the UI reattaches. */
+  /** Outstanding interactive requests, handed back when the UI reattaches. */
   pendingQuestion: import("@whalex/shared").UserQuestion | null;
-  pendingPermission: import("@whalex/shared").PermissionRequest | null;
+  /**
+   * Every unanswered approval by request id. A SuperCode fleet can raise
+   * several at once and each blocks its own agent until answered, so the
+   * newest must not evict the ones still waiting.
+   */
+  pendingPermissions: Map<string, import("@whalex/shared").PermissionRequest>;
   /** Agent-result cache shared by every workflow run in this session. */
   workflowCache: Map<string, unknown>;
+  /** Workflow id → signature of the tree already written to the session file. */
+  workflowsPersisted: Map<string, string>;
   /**
-   * Snapshot of live, not-yet-committed state (streaming message, workflow,
-   * todos, usage, status). Replayed verbatim when the UI reattaches so a
-   * session switched away from and back to resumes its picture instead of
-   * appearing frozen — the streaming bubble in particular is not in the
-   * transcript yet.
+   * Live, not-yet-committed state (streaming message, workflows, todos, usage,
+   * status). Handed to the UI with the session:start response when it
+   * reattaches, so a session switched away from and back to resumes its
+   * picture instead of appearing frozen — the streaming bubble in particular
+   * is not in the transcript yet.
    */
-  live: LiveSnapshot;
+  live: LiveState;
 }
 
-interface LiveSnapshot {
+interface LiveState {
   status: Extract<AgentEvent, { type: "status" }>["state"] | null;
   /** The in-flight assistant message id, or null once it's committed. */
   msgId: string | null;
   text: string;
   reasoning: string;
-  workflow: WorkflowState | null;
+  /** Every workflow of this session by id — not just the most recent one. */
+  workflows: Map<string, WorkflowState>;
   todos: Todo[] | null;
   usage: UsageInfo | null;
 }
 
-function emptyLive(): LiveSnapshot {
-  return { status: null, msgId: null, text: "", reasoning: "", workflow: null, todos: null, usage: null };
+function emptyLive(): LiveState {
+  return {
+    status: null,
+    msgId: null,
+    text: "",
+    reasoning: "",
+    workflows: new Map(),
+    todos: null,
+    usage: null,
+  };
 }
 
 /** Artifacts are cached in-process; cap the map so a tray-resident app doesn't grow forever. */
@@ -132,6 +149,18 @@ export class AgentHost {
   private computer: (ComputerController & { isAvailable(): boolean }) | null = null;
   private activeSessionForBrowser: string | null = null;
 
+  /**
+   * The session the window is on — a routine's unattended run parks and
+   * restores this, so it always names the user's own session. A renderer that
+   * reloaded uses it to reattach instead of orphaning a live turn.
+   */
+  attachedSession(): { sessionId: string | null; cwd: string | null; running: boolean } {
+    const id = this.activeSessionForBrowser;
+    const hosted = id ? this.sessions.get(id) : null;
+    if (!id || !hosted) return { sessionId: null, cwd: null, running: false };
+    return { sessionId: id, cwd: hosted.store.cwd, running: hosted.loop.isRunning };
+  }
+
   constructor(
     private getWindow: () => BrowserWindow | null,
     private settings: SettingsManager,
@@ -176,12 +205,11 @@ export class AgentHost {
   ): Promise<import("@whalex/shared").IpcResponse<"session:start">> {
     // Reattach: switching back to a session this process is already hosting
     // must NOT create a second loop over the same file — the original keeps
-    // running and the UI just catches up from the transcript + live events.
+    // running and the UI just catches up from the transcript + live snapshot.
     if (resumeSessionId) {
       const live = this.sessions.get(resumeSessionId);
       if (live) {
         this.activeSessionForBrowser = resumeSessionId;
-        queueMicrotask(() => this.replayPending(resumeSessionId, live));
         return {
           sessionId: resumeSessionId,
           cwd: live.store.cwd,
@@ -191,6 +219,7 @@ export class AgentHost {
           permissionMode: live.modeOverride ?? this.settings.get().permissions.mode,
           goalMode: live.goalMode,
           superCode: live.superCode,
+          live: this.liveSnapshot(live),
         };
       }
     }
@@ -271,8 +300,9 @@ export class AgentHost {
       modeOverride: null,
       workflowAborts: new Set(),
       workflowCache: new Map(),
+      workflowsPersisted: new Map(),
       pendingQuestion: null,
-      pendingPermission: null,
+      pendingPermissions: new Map(),
       live: emptyLive(),
       loop: new AgentLoop({
         provider,
@@ -370,6 +400,7 @@ export class AgentHost {
     return routine;
   }
 
+  /** Cancels every live SuperCode run of a session. Called by abort(). */
   abortWorkflows(sessionId: string): void {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) return;
@@ -645,7 +676,13 @@ export class AgentHost {
   }
 
   abort(sessionId: string): void {
-    this.sessions.get(sessionId)?.loop.abort();
+    const hosted = this.sessions.get(sessionId);
+    if (!hosted) return;
+    hosted.loop.abort();
+    // Aborting the loop only denies pending approvals — the SuperCode script
+    // and its agents run under their own controllers and would keep going
+    // (and keep spending) after the user pressed Stop.
+    this.abortWorkflows(sessionId);
   }
 
   respondPermission(response: PermissionResponse): void {
@@ -725,37 +762,33 @@ User: ${userText.slice(0, 400)}`,
   }
 
   /**
-   * Re-send the state a reattaching renderer needs to resume the picture.
-   * transcript() supplies committed history; this fills in everything still
-   * live and uncommitted: the streaming assistant bubble, the workflow panel,
-   * todos, the usage meter, status, and any open interactive request. These
-   * are enqueued raw (not through emit) so replaying them doesn't disturb the
-   * snapshot they were read from.
+   * The state a reattaching renderer needs on top of the transcript: the
+   * streaming assistant bubble, workflow panels, todos, the usage meter,
+   * status, and any open interactive request.
+   *
+   * This travels in the session:start response rather than as replayed
+   * events on purpose. Events are dropped by the renderer unless they name
+   * the session it already considers active — and it only becomes active
+   * when this very response lands, so a replay would always lose the race.
    */
-  private replayPending(sessionId: string, hosted: HostedSession): void {
+  private liveSnapshot(hosted: HostedSession): LiveSnapshot {
     const live = hosted.live;
-    if (hosted.loop.isRunning) {
-      this.enqueue(sessionId, hosted, { type: "status", state: live.status ?? "thinking" });
-      // The in-flight assistant message hasn't been written to the transcript
-      // yet — rebuild its bubble from the accumulated stream so subsequent
-      // live deltas continue it instead of vanishing.
-      if (live.msgId) {
-        this.enqueue(sessionId, hosted, { type: "message-start", messageId: live.msgId });
-        if (live.reasoning)
-          this.enqueue(sessionId, hosted, { type: "reasoning-delta", messageId: live.msgId, delta: live.reasoning });
-        if (live.text)
-          this.enqueue(sessionId, hosted, { type: "text-delta", messageId: live.msgId, delta: live.text });
-      }
-    }
-    if (live.workflow) this.enqueue(sessionId, hosted, { type: "workflow-update", workflow: live.workflow });
-    if (live.todos) this.enqueue(sessionId, hosted, { type: "todo-update", todos: live.todos });
-    if (live.usage) this.enqueue(sessionId, hosted, { type: "usage", usage: live.usage });
-    if (hosted.pendingQuestion)
-      this.enqueue(sessionId, hosted, { type: "question-request", request: hosted.pendingQuestion });
-    if (hosted.pendingPermission)
-      this.enqueue(sessionId, hosted, { type: "permission-request", request: hosted.pendingPermission });
-    if (hosted.superCode) this.enqueue(sessionId, hosted, { type: "supercode", on: true });
-    this.flush();
+    const running = hosted.loop.isRunning;
+    return {
+      status: running ? (live.status ?? "thinking") : undefined,
+      // The in-flight assistant message isn't in the transcript yet — hand
+      // over what has streamed so far, under the same id, so subsequent
+      // deltas continue that bubble instead of starting a new one.
+      streaming:
+        running && live.msgId
+          ? { messageId: live.msgId, text: live.text, reasoning: live.reasoning }
+          : undefined,
+      workflows: [...live.workflows.values()],
+      todos: live.todos ?? undefined,
+      usage: live.usage ?? undefined,
+      permissionRequests: [...hosted.pendingPermissions.values()],
+      questionRequest: hosted.pendingQuestion ?? undefined,
+    };
   }
 
   private emit(sessionId: string, hosted: HostedSession, event: AgentEvent): void {
@@ -827,10 +860,10 @@ User: ${userText.slice(0, 400)}`,
         hosted.pendingQuestion = event.request;
         break;
       case "permission-request":
-        hosted.pendingPermission = event.request;
+        hosted.pendingPermissions.set(event.request.id, event.request);
         break;
       case "permission-resolved":
-        hosted.pendingPermission = null;
+        hosted.pendingPermissions.delete(event.requestId);
         break;
       case "status":
         hosted.live.status = event.state;
@@ -852,21 +885,63 @@ User: ${userText.slice(0, 400)}`,
         // usage event fires, so the streaming bubble no longer needs replay.
         hosted.live.msgId = null;
         break;
-      case "workflow-update":
-        hosted.live.workflow = event.workflow;
+      case "workflow-update": {
+        const wf = event.workflow;
+        hosted.live.workflows.set(wf.workflowId, wf);
+        // Settled runs get their tree written once, so the panel still has
+        // something to draw after the app restarts.
+        if (wf.state === "done" || wf.state === "error" || wf.state === "aborted") {
+          this.persistWorkflow(hosted, wf);
+        }
         break;
+      }
       case "todo-update":
         hosted.live.todos = event.todos;
         break;
       case "done":
         hosted.pendingQuestion = null;
-        hosted.pendingPermission = null;
+        hosted.pendingPermissions.clear();
         hosted.live.status = null;
         hosted.live.msgId = null;
+        // A turn that was aborted (or died) can leave a workflow stuck in
+        // "running" with no terminal update — persist whatever it reached.
+        for (const wf of hosted.live.workflows.values()) this.persistWorkflow(hosted, wf);
         break;
       default:
         break;
     }
+  }
+
+  /**
+   * Write a workflow's progress tree to the session file. Called only when a
+   * run settles (and once more at the end of the turn), and skipped when the
+   * tree is unchanged — so a run costs a couple of records, not one per tick,
+   * and the last write wins when the final tally lands after the first
+   * terminal update. transcript() folds the records back into one panel.
+   */
+  private persistWorkflow(hosted: HostedSession, workflow: WorkflowState): void {
+    // An aborted run leaves agents mid-flight: they never finished, and a
+    // restored panel must not spin on them forever.
+    const state: WorkflowState = {
+      ...workflow,
+      agents: workflow.agents.map((a) =>
+        a.state === "running" || a.state === "pending" ? { ...a, state: "error" as const } : a,
+      ),
+    };
+    const signature = JSON.stringify([
+      state.state,
+      state.totalTokens,
+      state.agents.map((a) => a.state),
+    ]);
+    if (hosted.workflowsPersisted.get(state.workflowId) === signature) return;
+    hosted.workflowsPersisted.set(state.workflowId, signature);
+    hosted.store.append({
+      type: "workflow",
+      workflowId: state.workflowId,
+      name: state.name,
+      state,
+      ts: Date.now(),
+    });
   }
 
   private enqueue(sessionId: string, hosted: HostedSession, event: AgentEvent): void {

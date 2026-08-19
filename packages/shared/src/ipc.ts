@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AgentEventEnvelopeSchema, ArtifactSchema } from "./events.js";
+import { AgentEventEnvelopeSchema, ArtifactSchema, LiveSnapshotSchema } from "./events.js";
 import { PermissionResponseSchema } from "./permissions.js";
 import { SettingsSchema, RoutineSchema } from "./settings.js";
 import { ModelInfoSchema } from "./models.js";
@@ -94,6 +94,19 @@ export const IPC_INVOKE = {
     req: z.object({ cwd: z.string(), sessionId: z.string() }),
     res: z.void(),
   },
+  /**
+   * The session this window was last attached to, so a reloaded renderer can
+   * pick its own work back up instead of orphaning a running turn. Background
+   * routine sessions never claim this slot.
+   */
+  "session:attached": {
+    req: z.void(),
+    res: z.object({
+      sessionId: z.string().nullable(),
+      cwd: z.string().nullable(),
+      running: z.boolean(),
+    }),
+  },
   "session:start": {
     req: z.object({ cwd: z.string(), resumeSessionId: z.string().optional() }),
     res: z.object({
@@ -107,6 +120,8 @@ export const IPC_INVOKE = {
       permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan"]).optional(),
       goalMode: z.boolean().optional(),
       superCode: z.boolean().optional(),
+      /** Live, uncommitted state of a session still hosted in this process. */
+      live: LiveSnapshotSchema.optional(),
     }),
   },
   "session:send": {

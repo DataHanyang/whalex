@@ -25,7 +25,7 @@ export function AppShell() {
   const { t } = useTranslation();
   const status = useSessionStore((s) => s.status);
   const abort = useSessionStore((s) => s.abort);
-  const pendingPermission = useSessionStore((s) => s.pendingPermission);
+  const pendingPermission = useSessionStore((s) => s.pendingPermissions[0] ?? null);
   const pendingQuestion = useSessionStore((s) => s.pendingQuestion);
   const planPending = useSessionStore((s) => s.planPending);
   const sessions = useSessionStore((s) => s.sessions);

@@ -89,6 +89,7 @@ export function registerIpc(deps: {
       return list.map((m) => ({ ...m, running: host.isSessionRunning(m.sessionId) }));
     },
     "session:delete": (req) => SessionStore.delete(req.cwd, req.sessionId),
+    "session:attached": () => host.attachedSession(),
     "session:start": (req) => host.start(req.cwd, req.resumeSessionId),
     "session:send": (req) => {
       host.send(req.sessionId, req.text, req.model);

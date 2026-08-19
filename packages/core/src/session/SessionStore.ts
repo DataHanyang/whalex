@@ -3,7 +3,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
-import type { SessionMeta, Todo, TranscriptItem } from "@whalex/shared";
+import type { SessionMeta, Todo, TranscriptItem, WorkflowState } from "@whalex/shared";
 import type { ChatMessage } from "../providers/Provider.js";
 import type { AssembledToolCall } from "../agent/ToolCallAssembler.js";
 
@@ -50,7 +50,12 @@ export type SessionRecord =
       artifactKind: string;
       ts: number;
     }
-  | { type: "workflow"; workflowId: string; name: string; ts: number }
+  /**
+   * One record when the workflow starts, another carrying the progress tree
+   * when it settles. transcript() folds them into a single item, so the panel
+   * survives a reload instead of rendering an empty shell.
+   */
+  | { type: "workflow"; workflowId: string; name: string; state?: WorkflowState; ts: number }
   | { type: "compaction"; summary: string; upto: number; beforePct: number; afterPct: number; ts: number }
   | { type: "rewind"; boundary: number; ts: number }
   | { type: "file_change"; path: string; oldText: string; newText: string; ts: number }
@@ -411,6 +416,9 @@ export class SessionStore {
   /** Rebuilds the renderer transcript for session resume. */
   transcript(): TranscriptItem[] {
     const items: TranscriptItem[] = [];
+    // Where each workflow's item landed, so a later snapshot record updates it
+    // in place instead of adding a second panel for the same run.
+    const workflowIndex = new Map<string, number>();
     for (const rec of this.effectiveRecords()) {
       switch (rec.type) {
         case "user":
@@ -469,15 +477,24 @@ export class SessionStore {
             ts: rec.ts,
           });
           break;
-        case "workflow":
-          items.push({
+        case "workflow": {
+          const at = workflowIndex.get(rec.workflowId);
+          const item: TranscriptItem = {
             kind: "workflow",
             id: rec.workflowId,
             workflowId: rec.workflowId,
             name: rec.name,
-            ts: rec.ts,
-          });
+            state: rec.state,
+            ts: at === undefined ? rec.ts : items[at]!.ts,
+          };
+          if (at === undefined) {
+            workflowIndex.set(rec.workflowId, items.length);
+            items.push(item);
+          } else {
+            items[at] = item;
+          }
           break;
+        }
         case "compaction":
           items.push({
             kind: "compaction",
