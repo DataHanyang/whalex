@@ -67,6 +67,8 @@ export const RoutineScheduleSchema = z.union([
   }),
   /** One-shot run at an epoch-ms timestamp; disabled automatically after firing. */
   z.object({ kind: z.literal("once"), at: z.number() }),
+  /** No clock trigger — the model found no time in the prompt. "Run now" only. */
+  z.object({ kind: z.literal("manual") }),
 ]);
 export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
 

@@ -82,6 +82,9 @@ export class RoutineManager {
         return dueAt(todayAt(sched.time, now), last, now);
       case "once":
         return !last && now >= sched.at;
+      case "manual":
+        // No clock trigger — only "Run now" fires a manual routine.
+        return false;
     }
   }
 

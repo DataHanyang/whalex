@@ -129,6 +129,14 @@ export function registerIpc(deps: {
       preview.start(req.sessionId, req.command, req.port, req.cwd ?? process.cwd()),
     "preview:stop": (req) => preview.stop(req.sessionId),
     "routines:run": (req) => routines.runNow(req.id),
+    "routines:save": async (req) => {
+      try {
+        const routine = await host.saveRoutine(req);
+        return { ok: true, routine };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
     "usage:summary": async (req) => {
       const s = usage.summary(req.days ?? 30);
       let balance: { currency: string; total: number; granted: number; toppedUp: number } | null =

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { AgentEventEnvelopeSchema, ArtifactSchema } from "./events.js";
 import { PermissionResponseSchema } from "./permissions.js";
-import { SettingsSchema } from "./settings.js";
+import { SettingsSchema, RoutineSchema } from "./settings.js";
 import { ModelInfoSchema } from "./models.js";
 import { SessionMetaSchema, TranscriptItemSchema } from "./session.js";
 
@@ -213,6 +213,21 @@ export const IPC_INVOKE = {
   "routines:run": {
     req: z.object({ id: z.string() }),
     res: z.object({ ok: z.boolean(), error: z.string().optional() }),
+  },
+  /**
+   * Create or update a routine from a natural-language prompt. The model
+   * extracts the schedule (or "manual" when the prompt names no time), so the
+   * UI carries no date/time pickers. Omit id to create; pass it to update.
+   */
+  "routines:save": {
+    req: z.object({
+      id: z.string().optional(),
+      prompt: z.string(),
+      name: z.string().optional(),
+      cwd: z.string(),
+      permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions"]).optional(),
+    }),
+    res: z.object({ ok: z.boolean(), routine: RoutineSchema.optional(), error: z.string().optional() }),
   },
   "usage:summary": {
     req: z.object({

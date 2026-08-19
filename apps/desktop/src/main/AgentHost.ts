@@ -1,4 +1,5 @@
 import os from "node:os";
+import { randomUUID } from "node:crypto";
 import { Notification, app } from "electron";
 import type { BrowserWindow } from "electron";
 import {
@@ -38,6 +39,8 @@ import {
 import type { SettingsManager } from "./settings.js";
 import type { SecretVault } from "./secrets.js";
 import { HookManager } from "./HookManager.js";
+import { createRoutineTool } from "./routineTool.js";
+import { parseRoutine } from "./routineParse.js";
 
 interface HostedSession {
   store: SessionStore;
@@ -229,6 +232,15 @@ export class AgentHost {
       );
     }
 
+    // Routine tool — lets the agent save a scheduled/on-demand routine from
+    // chat; the schedule is parsed from the prompt and managed in Settings.
+    registry.register(
+      createRoutineTool({
+        cwd,
+        save: (input) => this.saveRoutine({ ...input, provider }),
+      }) as ToolDef<never>,
+    );
+
     const hosted: HostedSession = {
       store,
       engine,
@@ -295,6 +307,46 @@ export class AgentHost {
     this.setMode(sessionId, routine.permissionMode);
     this.send(sessionId, routine.prompt, model);
     return { sessionId };
+  }
+
+  /**
+   * Create or update a routine from a natural-language prompt. Shared by the
+   * settings UI (routines:save) and the agent's create_routine tool: the
+   * model extracts the schedule from the prompt, so nothing picks a time by
+   * hand. Passing an existing id updates that routine in place.
+   */
+  async saveRoutine(input: {
+    id?: string;
+    prompt: string;
+    name?: string;
+    cwd: string;
+    permissionMode?: import("@whalex/shared").Routine["permissionMode"];
+    provider?: OpenAICompatProvider;
+  }): Promise<Routine> {
+    const provider = input.provider ?? (await this.createProvider());
+    const model = this.settings.get().defaultModel;
+    const parsed = await parseRoutine(input.prompt, provider, model);
+    const routines = this.settings.get().routines;
+    const existing = input.id ? routines.find((r) => r.id === input.id) : undefined;
+    const routine: Routine = {
+      id: existing?.id ?? randomUUID(),
+      // A user-typed name wins; otherwise take the model's title.
+      name: input.name?.trim() || parsed.name,
+      prompt: input.prompt,
+      cwd: input.cwd,
+      schedule: parsed.schedule,
+      permissionMode: input.permissionMode ?? existing?.permissionMode ?? "acceptEdits",
+      enabled: existing?.enabled ?? true,
+      // Editing the prompt re-parses the schedule, so clear the old run clock.
+      lastRunAt: undefined,
+      lastSessionId: existing?.lastSessionId,
+    };
+    this.settings.update({
+      routines: existing
+        ? routines.map((r) => (r.id === routine.id ? routine : r))
+        : [...routines, routine],
+    });
+    return routine;
   }
 
   abortWorkflows(sessionId: string): void {

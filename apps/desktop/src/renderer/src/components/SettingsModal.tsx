@@ -823,6 +823,7 @@ function weekdayName(weekday: number, lang: string): string {
   return new Intl.DateTimeFormat(lang, { weekday: "short" }).format(new Date(2021, 7, 1 + weekday));
 }
 
+/** Read-only summary of the schedule the model parsed from the prompt. */
 function scheduleSummary(
   r: Routine,
   t: (k: string, o?: Record<string, unknown>) => string,
@@ -840,14 +841,18 @@ function scheduleSummary(
       return t("settings.routines.summary.once", {
         at: new Date(s.at).toLocaleString(lang, { dateStyle: "short", timeStyle: "short" }),
       });
+    case "manual":
+      return t("settings.routines.summary.manual");
   }
 }
 
-/** Epoch ms ↔ the value format <input type="datetime-local"> speaks. */
-function toLocalInput(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/** Draft being created or edited. No schedule field — it's parsed on save. */
+interface RoutineDraft {
+  id?: string;
+  name: string;
+  prompt: string;
+  cwd: string;
+  permissionMode: Routine["permissionMode"];
 }
 
 function RoutinesTab() {
@@ -855,29 +860,43 @@ function RoutinesTab() {
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
   const refreshState = useAppStore((s) => s.refreshState);
-  const [editing, setEditing] = useState<Routine | null>(null);
+  const [editing, setEditing] = useState<RoutineDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [runState, setRunState] = useState<Record<string, string>>({});
   const lang = i18n.language;
 
-  const blank = (): Routine => ({
-    id: crypto.randomUUID(),
+  // Routines can be created from a chat session too, so pull the latest each
+  // time this tab opens — the list is the single place they're managed.
+  useEffect(() => {
+    void refreshState();
+  }, [refreshState]);
+
+  const blank = (): RoutineDraft => ({
     name: "",
     prompt: "",
     cwd: settings.defaultCwd ?? settings.recentCwds[0] ?? "",
-    schedule: { kind: "daily", time: "09:00" },
     permissionMode: "acceptEdits",
-    enabled: true,
   });
 
   const save = async () => {
     if (!editing) return;
-    const r = { ...editing, name: editing.name.trim() || t("settings.routines.untitled") };
-    const exists = settings.routines.some((x) => x.id === r.id);
-    await update({
-      routines: exists
-        ? settings.routines.map((x) => (x.id === r.id ? r : x))
-        : [...settings.routines, r],
+    setSaving(true);
+    setSaveError(null);
+    // The model parses the schedule from the prompt on the main side.
+    const res = await whalex.invoke("routines:save", {
+      id: editing.id,
+      prompt: editing.prompt,
+      name: editing.name.trim() || undefined,
+      cwd: editing.cwd,
+      permissionMode: editing.permissionMode,
     });
+    setSaving(false);
+    if (!res.ok) {
+      setSaveError(res.error ?? "error");
+      return;
+    }
+    await refreshState();
     setEditing(null);
   };
 
@@ -892,22 +911,9 @@ function RoutinesTab() {
     await refreshState();
   };
 
-  const setSchedule = (schedule: Routine["schedule"]) =>
-    setEditing((e) => (e ? { ...e, schedule } : e));
-
   if (editing) {
-    const s = editing.schedule;
     return (
       <div className="flex flex-col gap-3 py-1">
-        <label className="flex flex-col gap-1 text-[12px] text-muted">
-          {t("settings.routines.name")}
-          <input
-            value={editing.name}
-            onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-            placeholder={t("settings.routines.namePlaceholder")}
-            className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text outline-none focus:border-accent"
-          />
-        </label>
         <label className="flex flex-col gap-1 text-[12px] text-muted">
           {t("settings.routines.prompt")}
           <textarea
@@ -916,6 +922,16 @@ function RoutinesTab() {
             placeholder={t("settings.routines.promptPlaceholder")}
             rows={4}
             className="resize-y rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] leading-relaxed text-text outline-none focus:border-accent"
+          />
+        </label>
+        <div className="text-[11px] text-faint">{t("settings.routines.promptHint")}</div>
+        <label className="flex flex-col gap-1 text-[12px] text-muted">
+          {t("settings.routines.name")}
+          <input
+            value={editing.name}
+            onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+            placeholder={t("settings.routines.namePlaceholder")}
+            className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text outline-none focus:border-accent"
           />
         </label>
         <label className="flex flex-col gap-1 text-[12px] text-muted">
@@ -938,80 +954,6 @@ function RoutinesTab() {
             </button>
           </div>
         </label>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-[12px] text-muted">
-            {t("settings.routines.schedule")}
-            <select
-              value={s.kind}
-              onChange={(e) => {
-                const kind = e.target.value as Routine["schedule"]["kind"];
-                if (kind === "interval") setSchedule({ kind, minutes: 60 });
-                else if (kind === "daily") setSchedule({ kind, time: "09:00" });
-                else if (kind === "weekly") setSchedule({ kind, weekday: 1, time: "09:00" });
-                else setSchedule({ kind: "once", at: Date.now() + 3_600_000 });
-              }}
-              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
-            >
-              <option value="interval">{t("settings.routines.kind.interval")}</option>
-              <option value="daily">{t("settings.routines.kind.daily")}</option>
-              <option value="weekly">{t("settings.routines.kind.weekly")}</option>
-              <option value="once">{t("settings.routines.kind.once")}</option>
-            </select>
-          </label>
-          {s.kind === "interval" && (
-            <label className="flex flex-col gap-1 text-[12px] text-muted">
-              {t("settings.routines.minutes")}
-              <input
-                type="number"
-                min={5}
-                max={10080}
-                value={s.minutes}
-                onChange={(e) =>
-                  setSchedule({
-                    kind: "interval",
-                    minutes: Math.min(10080, Math.max(5, Math.floor(Number(e.target.value)) || 5)),
-                  })
-                }
-                className="w-24 rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
-              />
-            </label>
-          )}
-          {s.kind === "weekly" && (
-            <select
-              value={s.weekday}
-              aria-label={t("settings.routines.schedule")}
-              onChange={(e) => setSchedule({ ...s, weekday: Number(e.target.value) })}
-              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
-            >
-              {[0, 1, 2, 3, 4, 5, 6].map((d) => (
-                <option key={d} value={d}>
-                  {weekdayName(d, lang)}
-                </option>
-              ))}
-            </select>
-          )}
-          {(s.kind === "daily" || s.kind === "weekly") && (
-            <input
-              type="time"
-              value={s.time}
-              aria-label={t("settings.routines.schedule")}
-              onChange={(e) => setSchedule({ ...s, time: e.target.value || "09:00" })}
-              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
-            />
-          )}
-          {s.kind === "once" && (
-            <input
-              type="datetime-local"
-              value={toLocalInput(s.at)}
-              aria-label={t("settings.routines.schedule")}
-              onChange={(e) => {
-                const ms = new Date(e.target.value).getTime();
-                if (!Number.isNaN(ms)) setSchedule({ kind: "once", at: ms });
-              }}
-              className="rounded-md border border-border bg-surface px-2 py-1.5 text-[12.5px] text-text"
-            />
-          )}
-        </div>
         <label className="flex flex-col gap-1 text-[12px] text-muted">
           {t("settings.routines.mode")}
           <select
@@ -1026,16 +968,20 @@ function RoutinesTab() {
             <option value="bypassPermissions">{t("settings.mode.bypass")}</option>
           </select>
         </label>
-        <div className="flex gap-2 pt-1">
+        {saveError && <div className="text-[11.5px] text-danger">{saveError}</div>}
+        <div className="flex items-center gap-2 pt-1">
           <button
             onClick={() => void save()}
-            disabled={!editing.prompt.trim() || !editing.cwd.trim()}
+            disabled={!editing.prompt.trim() || !editing.cwd.trim() || saving}
             className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            {t("settings.routines.save")}
+            {saving ? t("settings.routines.parsing") : t("settings.routines.save")}
           </button>
           <button
-            onClick={() => setEditing(null)}
+            onClick={() => {
+              setEditing(null);
+              setSaveError(null);
+            }}
             className="rounded-md border border-border px-3 py-1.5 text-[12.5px] text-muted hover:bg-surface-2"
           >
             {t("common.cancel")}
@@ -1056,7 +1002,15 @@ function RoutinesTab() {
       {settings.routines.map((r) => (
         <div key={r.id} className="flex items-center gap-2 border-b border-border py-2.5">
           <button
-            onClick={() => setEditing(r)}
+            onClick={() =>
+              setEditing({
+                id: r.id,
+                name: r.name,
+                prompt: r.prompt,
+                cwd: r.cwd,
+                permissionMode: r.permissionMode,
+              })
+            }
             className="min-w-0 flex-1 text-left"
             title={r.prompt}
           >
