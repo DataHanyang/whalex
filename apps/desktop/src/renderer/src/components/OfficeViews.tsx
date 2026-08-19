@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import { init as initPptxPreviewer } from "pptx-preview";
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -106,8 +107,70 @@ interface Slide {
   texts: string[];
 }
 
-/** PowerPoint viewer: slide-by-slide text panels with prev/next. */
+/**
+ * PowerPoint viewer. First choice is a real visual render (pptx-preview draws
+ * backgrounds, shapes, images and positioned text); if that fails on a given
+ * file it falls back to the text-outline pager below.
+ */
 export function SlidesView({ base64 }: { base64: string }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  // Remember which payload failed, so a new deck retries the visual path
+  // while the same broken deck doesn't retry-loop.
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const failed = failedFor === base64;
+
+  useEffect(() => {
+    if (failed) return;
+    const host = hostRef.current;
+    if (!host) return;
+    host.innerHTML = "";
+    let cancelled = false;
+    // Wait a frame so the container has a measured width.
+    const raf = requestAnimationFrame(() => {
+      try {
+        const width = Math.max(320, Math.min(host.clientWidth || 720, 1100));
+        const previewer = initPptxPreviewer(host, {
+          width,
+          height: Math.round((width * 9) / 16),
+        });
+        const bytes = b64ToBytes(base64);
+        void Promise.resolve(previewer.preview(bytes.buffer as ArrayBuffer))
+          .then(() => {
+            // pptx-preview can resolve yet draw nothing on decks it cannot
+            // parse (seen with some pptxgenjs feature combos) — treat an
+            // empty render as failure so the outline fallback kicks in.
+            setTimeout(() => {
+              if (cancelled) return;
+              const drewSomething =
+                host.querySelector(".pptx-preview-slide-wrapper") &&
+                (host.textContent?.trim() || host.querySelector("svg, img, canvas"));
+              if (!drewSomething) setFailedFor(base64);
+            }, 400);
+          })
+          .catch(() => {
+            if (!cancelled) setFailedFor(base64);
+          });
+      } catch {
+        if (!cancelled) setFailedFor(base64);
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      host.innerHTML = "";
+    };
+  }, [base64]);
+
+  if (failed) return <SlidesOutlineView base64={base64} />;
+  return (
+    <div className="h-full overflow-auto bg-surface p-4">
+      <div ref={hostRef} className="mx-auto" />
+    </div>
+  );
+}
+
+/** Fallback: slide-by-slide text panels with prev/next. */
+function SlidesOutlineView({ base64 }: { base64: string }) {
   const { t } = useTranslation();
   const [slides, setSlides] = useState<Slide[] | null>(null);
   const [cur, setCur] = useState(0);

@@ -9,11 +9,13 @@
 import path from "node:path";
 import readline from "node:readline/promises";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 import {
   AgentLoop,
   OpenAICompatProvider,
   PermissionEngine,
   SessionStore,
+  SkillRegistry,
   supercodeProtocol,
   WorkflowRunner,
   createBuiltinRegistry,
@@ -50,6 +52,18 @@ async function main(): Promise<void> {
     | "plan";
   const permissions = new PermissionEngine({ mode: permMode, allow: [], deny: [] });
   const session = SessionStore.create(cwd);
+
+  // Skills: same discovery as the desktop (bundled pack + ~/.whalex/skills +
+  // project). WHALEX_SKILLS=0 opts out (benchmark baselines).
+  const skills = new SkillRegistry();
+  if (process.env.WHALEX_SKILLS !== "0") {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    // In-repo layout: packages/cli/dist → apps/desktop/resources/bundled-skills.
+    const bundledDir = path.resolve(here, "../../../apps/desktop/resources/bundled-skills");
+    await skills.scan(cwd, [], { bundledDir });
+    registry.register(skills.tool() as ToolDef<never>);
+  }
+
   const loop = new AgentLoop({
     provider,
     registry,
@@ -57,6 +71,7 @@ async function main(): Promise<void> {
     session,
     modelInfo,
     temperature: 0.2,
+    extraSystemPrompt: skills.catalog(),
   });
 
   // SuperCode: same wiring the desktop's AgentHost.enableWorkflow applies —

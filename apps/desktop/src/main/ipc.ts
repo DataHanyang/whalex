@@ -119,8 +119,24 @@ export function registerIpc(deps: {
     "mcp:restart": (req) => host.restartMcp(req.name),
     "skills:install": (req) => installSkills(req.source),
     "skills:list": async (req) => {
-      if (req.cwd) await host.skills.scan(req.cwd, plugins.skillDirs());
+      await host.scanSkills(req.cwd ?? process.cwd());
       return host.skills.list();
+    },
+    "skills:toggle": (req) => {
+      const cur = new Set(settings.get().disabledSkills);
+      if (req.enabled) cur.delete(req.name);
+      else cur.add(req.name);
+      settings.update({ disabledSkills: [...cur] });
+    },
+    "skills:remove": async (req) => {
+      // Only user-installed skills are deletable; bundled ones are toggled off.
+      const skill = host.skills.get(req.name);
+      if (!skill) return { ok: false, error: "unknown skill" };
+      if (skill.source !== "user") return { ok: false, error: "not a user skill" };
+      const fs = await import("node:fs/promises");
+      const path = await import("node:path");
+      await fs.rm(path.dirname(skill.path), { recursive: true, force: true });
+      return { ok: true };
     },
     "plugins:install": (req) => plugins.install(req.source, req.location),
     "plugins:remove": (req) => plugins.remove(req.name),

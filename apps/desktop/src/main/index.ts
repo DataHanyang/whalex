@@ -220,6 +220,12 @@ void app.whenReady().then(() => {
   const preview = new PreviewManager();
   const plugins = new PluginManager(settings);
   host.pluginSkillDirs = () => plugins.skillDirs();
+  // Default skill pack shipped with the app (Settings → Skills can switch
+  // individual ones off). Packaged builds carry it via extraResources.
+  host.bundledSkillsDir = () =>
+    app.isPackaged
+      ? path.join(process.resourcesPath, "bundled-skills")
+      : path.join(__dirname, "../../resources/bundled-skills");
   const browser = new BrowserManager(() => mainWindow);
   browser.setActivityListener((url, title, tabs, activeTabId) =>
     host.notifyBrowserNavigated(url, title, tabs, activeTabId),

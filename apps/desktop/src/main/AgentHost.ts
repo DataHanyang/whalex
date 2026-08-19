@@ -104,6 +104,16 @@ export class AgentHost {
   readonly skills = new SkillRegistry();
   /** Supplied by the plugin manager so plugin-bundled skills get scanned. */
   pluginSkillDirs: () => string[] = () => [];
+  /** Wired by index.ts; app-bundled default skills (dev path or resourcesPath). */
+  bundledSkillsDir: () => string | null = () => null;
+
+  /** Central skill rescan — every caller gets bundled skills + disable state. */
+  async scanSkills(cwd: string): Promise<void> {
+    await this.skills.scan(cwd, this.pluginSkillDirs(), {
+      bundledDir: this.bundledSkillsDir(),
+      disabled: this.settings.get().disabledSkills,
+    });
+  }
   /** Wired by index.ts; records every request's tokens and enforces limits. */
   usageLedger: import("./UsageLedger.js").UsageLedger | null = null;
   private hooks: HookManager;
@@ -182,7 +192,7 @@ export class AgentHost {
     if (resumeSessionId) store = await SessionStore.load(cwd, resumeSessionId);
     store ??= SessionStore.create(cwd);
 
-    await this.skills.scan(cwd, this.pluginSkillDirs());
+    await this.scanSkills(cwd);
     const s = this.settings.get();
     const engine = new PermissionEngine(s.permissions, {
       persistRule: (rule) => this.settings.addAllowRule(rule),
@@ -599,12 +609,15 @@ export class AgentHost {
       { name: "supercode", description: "슈퍼코드 멀티에이전트 모드 토글", source: "builtin" },
       { name: "help", description: "도움말", source: "builtin" },
     ];
-    if (cwd) await this.skills.scan(cwd, this.pluginSkillDirs());
-    const skillCommands: SlashCommand[] = this.skills.list().map((s) => ({
-      name: s.name,
-      description: s.description,
-      source: "skill",
-    }));
+    if (cwd) await this.scanSkills(cwd);
+    const skillCommands: SlashCommand[] = this.skills
+      .list()
+      .filter((s) => s.enabled)
+      .map((s) => ({
+        name: s.name,
+        description: s.description,
+        source: "skill" as const,
+      }));
     return [...builtin, ...skillCommands];
   }
 

@@ -512,10 +512,32 @@ function SkillsTab() {
         <div className="py-4 text-[12.5px] text-faint">{t("settings.skills.empty")}</div>
       )}
       {skills.map((s) => (
-        <div key={s.name} className="border-b border-border py-2.5">
+        <div key={s.name} className={`border-b border-border py-2.5 ${s.enabled ? "" : "opacity-55"}`}>
           <div className="flex items-center gap-2">
             <span className="text-[13px] font-medium">/{s.name}</span>
-            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-faint">{s.source}</span>
+            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-faint">
+              {s.source === "bundled" ? t("settings.skills.bundled") : s.source}
+            </span>
+            <div className="flex-1" />
+            {s.source === "user" && (
+              <button
+                onClick={() =>
+                  void whalex.invoke("skills:remove", { name: s.name }).then(refresh)
+                }
+                className="rounded px-1.5 py-0.5 text-[11px] text-faint hover:bg-surface-2 hover:text-danger"
+              >
+                {t("settings.skills.delete")}
+              </button>
+            )}
+            <ToggleSwitch
+              checked={s.enabled}
+              label={s.name}
+              onChange={(v) =>
+                void whalex
+                  .invoke("skills:toggle", { name: s.name, enabled: v })
+                  .then(refresh)
+              }
+            />
           </div>
           <div className="text-[12px] text-muted">{s.description}</div>
         </div>

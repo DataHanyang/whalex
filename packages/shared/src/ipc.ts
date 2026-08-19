@@ -24,8 +24,9 @@ export type SlashCommand = z.infer<typeof SlashCommandSchema>;
 export const SkillInfoSchema = z.object({
   name: z.string(),
   description: z.string(),
-  source: z.enum(["user", "project", "plugin"]),
+  source: z.enum(["bundled", "user", "project", "plugin"]),
   path: z.string(),
+  enabled: z.boolean().default(true),
 });
 export type SkillInfo = z.infer<typeof SkillInfoSchema>;
 
@@ -189,6 +190,14 @@ export const IPC_INVOKE = {
       installed: z.array(z.string()),
       error: z.string().optional(),
     }),
+  },
+  "skills:toggle": {
+    req: z.object({ name: z.string(), enabled: z.boolean() }),
+    res: z.void(),
+  },
+  "skills:remove": {
+    req: z.object({ name: z.string() }),
+    res: z.object({ ok: z.boolean(), error: z.string().optional() }),
   },
   "plugins:install": {
     req: z.object({ source: z.enum(["local", "git"]), location: z.string() }),

@@ -114,6 +114,11 @@ export const SettingsSchema = z.object({
   /** name → server entry. Superset of the project-level .mcp.json. */
   mcpServers: z.record(McpServerEntrySchema).default({}),
   plugins: z.array(InstalledPluginSchema).default([]),
+  /**
+   * Skills switched off in Settings → Skills. Applies to any source; bundled
+   * skills can only be disabled (not deleted), like a stock app you can hide.
+   */
+  disabledSkills: z.array(z.string()).default([]),
   superCode: z.preprocess(
     // 50 was the old shipped default; SuperCode is a scale-first mode now.
     (v) =>

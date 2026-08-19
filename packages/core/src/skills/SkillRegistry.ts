@@ -11,12 +11,22 @@ import { toolError, type ToolDef } from "../tools/Tool.js";
  * gets a one-line catalog; the full body is loaded on demand by the `skill`
  * tool. Project skills win over user skills on a name clash.
  */
+export interface SkillScanOptions {
+  /** Directory of app-bundled default skills (lowest precedence). */
+  bundledDir?: string | null;
+  /** Skill names switched off in settings — kept in list(), excluded from the catalog. */
+  disabled?: readonly string[];
+}
+
 export class SkillRegistry {
   private skills = new Map<string, SkillInfo & { body: string }>();
+  private disabled = new Set<string>();
 
-  async scan(cwd: string, pluginSkillDirs: string[] = []): Promise<void> {
+  async scan(cwd: string, pluginSkillDirs: string[] = [], opts: SkillScanOptions = {}): Promise<void> {
     this.skills.clear();
+    this.disabled = new Set(opts.disabled ?? []);
     const roots: Array<{ dir: string; source: SkillInfo["source"] }> = [
+      ...(opts.bundledDir ? [{ dir: opts.bundledDir, source: "bundled" as const }] : []),
       { dir: path.join(os.homedir(), ".whalex", "skills"), source: "user" },
       ...pluginSkillDirs.map((dir) => ({ dir, source: "plugin" as const })),
       { dir: path.join(cwd, ".whalex", "skills"), source: "project" as const },
@@ -38,6 +48,7 @@ export class SkillRegistry {
             description,
             source,
             path: skillFile,
+            enabled: !this.disabled.has(name),
             body,
           });
         } catch {
@@ -51,12 +62,12 @@ export class SkillRegistry {
     return [...this.skills.values()].map(({ body: _body, ...info }) => info);
   }
 
-  /** Compact catalog injected into the system prompt. */
+  /** Compact catalog injected into the system prompt (enabled skills only). */
   catalog(): string {
-    const all = [...this.skills.values()];
+    const all = [...this.skills.values()].filter((s) => s.enabled);
     if (all.length === 0) return "";
     const lines = all.map((s) => `- ${s.name}: ${s.description}`).join("\n");
-    return `# Available skills\nWhen a task matches one of these, call the \`skill\` tool with its name to load detailed instructions before proceeding.\n\n${lines}`;
+    return `# Available skills\nWhen a task matches one of these, call the \`skill\` tool with its name to load detailed instructions BEFORE starting the work — the skill is the expert playbook for that kind of task.\n\n${lines}`;
   }
 
   get(name: string): (SkillInfo & { body: string }) | undefined {
@@ -77,9 +88,10 @@ export class SkillRegistry {
       summarize: (i) => `Load skill: ${i.name}`,
       async execute(input) {
         const skill = registry.get(input.name);
-        if (!skill) {
+        if (!skill || !skill.enabled) {
           const names = registry
             .list()
+            .filter((s) => s.enabled)
             .map((s) => s.name)
             .join(", ");
           return toolError(`Unknown skill "${input.name}". Available: ${names || "(none)"}`);

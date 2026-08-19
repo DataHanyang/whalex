@@ -90,6 +90,94 @@ export const MCP_PRESETS: McpPreset[] = [
     },
     requiresSetup: true,
   },
+  {
+    name: "naver-search",
+    description: "네이버 검색 (웹·뉴스·블로그·쇼핑) + DataLab 트렌드 — 네이버 개발자센터 키 필요",
+    category: "korea",
+    requiresSetup: true,
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@isnow890/naver-search-mcp"],
+      env: { NAVER_CLIENT_ID: "", NAVER_CLIENT_SECRET: "" },
+    },
+  },
+  {
+    name: "youtube-transcript",
+    description: "유튜브 영상 자막/스크립트 추출 — 키 불필요",
+    category: "media",
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@sinco-lab/mcp-youtube-transcript"],
+      env: {},
+    },
+  },
+  {
+    name: "youtube-data",
+    description: "유튜브 검색·영상·채널 정보 (YouTube Data API v3 키 필요)",
+    category: "media",
+    requiresSetup: true,
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "youtube-data-mcp-server"],
+      env: { YOUTUBE_API_KEY: "", YOUTUBE_TRANSCRIPT_LANG: "ko" },
+    },
+  },
+  {
+    name: "google-calendar",
+    description: "구글 캘린더 일정 조회·생성 — GCP OAuth 클라이언트 JSON 경로 필요, 첫 실행 시 브라우저 인증",
+    category: "office",
+    requiresSetup: true,
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@cocal/google-calendar-mcp"],
+      env: { GOOGLE_OAUTH_CREDENTIALS: "" },
+    },
+  },
+  {
+    name: "instagram-threads",
+    description: "인스타그램·스레드 게시/조회 (Meta 공식 Graph API — 비즈니스 계정 + 토큰 필요, 토큰은 약 60일마다 갱신)",
+    category: "social",
+    requiresSetup: true,
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@mikusnuz/meta-mcp"],
+      env: {
+        INSTAGRAM_ACCESS_TOKEN: "",
+        INSTAGRAM_USER_ID: "",
+        THREADS_ACCESS_TOKEN: "",
+        THREADS_USER_ID: "",
+      },
+    },
+  },
+  {
+    name: "notion",
+    description: "노션 페이지·데이터베이스 읽기/쓰기 (공식 서버, 내부 통합 토큰 필요)",
+    category: "office",
+    requiresSetup: true,
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "@notionhq/notion-mcp-server"],
+      env: { NOTION_TOKEN: "" },
+    },
+  },
+  {
+    name: "slack",
+    description: "슬랙 채널·메시지 읽기/보내기 (사용자 OAuth 토큰 필요)",
+    category: "office",
+    requiresSetup: true,
+    config: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", "slack-mcp-server@latest", "--transport", "stdio"],
+      env: { SLACK_MCP_XOXP_TOKEN: "" },
+    },
+  },
 ];
 
 /** Fill {cwd} placeholders in a preset config. */
