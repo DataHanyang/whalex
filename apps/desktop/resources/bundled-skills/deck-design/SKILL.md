@@ -1,103 +1,132 @@
 ---
 name: deck-design
-description: Create polished PowerPoint (.pptx) decks with real visual design. Use whenever the user asks for a presentation, slides, pitch deck, 발표자료, PPT, or any .pptx output — load this BEFORE writing any code.
+description: "WhaleX Design: create or edit PowerPoint (.pptx) decks with real visual design and strict consistency. Use whenever the user asks for a presentation, slides, pitch deck, 발표자료, PPT, or wants an existing deck/template restyled or extended — load this BEFORE writing any code."
 ---
 
-# Deck Design — building .pptx that doesn't look AI-generated
+# WhaleX Design — Decks
 
-Build decks by writing a Node script with `pptxgenjs`, then QA the result. Never
-hand-write raw OOXML for a new deck.
+Two paths. Pick ONE before doing anything:
 
-## Step 0 — setup
+| Situation | Path |
+|---|---|
+| New deck from scratch | **CREATE** — write a Node script with `pptxgenjs` |
+| User gave an existing .pptx / template / "match this deck" | **MATCH** — extract its theme, follow it exactly; extend by editing XML or by rebuilding with its tokens |
 
-Work in a `deck-build/` subfolder of the working directory:
+## Step 0 — the brief
 
-```powershell
-mkdir deck-build -ea 0; cd deck-build; npm init -y | Out-Null; npm install pptxgenjs --no-fund --no-audit
+If the request leaves these unclear, ask (ask_user, one short round): audience,
+slide count, content density, brand colors / reference deck, language.
+A good deck brief = topic + audience + tone + slide count + (optional) reference.
+Never ask about things the request already answers.
+
+## Step 1 — THEME contract (consistency is the product)
+
+Every deck gets ONE theme object at the top of the generator, and **no slide
+may use a literal color/size/font that isn't in it**:
+
+```js
+const THEME = {
+  color: { bg: "0F1B2D", surface: "1A2A42", ink: "F4F7FB", muted: "8FA3BC", accent: "F2A93B" },
+  font:  { display: "Cambria", body: "Calibri", ea: "Malgun Gothic" }, // ea = Korean/CJK
+  size:  { kicker: 13, title: 40, section: 22, body: 15, caption: 11, stat: 64 },
+  gapIn: 0.4, marginIn: 0.6,
+  motif: (slide) => { /* the ONE repeating element, drawn on every slide */ },
+};
 ```
 
-## Step 1 — design plan BEFORE code
+- **Palette**: 1 dominant (60–70% of visual weight), 1–2 supporting, 1 accent —
+  chosen for THIS topic. If your palette would fit any other deck, it's wrong.
+- **Dark/light sandwich**: dark title + closing slides, light content slides —
+  or commit to all-dark. Never mix arbitrarily.
+- **Type scale is law**: same title size on every content slide, same body
+  size everywhere. Inconsistent sizes across slides is the #1 amateur tell.
+- **Fonts**: metric-safe only — Arial, Calibri, Cambria, Times New Roman,
+  Courier New. Korean text: `Malgun Gothic` (Windows ships it; set as the
+  `fontFace` for any Hangul run). Never Aptos, never Inter/Roboto.
 
-Write (in your head or a short comment block) a plan with:
+### Named styles (pick one, or let the topic pick)
 
-1. **Palette chosen for THIS topic** — 1 dominant color (~60-70% of visual
-   weight), 1-2 supporting tones, 1 sharp accent. Never give every color equal
-   weight, never default to generic blue. Starting points (pick/adapt to topic):
-   - Deep space navy `141B3C` / star silver `C9D4E8` / signal amber `F2A93B`
-   - Espresso `2B1D16` / crema `E8D8C3` / copper `B4652A`
-   - Lab white `FAFBFC` / graphite `23272E` / electric teal `0FA3A3`
-   - Vineyard `4A1E2B` / blush `E8C5C9` / gold leaf `C9A227`
-   - Pine `1E4034` / mist `DFE8E3` / clementine `E8622C`
-   - Slate `2F3B47` / paper `F4F6F8` / vermilion `D6402D`
-2. **Type scale** — titles 36-44pt bold, section headers 20-24pt, body 14-16pt,
-   captions 10-12pt. Safe fonts that render everywhere: Arial, Calibri, Cambria,
-   Times New Roman, Courier New. A serif headline (Cambria) over a sans body
-   (Calibri) gives contrast at zero risk. Never Aptos.
-3. **One repeating motif** — e.g. icons in filled circles, numbered chapter
-   marks, a corner glyph. Repeat it on every slide. A colored bar or stripe is
-   NOT a motif (see the ban list).
-4. **Slide map** — for each slide: which layout pattern (below) and which
-   visual element it carries. Vary layouts; never the same pattern twice in a row.
+- **Midnight Editorial** — near-black navy bg `0F1B2D`, serif display, amber accent `F2A93B`, thin star/ring line-work motif. Investor decks, space/fintech.
+- **Swiss Report** — paper `F7F8FA`, graphite ink `1D2126`, one red accent `D6402D`, hard grid, big numerals. Data reports, consulting.
+- **Warm Craft** — cream-free! white bg, espresso ink `2B1D16`, copper `B4652A`, rounded image frames. F&B, lifestyle brands.
+- **Lab Clean** — white `FAFBFC`, graphite, electric teal `0FA3A3`, hairline table rules, mono for numbers. Tech/dev products.
+- **Forest Ledger** — pine `1E4034` darks, mist `DFE8E3` lights, clementine `E8622C` accent. Sustainability, agriculture.
+- **Bento Grid** — light bg, 2×3 rounded cards with one tinted feature cell per slide. Product overviews.
 
-## Step 2 — write the generator script
+## Step 2A — CREATE path (pptxgenjs)
 
-`pptxgenjs` essentials (violating these corrupts the file or breaks layout):
+```powershell
+mkdir deck-build -ea 0; cd deck-build; npm init -y | Out-Null; npm install pptxgenjs jszip --no-fund --no-audit
+```
+
+Hard rules (violations corrupt the file or wreck layout):
 
 - `pres.defineLayout({ name: "WIDE", width: 13.33, height: 7.5 }); pres.layout = "WIDE";`
-  FIRST, before any slide. Coordinates are inches; nothing warns when a shape
-  is placed off-canvas.
-- Colors are 6-digit hex **without `#`** (`"F2A93B"`). Use `transparency: 0-100`
-  for translucent fills — never bake alpha into the hex.
-- Lists: `bullet: true` per item plus `breakLine: true` on all but the last;
-  never type a literal `•`. Space paragraphs with `paraSpaceAfter`.
-- Text boxes have built-in padding — set `margin: 0` when text must align
-  with a shape edge.
-- Speaker notes: `slide.addNotes("...")`, never a text box.
-- Charts: use `addChart()` with your palette in `chartColors`, axis label
-  colors set, `showValue: true`, and `showLegend: false` for single series.
-  On stacked bars, data labels must be `ctr`/`inEnd`/`inBase` (not `outEnd`).
-- One `new pptxgen()` per file; don't reuse option objects across calls.
+  before any slide. Coordinates are inches; off-canvas shapes are written silently.
+- Hex colors: 6 digits, **no `#`**, never 8-digit alpha. Translucency =
+  `transparency: 0-100` on the option.
+- Never reuse an options/shadow object across two `add*` calls (it's mutated in
+  place). Shadow `offset` must be ≥ 0.
+- Lists: `bullet: true` per item + `breakLine: true` on all but the last;
+  space with `paraSpaceAfter`; never a literal `•`.
+- `margin: 0` on text boxes that must align with shapes; `slide.addNotes()`
+  for speaker notes.
+- Charts: native `addChart()` for standard types with `chartColors` from THEME,
+  axis label colors set, `showValue: true`, `showLegend: false` for one series;
+  stacked-bar labels only `ctr`/`inEnd`/`inBase`. Sankey/network/etc. go in as
+  images. Compute trendlines yourself rather than leaving charts bare.
+- One `new pptxgen()` per file.
 
-### Layout patterns to rotate through
+### Layout rotation (no two consecutive slides share a pattern)
 
-- **Title/section slides**: dark background, huge left-aligned title low on the
-  slide, small kicker above it.
-- **Two-column**: text one side, big visual (chart/shape composition) the other.
-- **Stat callouts**: 2-4 giant numbers (60-72pt) with small muted labels under.
-- **Icon rows / grid cards**: subtle background-tint cards (no border stripes)
-  with a header and 1-2 lines each.
-- **Timeline / steps**: numbered markers with connecting line, alternating text.
-- **Comparison**: two columns with clear headers, contrasting tints.
+dark section-title / two-column (text + visual) / giant-stat callouts (3-4 stats
+at `size.stat`) / bento cards / timeline with numbered markers / comparison
+columns / half-bleed visual with overlay. **Every slide carries a visual**
+(chart, stat, shape composition, diagram) and ≤ ~30 words of body text —
+details go in speaker notes.
 
-### Ban list — these instantly read as AI slop
+### Ban list — instant AI tells
 
-- NO accent line/underline below titles. Use whitespace or a background change.
-- NO decorative bars or stripes: no full-width header/footer bars, no vertical
-  edge stripes, no single-side borders on cards.
-- NO text-only slides — every slide carries a chart, stat, shape composition,
-  icon row, or diagram.
-- NO centered body text (titles may center; body and lists are left-aligned).
-- NO cream/beige default backgrounds — default is white or a palette color.
-- NO identical layout repeated across the deck.
-- NO text overflowing its box — count characters: at 16pt Calibri, roughly
-  95 chars fit per 10" line; size boxes with ~10% slack, shorten copy to fit.
-- Body text under ~30 words per slide; the deck is visual, details go in
-  speaker notes.
+- accent line/underline under titles ・ decorative bars or edge stripes
+  ・ text-only slides ・ centered body text ・ cream/beige default background
+  ・ same layout twice in a row ・ mixed gap sizes (pick `gapIn`, use it
+  everywhere) ・ default blue theme ・ overflowing text.
 
-## Step 3 — run and validate
+**Text-fit budget**: at 15pt Calibri ≈ 9.5 chars/inch; Korean(Malgun Gothic)
+≈ 5.5 chars/inch. Size every box from its actual string with ~10% slack —
+shorten copy rather than shrink fonts.
 
-```powershell
-node make-deck.mjs   # writes ../<name>.pptx (save OUTSIDE deck-build)
-```
+## Step 2B — MATCH path (existing deck / template)
 
-Then reopen the package and check it structurally (`npm i jszip` in
-deck-build): every `ppt/slides/slideN.xml` you expect exists, each slide's
-`<a:t>` runs stay inside your line-length budget, and referenced media is
-present. Fix problems in the generator and rebuild — never edit the zip.
+1. **Extract the theme** (script bundled with this skill — run from anywhere):
+   `node <skill-dir>/scripts/extract-theme.mjs source.pptx`
+   → slide size, theme colors, major/minor fonts, per-slide font sizes and
+   used colors. Build THEME from the output — **the source's tokens ARE the
+   contract now**; do not "improve" its palette or fonts.
+2. **See it** when possible: export slides to PNG (PowerShell below) and, if
+   `view_image` is available, look at 2-3 representative slides to learn its
+   layout language before writing anything.
+3. **Small edits** (retitle, swap text, add a matching slide): unzip, edit
+   `ppt/slides/slideN.xml` as text, rezip. Keep namespaces byte-identical —
+   edit text runs (`<a:t>`) and attribute values only, never restructure
+   elements. `xml:space="preserve"` on runs with edge spaces. To add a slide,
+   copy the closest existing `slideN.xml` + its `.rels`, register it in
+   `[Content_Types].xml` and `ppt/presentation.xml` `<p:sldIdLst>` (new unique
+   id), then rezip from INSIDE the folder.
+4. **Many new slides in a template's style**: rebuild with pptxgenjs using the
+   extracted THEME — same colors, same fonts, same title size the source uses,
+   matching its layout patterns.
 
-## Step 4 — visual QA (do not skip)
+## Step 3 — validate
 
-If Microsoft PowerPoint is installed, export slides to PNG and LOOK at them:
+`node validate.mjs` in deck-build: reopen with jszip, confirm every expected
+`ppt/slides/slideN.xml` exists, no `<a:t>` run exceeds its box budget, charts
+and media referenced by rels actually exist. Also grep the extracted text for
+`lorem|TODO|\[insert|xxx` leftovers. Fix in the generator, never in the zip.
+
+## Step 4 — visual QA (required, loop until clean)
+
+If Microsoft PowerPoint is installed:
 
 ```powershell
 $pp = New-Object -ComObject PowerPoint.Application
@@ -106,13 +135,16 @@ $pres.Export("C:\full\path\deck-png", "PNG", 1280, 720)
 $pres.Close(); $pp.Quit()
 ```
 
-Check each image for: overflowing/cut text (most common defect), overlapping
-elements, gaps under 0.3", margins under 0.5", low-contrast text, two slides
-sharing the same layout back-to-back. Fix in the generator and re-export.
-If PowerPoint isn't installed, re-check the script against the ban list and
-line-length budgets instead.
+Then — if the `view_image` tool is available — inspect EVERY exported slide:
+ask it specifically about text overflow/cutoff (the #1 defect), overlaps,
+< 0.3" gaps, margins < 0.5", low contrast, and whether consecutive slides
+repeat a layout. Fix in the generator, re-export, re-check. Two clean passes
+= done. Without `view_image`, re-verify the script against the ban list and
+text-fit budgets line by line, and say in your summary that visual QA needs
+a vision model connected (설정 → 비전).
 
-## Step 5 — show the user
+## Step 5 — deliver
 
-Call `present_file` with `kind: "slides"` and the .pptx path so the deck opens
-in the preview panel. Mention the speaker notes if you wrote them.
+`present_file` with `kind: "slides"` and the .pptx path. Summarize the theme
+(palette, fonts, motif) in one sentence so the user can ask for consistent
+follow-up edits.

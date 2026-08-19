@@ -245,8 +245,10 @@ function ModelsTab() {
       <div className="mb-3 flex flex-wrap gap-1.5">
         {(
           [
-            // DeepSeek's own API is text-only; these serve DeepSeek-family VLMs
-            // over the same OpenAI-compatible protocol (bring your own key).
+            // DeepSeek's own API is text-only (Aug 2026 — vision exists only in
+            // their web chat). These serve vision over the same OpenAI-compatible
+            // protocol. Gemini's free tier is the recommended zero-cost default.
+            ["Gemini Flash (무료 티어 ★추천)", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3-flash"],
             ["DeepSeek-VL2 · SiliconFlow", "https://api.siliconflow.com/v1", "deepseek-ai/deepseek-vl2"],
             ["DeepSeek-OCR-2 · Novita", "https://api.novita.ai/openai", "deepseek/deepseek-ocr-2"],
             ["Ollama (local · free)", "http://localhost:11434/v1", "qwen2.5vl"],

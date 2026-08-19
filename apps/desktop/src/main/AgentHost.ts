@@ -15,6 +15,7 @@ import {
   createBrowserTools,
   createBuiltinRegistry,
   createComputerTools,
+  createViewImageTool,
   createWorkflowTool,
   listCheckpoints,
   rewindTo,
@@ -106,6 +107,11 @@ export class AgentHost {
   pluginSkillDirs: () => string[] = () => [];
   /** Wired by index.ts; app-bundled default skills (dev path or resourcesPath). */
   bundledSkillsDir: () => string | null = () => null;
+  /**
+   * Wired by index.ts when a vision sidecar is configured; null otherwise.
+   * Powers view_image so the text-only main model can QA rendered output.
+   */
+  describeImage: ((dataUrl: string, question?: string) => Promise<string>) | null = null;
 
   /** Central skill rescan — every caller gets bundled skills + disable state. */
   async scanSkills(cwd: string): Promise<void> {
@@ -213,6 +219,11 @@ export class AgentHost {
     // Computer-use tools — experimental, only when opted in + vision connected.
     if (this.computer?.isAvailable()) {
       for (const tool of createComputerTools(this.computer)) registry.register(tool);
+    }
+    // view_image — any time a vision sidecar is connected (no opt-in needed;
+    // it only reads local files the permission system already governs).
+    if (this.describeImage && s.vision.baseUrl && s.vision.model) {
+      registry.register(createViewImageTool(this.describeImage) as ToolDef<never>);
     }
 
     // Subagent tool — nested loops share the provider, permissions, and MCP tools.

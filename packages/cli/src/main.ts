@@ -16,6 +16,8 @@ import {
   PermissionEngine,
   SessionStore,
   SkillRegistry,
+  VisionBridge,
+  createViewImageTool,
   supercodeProtocol,
   WorkflowRunner,
   createBuiltinRegistry,
@@ -62,6 +64,19 @@ async function main(): Promise<void> {
     const bundledDir = path.resolve(here, "../../../apps/desktop/resources/bundled-skills");
     await skills.scan(cwd, [], { bundledDir });
     registry.register(skills.tool() as ToolDef<never>);
+  }
+
+  // Optional vision sidecar for visual QA (view_image):
+  //   WHALEX_VISION_BASE_URL=... WHALEX_VISION_MODEL=... [WHALEX_VISION_API_KEY=...]
+  if (process.env.WHALEX_VISION_BASE_URL && process.env.WHALEX_VISION_MODEL) {
+    const bridge = new VisionBridge({
+      baseUrl: process.env.WHALEX_VISION_BASE_URL,
+      model: process.env.WHALEX_VISION_MODEL,
+      apiKey: process.env.WHALEX_VISION_API_KEY ?? null,
+    });
+    registry.register(
+      createViewImageTool((d, q) => bridge.describe(d, q)) as ToolDef<never>,
+    );
   }
 
   const loop = new AgentLoop({

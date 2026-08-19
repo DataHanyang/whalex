@@ -1,7 +1,7 @@
 ---
 name: frontend-design
-description: Guidance for distinctive, intentional visual design when building new UI or reshaping an existing one. Helps with aesthetic direction, typography, and making choices that don't read as templated defaults.
-license: Complete terms in LICENSE.txt
+description: "WhaleX Design: distinctive, intentional visual design when building new UI, landing pages, or reshaping an existing one. Aesthetic direction, typography, consistency tokens, Korean text handling, and a render-QA loop. Load BEFORE writing any page code."
+license: Apache-2.0 (Anthropic frontend-design skill, modified by WhaleX — see LICENSE.txt)
 ---
 
 # Frontend Design
@@ -53,3 +53,45 @@ Use active voice as default. A control should say exactly what happens when it's
 Treat failure and emptiness as moments for direction, not mood. Explain what went wrong and how to fix it, in the interface's voice rather than a person's. Errors don't apologize, and they are never vague about what happened. An empty screen is an invitation to act.
 
 Keep the register conversational and tuned: plain verbs, sentence case, no filler, with tone matched to the brand and the audience. Let each element do exactly one job. A label labels, an example demonstrates, and nothing quietly does double duty.
+
+---
+
+## WhaleX Design additions
+
+*(This section extends Anthropic's Apache-2.0 frontend-design skill for the
+WhaleX environment.)*
+
+### Consistency contract
+
+Define every design decision once as CSS custom properties on `:root` —
+palette (4-6 named colors), type scale (`--fs-hero/-title/-body/-caption`),
+spacing scale (one base unit, multiples only), radius, and motion duration.
+No hard-coded colors or sizes below `:root`. A reader should be able to
+restyle the whole page by editing the token block alone. If the user gives
+brand colors, an existing site, or a reference image, those values ARE the
+tokens — extract them first (view_image can read a reference image when a
+vision model is connected) and do not "improve" them.
+
+### Korean (Hangul) typography — non-negotiable
+
+- `word-break: keep-all` on every heading and short paragraph — without it
+  Hangul headlines break mid-word into ugly vertical shards.
+- Font stack without CDNs: `font-family: Pretendard, "Noto Sans KR",
+  "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;` (works installed-or-not
+  on Windows/macOS).
+- Korean line-height needs more room than Latin: 1.6-1.7 body, 1.3 headings.
+- Mixed Korean + numerals: use `font-feature-settings: "tnum"` on stats.
+- Hero headlines: set an explicit `max-width` sized to break at a meaningful
+  phrase boundary, or insert `<wbr>`/`<br>` at the phrase you choose.
+
+### QA loop (required)
+
+1. `verify_page` on the finished HTML — zero console errors, body height sane,
+   canvas actually drawing if used.
+2. If a vision model is connected, screenshot the page (or export sections)
+   and `view_image` it: check contrast, spacing rhythm, heading breaks,
+   scroll-reveal content actually visible, dark-mode if promised.
+3. Fix, re-render, re-check. Content hidden behind scroll animations must
+   also exist without JavaScript (progressive enhancement) — never ship a
+   page whose sections are invisible when IntersectionObserver doesn't fire.
+4. Finish with `present_file` (kind "html") so the user sees it in-panel.

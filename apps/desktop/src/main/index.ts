@@ -232,6 +232,19 @@ void app.whenReady().then(() => {
   );
   host.setBrowser(browser);
   host.setComputer(new ComputerManager(settings, vault));
+  // view_image: route local image files through the vision sidecar. Reads the
+  // vision settings at call time so a mid-session settings change applies to
+  // the next session without a restart.
+  host.describeImage = async (dataUrl, question) => {
+    const v = settings.get().vision;
+    if (!v.baseUrl || !v.model) throw new Error("No vision model configured.");
+    const { VisionBridge } = await import("@whalex/core");
+    return new VisionBridge({
+      baseUrl: v.baseUrl,
+      model: v.model,
+      apiKey: vault.get(v.apiKeyRef),
+    }).describe(dataUrl, question);
+  };
   const auth = new AuthManager(vault);
   auth.wire(() => mainWindow);
   // Routines fire while the app is tray-resident too — that's the point.
