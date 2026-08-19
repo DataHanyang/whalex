@@ -122,13 +122,19 @@ export class Updater {
    * block-at-first-sight on the fresh unsigned exe; the app's own shutdown
    * wedges 20-100s so the NSIS installer (which only waits ~8s) saw a
    * "running app" and silently gave up; a node waiter running AS the app
-   * binary got taskkilled by the installer's own app-check. The supervisor
-   * is therefore a hidden cmd.exe batch (not the app's exe name, survives
-   * parent death, PowerShell can't start detached): it waits until tasklist
-   * shows no app processes, then runs the installer and verifies success by
-   * the app exe's mtime actually changing — exit codes are unreliable from a
-   * hidden console — retrying up to 5 times, and relaunches the app if
-   * --force-run didn't. Log: ~/.whalex/waiter.log.
+   * binary got taskkilled by the installer's own app-check; a detached
+   * cmd.exe supervisor survived — but flashed a visible console (windowsHide
+   * is ineffective for detached console apps), and its tasklist-by-name wait
+   * deadlocked when the user relaunched the app during the 20-100s teardown
+   * hang, silently stranding the update (seen on 0.2.22 → 0.2.25).
+   *
+   * The supervisor is now a wscript.exe VBS shim (GUI subsystem: no console
+   * to show, survives parent death) that runs one hidden PowerShell doing
+   * everything: wait for the exiting app's PID (not its image name), bail
+   * out fast if the user relaunches meanwhile (the new instance re-offers
+   * the update), then install, verify by the app exe's mtime changing —
+   * exit codes are unreliable from hidden consoles — with up to 5 retries,
+   * and relaunch if --force-run didn't. Log: ~/.whalex/waiter.log.
    */
   private async launchInstallerAndQuit(): Promise<void> {
     const installerPath = (autoUpdater as unknown as { installerPath: string | null }).installerPath;
@@ -139,20 +145,22 @@ export class Updater {
       return;
     }
     autoUpdater.autoInstallOnAppQuit = false; // we own the handoff now
-    const batPath = path.join(app.getPath("temp"), "whalex-update-waiter.cmd");
+    const vbsPath = path.join(app.getPath("temp"), "whalex-update-waiter.vbs");
     const ps1Path = path.join(app.getPath("temp"), "whalex-update-waiter.ps1");
     const waiterLog = path.join(os.homedir(), ".whalex", "waiter.log");
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
     const ok = await new Promise<boolean>((resolve) => {
       try {
-        fs.writeFileSync(batPath, WAITER_BAT.replace(/\n/g, "\r\n"));
+        // UTF-16LE with BOM: wscript parses BOM-less files as ANSI, which
+        // mangles non-ASCII temp paths (this user dir contains Hangul).
+        fs.writeFileSync(vbsPath, String.fromCharCode(0xfeff) + waiterVbs(ps1Path), "utf16le");
         fs.writeFileSync(ps1Path, WAITER_PS1);
         // detached + unref: the supervisor must be in its own process group.
         // Field history: a non-detached child was reaped along with the
         // app's teardown on exit — the waiter logged "parked" and vanished,
         // stranding a downloaded update forever (seen on 0.2.19 → 0.2.21).
-        const p = spawn("cmd.exe", ["/c", batPath], {
+        const p = spawn("wscript.exe", ["//B", "//NOLOGO", vbsPath], {
           detached: true,
           stdio: "ignore",
           windowsHide: true,
@@ -161,8 +169,8 @@ export class Updater {
             WX_LOG: waiterLog,
             WX_EXENAME: path.basename(process.execPath),
             WX_APPEXE: process.execPath,
+            WX_APPPID: String(process.pid),
             WX_INSTALLER: installerPath,
-            WX_PS1: ps1Path,
           },
         });
         let settled = false;
@@ -218,39 +226,68 @@ export class Updater {
  * installer lacks (150s), with AV-scanner-lock retries on the spawn.
  */
 /**
- * Hidden cmd.exe supervisor (parameterized via WX_* env vars). Waits for
- * every app process to leave tasklist, runs the installer, verifies the
- * app exe's mtime changed (ground truth — exit codes are null from hidden
- * consoles), retries up to 5 times, relaunches if --force-run didn't.
- * Validated end-to-end against a fake installer before shipping.
+ * VBS shim: wscript.exe is a GUI-subsystem host — no console window exists
+ * at all (spawn's windowsHide can't hide a detached console app, which is
+ * how the old cmd supervisor flashed a visible window). Its only job is to
+ * start the PowerShell worker hidden (window style 0) and not wait.
  */
-const WAITER_BAT = `@echo off
-setlocal enabledelayedexpansion
-echo [%time%] supervisor parked>>"%WX_LOG%"
-set /a w=0
-:waitloop
-tasklist /FI "IMAGENAME eq %WX_EXENAME%" /NH 2>nul | find /I "%WX_EXENAME%" >nul
-if not errorlevel 1 (
-  set /a w+=1
-  if !w! lss 240 (ping -n 2 127.0.0.1 >nul & goto waitloop)
-  echo [%time%] app still running after !w! polls - aborting, not installing over a live app>>"%WX_LOG%"
-  exit
-)
-echo [%time%] app gone after !w! polls>>"%WX_LOG%"
-powershell -NoProfile -ExecutionPolicy Bypass -File "%WX_PS1%"
-exit
-`;
+function waiterVbs(ps1Path: string): string {
+  const cmd =
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File " +
+    `""${ps1Path}""`;
+  return `CreateObject("WScript.Shell").Run "${cmd}", 0, False\r\n`;
+}
 
 /**
- * Install + verify + retry, all in ONE PowerShell process — the cmd layer's
- * between-attempt gap is where the field supervisor once vanished. Success
- * is the app exe's mtime changing (exit codes are advisory; null from
- * hidden consoles). Five attempts ride out Defender's block-at-first-sight
- * on the freshly downloaded unsigned installer.
+ * The whole supervisor in ONE hidden PowerShell process (multi-stage cmd
+ * layers are where field supervisors vanished before):
+ *
+ * 1. Wait for the exiting app's main PID to die — by PID, not image name,
+ *    so a user relaunching the app doesn't read as "still shutting down".
+ * 2. Wait for lingering same-exe children (kernel teardown can hold them
+ *    20-100s). A process whose StartTime is AFTER the supervisor parked is
+ *    a user relaunch → abort; the relaunched app re-offers the update.
+ * 3. Install silently; success is the app exe's mtime changing (exit codes
+ *    are advisory; null from hidden consoles). Five attempts ride out
+ *    Defender's block-at-first-sight on the fresh unsigned installer.
+ * 4. Relaunch if the installer's --force-run didn't.
  */
 const WAITER_PS1 = String.raw`
 $log = $env:WX_LOG
 function L($m) { Add-Content -Encoding UTF8 $log ((Get-Date -Format HH:mm:ss.f) + " " + $m) }
+$parkedAt = Get-Date
+$name = [IO.Path]::GetFileNameWithoutExtension($env:WX_EXENAME)
+L ("supervisor parked, waiting on pid " + $env:WX_APPPID)
+
+$deadline = (Get-Date).AddSeconds(150)
+while ((Get-Date) -lt $deadline -and (Get-Process -Id ([int]$env:WX_APPPID) -ErrorAction SilentlyContinue)) {
+  Start-Sleep -Milliseconds 800
+}
+if (Get-Process -Id ([int]$env:WX_APPPID) -ErrorAction SilentlyContinue) {
+  L "old app process never exited - aborting, not installing over a live app"
+  exit 1
+}
+L "old main process gone"
+
+$deadline = (Get-Date).AddSeconds(120)
+while ((Get-Date) -lt $deadline) {
+  $procs = @(Get-Process -Name $name -ErrorAction SilentlyContinue)
+  if ($procs.Count -eq 0) { break }
+  $relaunched = @($procs | Where-Object {
+    try { $_.StartTime -gt $parkedAt } catch { $false }
+  })
+  if ($relaunched.Count -gt 0) {
+    L "app was relaunched by the user - aborting; the new instance re-offers the update"
+    exit 1
+  }
+  Start-Sleep -Milliseconds 800
+}
+if (@(Get-Process -Name $name -ErrorAction SilentlyContinue).Count -gt 0) {
+  L "lingering app processes never cleared - aborting"
+  exit 1
+}
+L "all app processes gone"
+
 for ($i = 1; $i -le 5; $i++) {
   L ("attempt " + $i)
   try {
@@ -262,7 +299,6 @@ for ($i = 1; $i -le 5; $i++) {
     L ("exit=" + $p.ExitCode + " changed=" + ($after -gt $before))
     if ($after -gt $before) {
       Start-Sleep 8
-      $name = [IO.Path]::GetFileNameWithoutExtension($env:WX_EXENAME)
       if (-not (Get-Process -Name $name -ErrorAction SilentlyContinue)) {
         Start-Process -FilePath $env:WX_APPEXE
         L "relaunched directly"
