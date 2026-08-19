@@ -450,9 +450,17 @@ configure. There is no account, no telemetry, and no middleman server.
 1. Download **`WhaleX-<version>-arm64-mac.zip`** (Apple Silicon) or **`WhaleX-<version>-x64-mac.zip`**
    (Intel) from the [latest release](https://github.com/leejoong/whalex/releases/latest) and unzip it.
 2. Drag **WhaleX.app** into **Applications**.
-3. The app is unsigned/un-notarised, so plain double-click is blocked: **right-click → Open → Open**
-   (needed only once). On newer macOS you may instead need **System Settings → Privacy & Security →
-   "Open Anyway"**.
+3. The app is unsigned/un-notarised, so macOS will block it — often with a misleading
+   **"WhaleX is damaged and can't be opened. You should move it to the Trash."**
+   The file is fine; that dialog is the quarantine flag on an unsigned download. Clear it:
+   ```bash
+   xattr -cr /Applications/WhaleX.app
+   ```
+   then open the app (right-click → Open the first time). In the rare case it still refuses,
+   apply an ad-hoc signature and open again:
+   ```bash
+   codesign --force --deep -s - /Applications/WhaleX.app
+   ```
 4. First launch: key → folder → go, same as Windows.
 
 ### Linux
