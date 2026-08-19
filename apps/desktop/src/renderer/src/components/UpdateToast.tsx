@@ -113,7 +113,12 @@ export function UpdateToast() {
             </>
           )}
           {status.state === "downloaded" && !confirming && (
-            <div className="text-[13px] font-medium">{t("update.restarting")}</div>
+            <>
+              <div className="text-[13px] font-medium">{t("update.restarting")}</div>
+              <div className="mt-1.5 text-[12px] leading-relaxed text-muted">
+                {t("update.restartWait")}
+              </div>
+            </>
           )}
           {confirming && (
             <>
