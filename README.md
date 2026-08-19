@@ -70,7 +70,7 @@ Three ideas drive it:
 Ask any coding agent for a pitch deck and you usually get the same thing: title
 underlines, decorative color bars, walls of centered bullets. **WhaleX ships
 with a design system that refuses to produce that.** Four bundled skills
-(deck-design · frontend-design · canvas-design · theme-factory) load
+(whalex-design · frontend-design · canvas-design · theme-factory) load
 automatically whenever the task is visual, and enforce:
 
 - **One THEME contract per artifact** — palette, type scale, spacing, and a

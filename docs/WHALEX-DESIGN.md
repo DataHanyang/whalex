@@ -18,7 +18,7 @@ Four skills ship enabled by default (Settings → Skills can toggle each):
 
 | Skill | Covers | Origin |
 |---|---|---|
-| **deck-design** | .pptx decks: creation, editing, matching an existing template | WhaleX original |
+| **whalex-design** | .pptx decks: creation, editing, matching an existing template | WhaleX original |
 | **frontend-design** | Landing pages, UI, single-file sites | Anthropic (Apache-2.0) + WhaleX additions |
 | **canvas-design** | Posters and static art (.png/.pdf), philosophy-first | Anthropic (Apache-2.0) |
 | **theme-factory** | 10 preset color/font themes + custom theme generation | Anthropic (Apache-2.0) |
@@ -38,7 +38,7 @@ Consistency is the single biggest difference between "designed" and "generated".
 
 **2 · Match mode for existing files.** Give it a deck and say "add three slides
 in this style": a bundled dependency-free extractor
-(`deck-design/scripts/extract-theme.mjs`) reads the .pptx theme — colors,
+(`whalex-design/scripts/extract-theme.mjs`) reads the .pptx theme — colors,
 major/minor fonts, slide size, per-slide font sizes — and those tokens become
 the contract. The agent follows your brand instead of "improving" it.
 
@@ -105,7 +105,7 @@ matching skill loads itself. Useful extras:
 `frontend-design`, `canvas-design`, and `theme-factory` derive from
 [anthropics/skills](https://github.com/anthropics/skills) (Apache-2.0; license
 files ship alongside each skill; `frontend-design` carries WhaleX
-modifications). `deck-design` is a WhaleX original — Anthropic's pptx skill is
-source-available (not open source) and is **not** included; deck-design covers
+modifications). `whalex-design` is a WhaleX original — Anthropic's pptx skill is
+source-available (not open source) and is **not** included; whalex-design covers
 the same ground with its own playbook, informed by the community's published
 lessons about it.

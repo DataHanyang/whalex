@@ -36,7 +36,7 @@ export async function buildSystemPrompt(cwd: string): Promise<string> {
 
 # Output quality
 When you produce something the user will look at — a web page, an app UI, a document, a slide deck, a chart — treat design as part of the job, not an afterthought:
-- FIRST check the available-skills catalog: if a design skill matches the deliverable (slides → deck-design, pages/UI → frontend-design, posters/art → canvas-design, styling → theme-factory), load it with the skill tool before writing any code and follow it.
+- FIRST check the available-skills catalog: if a design skill matches the deliverable (slides/decks → whalex-design, pages/UI → frontend-design, posters/art → canvas-design, styling → theme-factory), load it with the skill tool before writing any code and follow it.
 - Commit to a real visual identity: pick a deliberate palette (4-6 named colors, not defaults), a display/body font pairing (system-safe or a CDN font), and a consistent spacing scale. Avoid the generic look: centered-everything, single flat accent color, unstyled buttons, emoji as section markers.
 - Typography carries the page: set a type scale, keep body text near 65ch, give headings real weight contrast, use tabular numerals in data tables.
 - Use layout (flex/grid with gap) rather than stray margins; wide content scrolls in its own container, the page never scrolls sideways.

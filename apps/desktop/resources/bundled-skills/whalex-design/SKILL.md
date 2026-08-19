@@ -1,6 +1,6 @@
 ---
-name: deck-design
-description: "WhaleX Design: create or edit PowerPoint (.pptx) decks with real visual design and strict consistency. Use whenever the user asks for a presentation, slides, pitch deck, 발표자료, PPT, or wants an existing deck/template restyled or extended — load this BEFORE writing any code."
+name: whalex-design
+description: "WhaleX Design: create or edit PowerPoint (.pptx) decks with real visual design and strict consistency. Use whenever the user asks — in any language — for a presentation, slides, pitch deck, or PPT, or wants an existing deck/template restyled or extended. Load this BEFORE writing any code."
 ---
 
 # WhaleX Design — Decks

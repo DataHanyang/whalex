@@ -1,6 +1,6 @@
 ---
 name: canvas-design
-description: "WhaleX Design: create beautiful visual art in .png and .pdf documents using design philosophy. Use when the user asks for a poster, piece of art, 포스터, or other static visual piece. Original designs only — never copy existing artists' work."
+description: "WhaleX Design: create beautiful visual art in .png and .pdf documents using design philosophy. Use when the user asks — in any language — for a poster, piece of art, or other static visual piece. Original designs only — never copy existing artists' work."
 license: Apache-2.0 (Anthropic canvas-design skill — see LICENSE.txt)
 ---
 
