@@ -72,17 +72,33 @@ brand colors, an existing site, or a reference image, those values ARE the
 tokens — extract them first (view_image can read a reference image when a
 vision model is connected) and do not "improve" them.
 
-### Korean (Hangul) typography — non-negotiable
+### Line breaking, every language — non-negotiable
 
-- `word-break: keep-all` on every heading and short paragraph — without it
-  Hangul headlines break mid-word into ugly vertical shards.
-- Font stack without CDNs: `font-family: Pretendard, "Noto Sans KR",
-  "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;` (works installed-or-not
-  on Windows/macOS).
-- Korean line-height needs more room than Latin: 1.6-1.7 body, 1.3 headings.
-- Mixed Korean + numerals: use `font-feature-settings: "tnum"` on stats.
-- Hero headlines: set an explicit `max-width` sized to break at a meaningful
-  phrase boundary, or insert `<wbr>`/`<br>` at the phrase you choose.
+Text must never break mid-word or at an ugly point, in any language:
+
+- **Global defaults**: `overflow-wrap: break-word` only as a last-resort
+  safety on long URLs/identifiers; NEVER `word-break: break-all` anywhere.
+  No hyphenation (`hyphens: none`) unless the design explicitly wants it.
+- **Headings in all languages**: `text-wrap: balance` (supported in Electron/
+  Chromium) so multi-line titles break evenly; body paragraphs get
+  `text-wrap: pretty` where available (kills single-word orphan lines).
+- **Korean**: `word-break: keep-all` on headings and short paragraphs —
+  without it Hangul breaks mid-word into vertical shards. Line-height
+  1.6-1.7 body / 1.3 headings.
+- **Japanese/Chinese**: do NOT use `keep-all` (paragraphs would refuse to
+  wrap); instead `line-break: strict` for correct kinsoku (no line starting
+  with 。、」 etc.).
+- **Never split**: numbers from their units (`1,200 kg`), currency from
+  amounts, proper nouns — join with `&nbsp;` or wrap in
+  `<span style="white-space:nowrap">`.
+- **Hero headlines**: control the break yourself — size `max-width` to break
+  at a phrase boundary, or place `<wbr>`/`<br>` at the exact phrase you
+  choose. Check the result at 3 widths (mobile/tablet/desktop); a headline
+  that breaks mid-phrase at any of them is a defect.
+- Font stack without CDNs (Korean-inclusive):
+  `font-family: Pretendard, "Noto Sans KR", "Malgun Gothic",
+  "Apple SD Gothic Neo", sans-serif;`
+- Stats mixing digits and CJK: `font-feature-settings: "tnum"`.
 
 ### QA loop (required)
 

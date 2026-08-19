@@ -92,9 +92,20 @@ details go in speaker notes.
   ・ same layout twice in a row ・ mixed gap sizes (pick `gapIn`, use it
   everywhere) ・ default blue theme ・ overflowing text.
 
-**Text-fit budget**: at 15pt Calibri ≈ 9.5 chars/inch; Korean(Malgun Gothic)
-≈ 5.5 chars/inch. Size every box from its actual string with ~10% slack —
-shorten copy rather than shrink fonts.
+**Text-fit budget**: at 15pt Calibri ≈ 9.5 chars/inch; CJK (Malgun Gothic
+etc.) ≈ 5.5 chars/inch. Size every box from its actual string with ~10%
+slack — shorten copy rather than shrink fonts.
+
+**Line breaking (all languages)**: never let display text auto-wrap at an
+arbitrary point. Titles, kickers, and stat labels get MANUAL breaks — split
+the string yourself at phrase boundaries and emit one run per line with
+`breakLine: true`. PowerPoint wraps Korean mid-word by default, and wraps
+English wherever the box edge falls; the fix is the same in every language:
+you choose the break point, not the renderer. Body bullets: write each
+bullet to fit its line budget (count characters against the box width);
+a bullet that would wrap gets shortened or split into two bullets. Never
+separate a number from its unit or a currency sign from its amount across
+lines — keep them in the same run.
 
 ## Step 2B — MATCH path (existing deck / template)
 

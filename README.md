@@ -46,14 +46,15 @@ Three ideas drive it:
 | | | |
 |---|---|---|
 | 🛠 **Local control** | Read, write and edit files; run PowerShell or bash; `glob`, `grep`, `web_fetch`. | |
-| 🎨 **Artifact preview** | HTML, SVG, Mermaid and Markdown the agent creates render in a split panel, hot-reloading as it edits. | `present_file` |
+| 🎨 **Artifact preview** | HTML, SVG, Mermaid, Markdown — plus **PowerPoint decks and Excel workbooks rendered visually** — in a split panel, hot-reloading as the agent edits. | `present_file` |
+| 🖌 **WhaleX Design** | A bundled design-skill pack that makes decks, pages and posters look deliberately designed, not AI-generated — design-token consistency, brand/template matching, and a vision-QA loop. [See it →](#-whalex-design--output-that-doesnt-look-ai-made) | skills |
 | ✅ **Self-verification** | `verify_page` opens a page it built in a real browser engine and measures whether it actually draws and animates — so a blank canvas gets caught and fixed, not shipped. | `verify_page` |
 | 🌐 **Browser use** | Reads pages through the DOM and the accessibility tree, so it can build and test web apps even though DeepSeek is text-only. | `browser_*` |
 | 🤖 **Sub-agents** | Delegates a scoped job to a child agent with its own context — or fans out a fleet of them in parallel. | `agent`, SuperCode |
 | 🎯 **Goal mode** | Give it a goal instead of a task; it iterates and self-assesses until the goal is met. | Codex-style loop |
 | ⏪ **Checkpoints** | `/rewind` restores your files *and* the conversation to any earlier turn. | `/rewind` |
 | 🔌 **Extensible** | One-click MCP presets, `SKILL.md` skills, git or local plugins, and shell Hooks on tool events. | MCP · Skills · Plugins |
-| 🖼 **Vision bridge** | Paste an image and a vision model you connect describes it into context — DeepSeek never has to see pixels. | optional |
+| 🖼 **Vision bridge** | Connect any OpenAI-compatible vision model (one-click Gemini free-tier preset) and the agent can *see*: pasted images, and its own rendered output via `view_image` for self-QA. | optional |
 | ⚡ **Fast &amp; current** | Read-only tools run in parallel, rate limits retry themselves, and the app updates itself in place. | auto-update |
 
 ## 📸 In action
@@ -63,6 +64,39 @@ Three ideas drive it:
 | <img src="docs/screenshots/searchbuild.png" width="330" alt="Deepfind, an AI search engine landing page a SuperCode fleet designed, built and smoke-tested, rendered live in the side panel"> | <img src="docs/screenshots/interview.png" width="570" alt="After the recon fleet finishes, the agent asks scoped questions with rich options before writing any plan"> |
 | **Browser use — searches Google, reads the results back** | **Thinking effort — click the level, drag the slider** |
 | <img src="docs/screenshots/browser-use.png" width="560" alt="Agent searches Google for DeepSeek V4 benchmark and lists the result titles"> | <img src="docs/screenshots/effort.png" width="560" alt="Thinking-effort popover open above the composer, seven levels from Off to Max"> |
+
+## 🖌 WhaleX Design — output that doesn't look AI-made
+
+Ask any coding agent for a pitch deck and you usually get the same thing: title
+underlines, decorative color bars, walls of centered bullets. **WhaleX ships
+with a design system that refuses to produce that.** Four bundled skills
+(deck-design · frontend-design · canvas-design · theme-factory) load
+automatically whenever the task is visual, and enforce:
+
+- **One THEME contract per artifact** — palette, type scale, spacing, and a
+  repeating motif declared once; every slide and section draws from it. Same
+  title size on slide 2 and slide 8. That consistency is what reads as *designed*.
+- **Brand & template matching** — hand it an existing .pptx or your brand
+  colors and a bundled extractor reads the theme (colors, fonts, sizes) so new
+  slides follow *your* identity instead of a generic one.
+- **A ban-list of AI tells** — no accent underlines, no edge stripes, no
+  text-only slides, no mid-word line breaks in any language (Korean `keep-all`,
+  CJK kinsoku, numbers never split from units).
+- **Self-QA with real eyes** — the agent exports its slides to images and, with
+  a vision model connected (free Gemini preset), inspects every one for
+  overflow, overlap and contrast, then fixes what it finds. In our test run the
+  vision loop caught three real layout bugs the text-only pass missed.
+
+Same model, same prompt — the only difference is WhaleX Design:
+
+| Before (no skills) | After (WhaleX Design + vision QA) |
+|---|---|
+| <img src="docs/design/deck-before-1.png" alt="Before: title slide with accent underline and cramped stat cards"> | <img src="docs/design/deck-after-1.png" alt="After: serif display title, orbital motif, consistent footer and page number"> |
+| <img src="docs/design/deck-before-2.png" alt="Before: dense problem slide, underlined title, wrapped text"> | <img src="docs/design/deck-after-2.png" alt="After: problem slide with accent keyword, clean bullets, native chart and stat cards"> |
+
+Decks open as real visual renders in the artifact panel, and everything is a
+plain `SKILL.md` you can toggle in Settings or override with your own copy.
+**Full write-up: [docs/WHALEX-DESIGN.md](docs/WHALEX-DESIGN.md)**
 
 ## 🚀 Quick start
 
@@ -331,7 +365,7 @@ WhaleX reads a few plain-Markdown files so you can shape how it behaves without 
   - Match the existing Prettier config; don't reformat untouched files.
   ```
 
-- **`SKILL.md` — on-demand skills.** A folder with a `SKILL.md` (YAML frontmatter `name` + `description`, then the body) becomes a skill the agent loads only when it's relevant — the prompt carries a one-line catalog, the full body loads when the agent invokes it or you type `/<name>`. Put them in `~/.whalex/skills/<name>/` (all projects) or `<project>/.whalex/skills/<name>/` (project wins on a name clash). Claude Code–compatible.
+- **`SKILL.md` — on-demand skills.** A folder with a `SKILL.md` (YAML frontmatter `name` + `description`, then the body) becomes a skill the agent loads only when it's relevant — the prompt carries a one-line catalog, the full body loads when the agent invokes it or you type `/<name>`. Put them in `~/.whalex/skills/<name>/` (all projects) or `<project>/.whalex/skills/<name>/` (project wins on a name clash). Claude Code–compatible. The [WhaleX Design pack](docs/WHALEX-DESIGN.md) ships this way too — bundled defaults you can toggle in Settings → Skills or override with a same-named skill of your own.
 
   ```markdown
   ---
@@ -343,7 +377,7 @@ WhaleX reads a few plain-Markdown files so you can shape how it behaves without 
 
 ### Connect more tools
 
-- **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, GitHub, Playwright, Excel, PowerPoint, Gmail, …). Or paste any `mcpServers` JSON.
+- **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, GitHub, Playwright, Excel, PowerPoint, Gmail, **Naver Search, YouTube, Google Calendar, Notion, Slack, Instagram/Threads**, …). Or paste any `mcpServers` JSON.
 - **Plugins** — install from a git URL or a local folder (skills + MCP + commands).
 - **Hooks** — run shell commands on `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `Stop`; a `PreToolUse` hook can block a tool.
 - **Feature toggles** — turn sub-agents, SuperCode, browser use, web fetch on/off in Settings.
@@ -380,7 +414,7 @@ Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes 
 
 ## 📝 Notes
 
-- DeepSeek's API is **text-only** — image understanding and computer-use route through an optional vision model you connect yourself.
+- DeepSeek's API is **text-only** — image understanding, design self-QA (`view_image`) and computer-use route through an optional vision model you connect yourself (one-click Gemini free-tier preset in Settings → Vision).
 - Builds aren't code-signed yet, so you'll see an OS warning on first launch.
 - This is an independent open-source project, **not** affiliated with Anthropic, OpenAI, or DeepSeek. Claude Code and Codex are trademarks of their respective owners.
 
