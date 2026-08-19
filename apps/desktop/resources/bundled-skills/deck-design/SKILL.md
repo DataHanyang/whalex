@@ -138,7 +138,9 @@ $pres.Close(); $pp.Quit()
 Then — if the `view_image` tool is available — inspect EVERY exported slide:
 ask it specifically about text overflow/cutoff (the #1 defect), overlaps,
 < 0.3" gaps, margins < 0.5", low contrast, and whether consecutive slides
-repeat a layout. Fix in the generator, re-export, re-check. Two clean passes
+repeat a layout. Pace the calls: free-tier vision endpoints rate-limit around
+10 requests/min, so ask ONE comprehensive question per slide (not several),
+and on a 429/503 wait ~30s before retrying — don't burn retries back-to-back. Fix in the generator, re-export, re-check. Two clean passes
 = done. Without `view_image`, re-verify the script against the ban list and
 text-fit budgets line by line, and say in your summary that visual QA needs
 a vision model connected (설정 → 비전).
