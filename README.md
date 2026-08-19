@@ -69,9 +69,11 @@ Three ideas drive it:
 
 Ask any coding agent for a pitch deck and you usually get the same thing: title
 underlines, decorative color bars, walls of centered bullets. **WhaleX ships
-with a design system that refuses to produce that.** Four bundled skills
-(whalex-design · frontend-design · canvas-design · theme-factory) load
-automatically whenever the task is visual, and enforce:
+with a design system that refuses to produce that.** The bundled skill pack
+(whalex-design · frontend-design · canvas-design · theme-factory, plus
+docx / xlsx / pdf document skills and webapp-testing / systematic-debugging /
+code-review workflow skills) loads automatically whenever the task matches,
+and the design skills enforce:
 
 - **One THEME contract per artifact** — palette, type scale, spacing, and a
   repeating motif declared once; every slide and section draws from it. Same
@@ -377,7 +379,7 @@ WhaleX reads a few plain-Markdown files so you can shape how it behaves without 
 
 ### Connect more tools
 
-- **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, GitHub, Playwright, Excel, PowerPoint, Gmail, **Naver Search, YouTube, Google Calendar, Notion, Slack, Instagram/Threads**, …). Or paste any `mcpServers` JSON.
+- **MCP servers** — Settings → MCP has one-click presets (filesystem, memory, sequential-thinking, fetch, time, **Context7**, GitHub, Playwright, Brave Search, Figma, Firecrawl, Excel, PowerPoint, Gmail, **Naver Search, YouTube, Google Calendar, Notion, Slack, Instagram/Threads**, …). Or paste any `mcpServers` JSON.
 - **Plugins** — install from a git URL or a local folder (skills + MCP + commands).
 - **Hooks** — run shell commands on `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `Stop`; a `PreToolUse` hook can block a tool.
 - **Feature toggles** — turn sub-agents, SuperCode, browser use, web fetch on/off in Settings.

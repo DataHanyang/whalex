@@ -14,7 +14,7 @@ connect a (free) vision model for visual QA.
 
 ## The pack
 
-Four skills ship enabled by default (Settings → Skills can toggle each):
+These skills ship enabled by default (Settings → Skills can toggle each):
 
 | Skill | Covers | Origin |
 |---|---|---|
@@ -22,6 +22,10 @@ Four skills ship enabled by default (Settings → Skills can toggle each):
 | **frontend-design** | Landing pages, UI, single-file sites | Anthropic (Apache-2.0) + WhaleX additions |
 | **canvas-design** | Posters and static art (.png/.pdf), philosophy-first | Anthropic (Apache-2.0) |
 | **theme-factory** | 10 preset color/font themes + custom theme generation | Anthropic (Apache-2.0) |
+| **docx** / **xlsx** / **pdf** | Word reports, Excel workbooks, designed PDFs — with Office-COM QA on Windows | WhaleX originals |
+| **webapp-testing** | Drive real user flows in the built-in browser and report evidence | WhaleX original |
+| **systematic-debugging** | Reproduce → localize → one-change experiments | WhaleX original |
+| **code-review** | Correctness-first review with verified findings | WhaleX original |
 
 Skills are plain folders with a `SKILL.md` — the system prompt carries a
 one-line catalog, and the agent loads the full playbook only when the task
