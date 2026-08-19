@@ -26,6 +26,7 @@ import {
 import {
   KNOWN_MODELS,
   resolveModelInfo,
+  resolveSystemLanguage,
   type AgentEvent,
   type AgentEventEnvelope,
   type LiveSnapshot,
@@ -809,8 +810,7 @@ User: ${userText.slice(0, 400)}`,
     if (!Notification.isSupported()) return;
     let lang = this.settings.get().language;
     if (lang === "system") {
-      const sys = app.getLocale().slice(0, 2);
-      lang = (["en", "ko", "zh", "ja", "fr"] as const).find((l) => l === sys) ?? "en";
+      lang = resolveSystemLanguage(app.getLocale());
     }
     const TEXT = {
       en: { done: "Task finished", error: "Stopped with an error" },
@@ -818,6 +818,12 @@ User: ${userText.slice(0, 400)}`,
       zh: { done: "任务已完成", error: "因错误而停止" },
       ja: { done: "作業が完了しました", error: "エラーで停止しました" },
       fr: { done: "Tâche terminée", error: "Arrêtée sur une erreur" },
+      "zh-TW": { done: "任務已完成", error: "因錯誤而停止" },
+      de: { done: "Aufgabe abgeschlossen", error: "Mit einem Fehler gestoppt" },
+      ru: { done: "Задача завершена", error: "Остановлено из-за ошибки" },
+      vi: { done: "Đã xong công việc", error: "Dừng lại vì lỗi" },
+      th: { done: "งานเสร็จแล้ว", error: "หยุดเพราะข้อผิดพลาด" },
+      id: { done: "Tugas selesai", error: "Berhenti karena kesalahan" },
     } as const;
     const text = TEXT[lang as keyof typeof TEXT] ?? TEXT.en;
     const title = hosted.store

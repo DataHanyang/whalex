@@ -57,6 +57,7 @@ export function Composer() {
   const [text, setText] = useState("");
   const [ac, setAc] = useState<Autocomplete | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [describing, setDescribing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<number | undefined>(undefined);
@@ -103,22 +104,34 @@ export function Composer() {
     });
   }, [composerDraft, setComposerDraft]);
 
-  const onAttach = (file: File) => {
-    if (file.type.startsWith("image/")) {
-      readImageFile(file);
-      return;
-    }
-    // Non-image files ride along as a path mention the tools can read.
-    // File.path was removed in Electron 32+; the preload bridge exposes
-    // webUtils.getPathForFile instead (legacy .path kept as a fallback).
-    let p: string | undefined;
+  // File.path was removed in Electron 32+; the preload bridge exposes
+  // webUtils.getPathForFile instead (legacy .path kept as a fallback).
+  const pathOf = (file: File): string | undefined => {
     try {
-      p = whalex.getPathForFile?.(file);
+      const p = whalex.getPathForFile?.(file);
+      if (p) return p;
     } catch {
-      // not a file-backed File; fall through to the legacy property
+      // not a file-backed File (a dragged browser image, say) — fall through
     }
-    p ||= (file as File & { path?: string }).path;
-    if (p) setText((t0) => (t0 ? `${t0} @${p}` : `@${p}`));
+    return (file as File & { path?: string }).path;
+  };
+
+  // Shared by the paperclip and by drops: images go to the vision sidecar,
+  // everything else rides along as a path mention the tools can read.
+  const attachFiles = (files: File[]) => {
+    if (files.length === 0) return;
+    const images = files.filter((f) => f.type.startsWith("image/"));
+    const rest = files.filter((f) => !f.type.startsWith("image/"));
+    // The vision bridge describes one image per turn, so extra ones are
+    // dropped loudly rather than silently.
+    if (images[0]) readImageFile(images[0]);
+    if (images.length > 1) showNotice(t("composer.drop.oneImage"));
+    const paths = rest.map(pathOf).filter((p): p is string => !!p);
+    if (paths.length > 0) {
+      const mentions = paths.map((p) => `@${p}`).join(" ");
+      setText((t0) => (t0.trim() ? `${t0.trimEnd()} ${mentions} ` : `${mentions} `));
+    }
+    if (paths.length < rest.length) showNotice(t("composer.drop.noPath"));
   };
   const newSession = useSessionStore((s) => s.startSession);
 
@@ -139,13 +152,50 @@ export function Composer() {
       readImageFile(file);
     }
   };
-  const onDrop = (e: React.DragEvent) => {
-    const file = [...e.dataTransfer.files].find((f) => f.type.startsWith("image/"));
-    if (file) {
+  // Drops are handled on the window, not just the textarea: anywhere in the
+  // app is a target, and preventing the default stops Electron from
+  // navigating away to the dropped file. attachFiles is re-read from a ref so
+  // the listeners can be registered once.
+  const attachRef = useRef(attachFiles);
+  attachRef.current = attachFiles;
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes("Files");
+    // dragenter/dragleave fire per element crossed, so depth-count instead of
+    // clearing on the first leave (which would flicker over every child).
+    let depth = 0;
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth += 1;
+      setDragging(true);
+    };
+    const onOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
       e.preventDefault();
-      readImageFile(file);
-    }
-  };
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    };
+    const onLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      depth = 0;
+      setDragging(false);
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      attachRef.current([...(e.dataTransfer?.files ?? [])]);
+    };
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, []);
 
   const commandsRef = useRef<SlashCommand[]>([]);
   useEffect(() => {
@@ -346,16 +396,23 @@ export function Composer() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 pb-5 pt-1">
+      {dragging && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="flex flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-accent bg-surface px-10 py-8 shadow-xl">
+            <Paperclip size={22} className="text-accent" />
+            <div className="text-[14px] font-semibold">{t("composer.drop.title")}</div>
+            <div className="max-w-xs text-center text-[12px] text-muted">
+              {t("composer.drop.hint")}
+            </div>
+          </div>
+        </div>
+      )}
       {notice && (
         <div className="px-1 pb-1 text-[11.5px] text-warn" role="status">
           {notice}
         </div>
       )}
-      <div
-        className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong"
-        onDrop={onDrop}
-        onDragOver={(e) => e.preventDefault()}
-      >
+      <div className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong">
         {image && (
           <div className="flex items-center gap-2 px-4 pt-3">
             <div className="relative">
@@ -435,10 +492,10 @@ export function Composer() {
           <input
             ref={fileRef}
             type="file"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onAttach(f);
+              attachFiles([...(e.target.files ?? [])]);
               e.target.value = "";
             }}
           />

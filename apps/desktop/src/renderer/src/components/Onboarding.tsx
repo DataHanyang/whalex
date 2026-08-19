@@ -1,13 +1,35 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, FolderOpen, KeyRound, Loader2 } from "lucide-react";
-import { DEEPSEEK_PROVIDER_ID } from "@whalex/shared";
+import { Check, Eye, KeyRound, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { DEEPSEEK_PROVIDER_ID, resolveSystemLanguage, type AppLanguage } from "@whalex/shared";
+import { LANGUAGES } from "../i18n";
 import { useAppStore } from "../stores/appStore";
-import { useSessionStore } from "../stores/sessionStore";
 import { whalex } from "../lib/ipc";
 import logoUrl from "../assets/logo.png";
 
-type Step = "welcome" | "apiKey" | "folder";
+type Step = "welcome" | "apiKey" | "vision" | "finish";
+
+/**
+ * Vision sidecars offered during setup. DeepSeek is text-only, so images only
+ * work once one of these is connected — both have a free tier, which is why
+ * they are the two on offer here (Settings → Models has the full list).
+ */
+const VISION_PRESETS = [
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-flash-latest",
+    keysUrl: "https://aistudio.google.com/apikey",
+  },
+  {
+    id: "glm",
+    label: "GLM (Zhipu)",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4v-flash",
+    keysUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+  },
+] as const;
 
 export function Onboarding() {
   const { t } = useTranslation();
@@ -16,11 +38,17 @@ export function Onboarding() {
   const [testState, setTestState] = useState<
     { s: "idle" } | { s: "testing" } | { s: "ok"; count: number } | { s: "error"; msg: string }
   >({ s: "idle" });
-  const [folder, setFolder] = useState<string | null>(null);
+  const [preset, setPreset] = useState<(typeof VISION_PRESETS)[number]>(VISION_PRESETS[0]);
+  const [visionKey, setVisionKey] = useState("");
+  const [visionState, setVisionState] = useState<
+    { s: "idle" } | { s: "testing" } | { s: "ok" } | { s: "error"; msg: string }
+  >({ s: "idle" });
+  const [instructions, setInstructions] = useState("");
+  const [redactSecrets, setRedactSecrets] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const refreshModels = useAppStore((s) => s.refreshModels);
   const settings = useAppStore((s) => s.settings);
-  const startSession = useSessionStore((s) => s.startSession);
 
   const testKey = async () => {
     setTestState({ s: "testing" });
@@ -37,30 +65,48 @@ export function Onboarding() {
     }
   };
 
-  const pickFolder = async () => {
-    const res = await whalex.invoke("dialog:pickFolder", undefined);
-    if (res.path) setFolder(res.path);
+  /** Store the vision key + endpoint, verifying it first so a typo surfaces here. */
+  const connectVision = async () => {
+    setVisionState({ s: "testing" });
+    const res = await whalex.invoke("vision:test", {
+      baseUrl: preset.baseUrl,
+      model: preset.model,
+      apiKey: visionKey.trim(),
+    });
+    if (!res.ok) {
+      setVisionState({ s: "error", msg: res.error ?? "unknown" });
+      return;
+    }
+    await whalex.invoke("secrets:set", { ref: "vision-api-key", value: visionKey.trim() });
+    await updateSettings({
+      vision: { baseUrl: preset.baseUrl, model: preset.model, apiKeyRef: "vision-api-key" },
+    });
+    setVisionKey("");
+    setVisionState({ s: "ok" });
   };
 
+  // No folder is picked here — a session chooses its own project folder, so
+  // setup only settles the things that apply across every project.
   const finish = async () => {
-    if (!folder) return;
-    await updateSettings({ onboardingComplete: true, defaultCwd: folder });
-    await refreshModels();
-    await startSession(folder);
+    setFinishing(true);
+    try {
+      await updateSettings({
+        onboardingComplete: true,
+        customInstructions: instructions.trim(),
+        redactSecrets,
+      });
+      await refreshModels();
+    } finally {
+      setFinishing(false);
+    }
   };
 
-  type Language = "ko" | "en" | "zh" | "ja" | "fr";
-  const LANGUAGES: Array<[Language, string]> = [
-    ["ko", "한국어"],
-    ["en", "English"],
-    ["zh", "中文"],
-    ["ja", "日本語"],
-    ["fr", "Français"],
-  ];
-  const setLanguage = (language: Language) => void updateSettings({ language });
-  const isActive = (code: Language) =>
+  const setLanguage = (language: AppLanguage) => void updateSettings({ language });
+  // "system" highlights whichever locale it actually resolves to, so zh and
+  // zh-TW never light up together.
+  const isActive = (code: AppLanguage) =>
     settings?.language === code ||
-    (settings?.language === "system" && navigator.language.startsWith(code));
+    (settings?.language === "system" && resolveSystemLanguage(navigator.language) === code);
 
   return (
     <div className="flex h-full flex-col">
@@ -74,17 +120,20 @@ export function Onboarding() {
               <p className="mx-auto mt-3 max-w-sm text-[13.5px] text-muted">
                 {t("onboarding.welcome.subtitle")}
               </p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5 text-[12.5px]">
-                <span className="text-faint">{t("onboarding.language")}:</span>
-                {LANGUAGES.map(([code, label]) => (
-                  <button
-                    key={code}
-                    onClick={() => setLanguage(code)}
-                    className={`rounded-md px-2.5 py-1 ${isActive(code) ? "bg-accent-soft text-accent" : "hover:bg-surface-2"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="mt-5">
+                <div className="mb-1.5 text-[11.5px] text-faint">{t("onboarding.language")}</div>
+                {/* Eleven locales — a wrapped row, not a single line. */}
+                <div className="flex flex-wrap items-center justify-center gap-1 text-[11.5px]">
+                  {LANGUAGES.map(([code, label]) => (
+                    <button
+                      key={code}
+                      onClick={() => setLanguage(code)}
+                      className={`rounded-md px-2 py-1 ${isActive(code) ? "bg-accent-soft text-accent" : "text-muted hover:bg-surface-2"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <button
                 onClick={() => setStep("apiKey")}
@@ -144,7 +193,7 @@ export function Onboarding() {
                 </button>
                 {testState.s === "ok" ? (
                   <button
-                    onClick={() => setStep("folder")}
+                    onClick={() => setStep("vision")}
                     className="flex-1 rounded-lg bg-accent py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover"
                   >
                     {t("onboarding.next")}
@@ -163,7 +212,7 @@ export function Onboarding() {
                 )}
               </div>
               <button
-                onClick={() => setStep("folder")}
+                onClick={() => setStep("vision")}
                 className="mt-3 w-full text-center text-[12px] text-faint hover:text-muted"
               >
                 {t("onboarding.apiKey.skip")}
@@ -171,19 +220,63 @@ export function Onboarding() {
             </div>
           )}
 
-          {step === "folder" && (
+          {step === "vision" && (
             <div>
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-soft">
-                <FolderOpen size={20} className="text-accent" />
+                <Eye size={20} className="text-accent" />
               </div>
-              <h2 className="text-xl font-bold">{t("onboarding.folder.title")}</h2>
-              <p className="mt-2 text-[13px] text-muted">{t("onboarding.folder.subtitle")}</p>
+              <h2 className="text-xl font-bold">{t("onboarding.vision.title")}</h2>
+              <p className="mt-2 text-[13px] text-muted">{t("onboarding.vision.subtitle")}</p>
+              <div className="mt-4 flex gap-1.5">
+                {VISION_PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setPreset(p);
+                      setVisionState({ s: "idle" });
+                    }}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-left text-[12.5px] ${
+                      preset.id === p.id
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-border text-muted hover:bg-surface-2"
+                    }`}
+                  >
+                    <div className="font-medium">{p.label}</div>
+                    <div className="mt-0.5 truncate font-mono text-[10.5px] opacity-70">
+                      {p.model}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <input
+                type="password"
+                value={visionKey}
+                onChange={(e) => {
+                  setVisionKey(e.target.value);
+                  setVisionState({ s: "idle" });
+                }}
+                placeholder={t("onboarding.vision.placeholder")}
+                className="mt-3 w-full rounded-lg border border-border bg-surface px-3.5 py-2.5 font-mono text-[13px] outline-none focus:border-accent"
+              />
               <button
-                onClick={() => void pickFolder()}
-                className="mt-4 w-full rounded-lg border border-dashed border-border-strong px-4 py-4 text-[13px] text-muted hover:border-accent hover:text-text"
+                onClick={() => void whalex.invoke("shell:openExternal", { url: preset.keysUrl })}
+                className="mt-2 text-[12px] text-accent hover:underline"
               >
-                {folder ?? t("onboarding.folder.pick")}
+                {t("onboarding.vision.get", { provider: preset.label })}
               </button>
+
+              {visionState.s === "ok" && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-ok/40 bg-ok/10 px-3 py-2 text-[12.5px] text-ok">
+                  <Check size={15} />
+                  {t("onboarding.vision.success")}
+                </div>
+              )}
+              {visionState.s === "error" && (
+                <div className="mt-3 break-all rounded-lg border border-danger/40 bg-danger-soft px-3 py-2 text-[12.5px] text-danger">
+                  {visionState.msg}
+                </div>
+              )}
+
               <div className="mt-5 flex gap-2">
                 <button
                   onClick={() => setStep("apiKey")}
@@ -191,14 +284,103 @@ export function Onboarding() {
                 >
                   {t("onboarding.back")}
                 </button>
+                {visionState.s === "ok" ? (
+                  <button
+                    onClick={() => setStep("finish")}
+                    className="flex-1 rounded-lg bg-accent py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover"
+                  >
+                    {t("onboarding.next")}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => void connectVision()}
+                    disabled={visionKey.trim().length < 8 || visionState.s === "testing"}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+                  >
+                    {visionState.s === "testing" && <Loader2 size={14} className="animate-spin" />}
+                    {visionState.s === "testing"
+                      ? t("onboarding.vision.testing")
+                      : t("onboarding.vision.connect")}
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => setStep("finish")}
+                className="mt-3 w-full text-center text-[12px] text-faint hover:text-muted"
+              >
+                {t("onboarding.vision.skip")}
+              </button>
+            </div>
+          )}
+
+          {step === "finish" && (
+            <div>
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-soft">
+                <Sparkles size={20} className="text-accent" />
+              </div>
+              <h2 className="text-xl font-bold">{t("onboarding.finish.title")}</h2>
+              <p className="mt-2 text-[13px] text-muted">{t("onboarding.finish.subtitle")}</p>
+
+              <label className="mt-4 block text-[12px] font-medium text-muted">
+                {t("onboarding.finish.instructions")}
+              </label>
+              <textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder={t("onboarding.finish.instructionsPlaceholder")}
+                rows={5}
+                className="mt-1.5 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-accent"
+              />
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={redactSecrets}
+                onClick={() => setRedactSecrets(!redactSecrets)}
+                className={`mt-3 flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left ${
+                  redactSecrets ? "border-accent bg-accent-soft" : "border-border hover:bg-surface-2"
+                }`}
+              >
+                <ShieldCheck
+                  size={16}
+                  className={`mt-0.5 shrink-0 ${redactSecrets ? "text-accent" : "text-faint"}`}
+                />
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-medium">
+                    {t("onboarding.finish.redact")}
+                  </span>
+                  <span className="mt-0.5 block text-[11.5px] text-faint">
+                    {t("onboarding.finish.redactHint")}
+                  </span>
+                </span>
+                <span
+                  className={`ml-auto mt-0.5 h-4 w-4 shrink-0 rounded border ${
+                    redactSecrets ? "border-accent bg-accent" : "border-border-strong"
+                  }`}
+                >
+                  {redactSecrets && <Check size={14} className="text-white" />}
+                </span>
+              </button>
+
+              <div className="mt-5 flex gap-2">
+                <button
+                  onClick={() => setStep("vision")}
+                  className="rounded-lg border border-border px-4 py-2.5 text-[13px] hover:bg-surface-2"
+                >
+                  {t("onboarding.back")}
+                </button>
                 <button
                   onClick={() => void finish()}
-                  disabled={!folder}
-                  className="flex-1 rounded-lg bg-accent py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+                  disabled={finishing}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
                 >
-                  {t("onboarding.folder.finish")}
+                  {finishing && <Loader2 size={14} className="animate-spin" />}
+                  {t("onboarding.finish.start")}
                 </button>
               </div>
+              <p className="mt-3 text-center text-[11.5px] text-faint">
+                {t("onboarding.finish.later")}
+              </p>
             </div>
           )}
         </div>

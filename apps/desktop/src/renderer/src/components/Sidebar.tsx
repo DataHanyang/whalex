@@ -40,10 +40,6 @@ export function Sidebar() {
   const updateSettings = useAppStore((s) => s.updateSettings);
   const openSettings = useUiStore((s) => s.openSettings);
 
-  const newSession = () => {
-    if (cwd) void startSession(cwd);
-  };
-
   const changeFolder = async () => {
     const res = await whalex.invoke("dialog:pickFolder", undefined);
     if (res.path) {
@@ -52,7 +48,12 @@ export function Sidebar() {
     }
   };
 
-  const folderName = cwd ? (cwd.split(/[\\/]/).pop() ?? cwd) : "";
+  // Nothing open yet (a fresh install has no folder) — ask for one first
+  // instead of doing nothing.
+  const newSession = () => {
+    if (cwd) void startSession(cwd);
+    else void changeFolder();
+  };
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">

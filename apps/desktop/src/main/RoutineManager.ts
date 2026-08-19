@@ -1,5 +1,5 @@
 import { Notification, app } from "electron";
-import type { Routine } from "@whalex/shared";
+import { resolveSystemLanguage, type Routine } from "@whalex/shared";
 import type { AgentHost } from "./AgentHost.js";
 import type { SettingsManager } from "./settings.js";
 
@@ -113,8 +113,7 @@ export class RoutineManager {
     if (!Notification.isSupported()) return;
     let lang = this.settings.get().language;
     if (lang === "system") {
-      const sys = app.getLocale().slice(0, 2);
-      lang = (["en", "ko", "zh", "ja", "fr"] as const).find((l) => l === sys) ?? "en";
+      lang = resolveSystemLanguage(app.getLocale());
     }
     const TEXT: Record<string, string> = {
       en: "Routine started",
@@ -122,6 +121,12 @@ export class RoutineManager {
       zh: "例行任务已开始",
       ja: "ルーチンを開始しました",
       fr: "Routine démarrée",
+      "zh-TW": "排程已開始",
+      de: "Routine gestartet",
+      ru: "Рутина запущена",
+      vi: "Đã bắt đầu lịch chạy",
+      th: "เริ่มงานตามเวลาแล้ว",
+      id: "Rutinitas dimulai",
     };
     new Notification({ title: name, body: TEXT[lang] ?? TEXT.en }).show();
   }

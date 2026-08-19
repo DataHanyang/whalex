@@ -90,7 +90,9 @@ export type Routine = z.infer<typeof RoutineSchema>;
 
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
-  language: z.enum(["system", "en", "ko", "zh", "ja", "fr"]).default("en"),
+  language: z
+    .enum(["system", "en", "ko", "zh", "zh-TW", "ja", "fr", "de", "ru", "vi", "th", "id"])
+    .default("en"),
   theme: z.enum(["system", "light", "dark"]).default("system"),
   defaultCwd: z.string().optional(),
   recentCwds: z.array(z.string()).default([]),
@@ -139,8 +141,12 @@ export const SettingsSchema = z.object({
       })
       .default({}),
   ),
-  /** Mask secret-shaped strings before requests leave for the model API. */
-  redactSecrets: z.boolean().default(true),
+  /**
+   * Mask secret-shaped strings before requests leave for the model API. Off by
+   * default — masking also hides keys the agent legitimately needs to read back
+   * (env files, configs); onboarding asks the user which they want.
+   */
+  redactSecrets: z.boolean().default(false),
   /** Summarize and shrink the context automatically as it fills up. */
   autoCompact: z.boolean().default(true),
   updateChannel: z.enum(["stable", "beta"]).default("stable"),
@@ -190,3 +196,22 @@ export const SettingsSchema = z.object({
 export type Settings = z.infer<typeof SettingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = SettingsSchema.parse({});
+
+/** Locales the UI ships. "system" resolves to one of the rest. */
+export type AppLanguage = Settings["language"];
+
+/**
+ * Map an OS locale tag (navigator.language / app.getLocale()) onto a shipped
+ * locale. Traditional Chinese is its own resource, so a bare two-letter prefix
+ * match would wrongly drop Taiwan/Hong Kong/Macau users into Simplified.
+ */
+export function resolveSystemLanguage(locale: string): Exclude<AppLanguage, "system"> {
+  const tag = locale.toLowerCase();
+  if (tag.startsWith("zh")) return /hant|tw|hk|mo/.test(tag) ? "zh-TW" : "zh";
+  // Indonesian is "id" today, but older systems still report the legacy "in".
+  if (tag.startsWith("in")) return "id";
+  for (const code of ["ko", "ja", "fr", "de", "ru", "vi", "th", "id"] as const) {
+    if (tag.startsWith(code)) return code;
+  }
+  return "en";
+}

@@ -26,8 +26,12 @@ export function App() {
 
   // Auto-open once onboarded: a session still running in main wins over a
   // blank one in the default folder, so a reload doesn't orphan live work.
+  // Setup no longer picks a folder, so a fresh install has no defaultCwd —
+  // the attach probe still runs, and the ref keeps it to one try per boot.
+  const openedInitial = useRef(false);
   useEffect(() => {
-    if (ready && settings?.onboardingComplete && settings.defaultCwd && !activeSessionId) {
+    if (ready && settings?.onboardingComplete && !activeSessionId && !openedInitial.current) {
+      openedInitial.current = true;
       void openInitialSession(settings.defaultCwd);
     }
   }, [ready, settings, activeSessionId, openInitialSession]);

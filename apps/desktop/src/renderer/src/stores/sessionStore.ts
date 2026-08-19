@@ -67,7 +67,7 @@ interface SessionState {
   refreshSessions(): Promise<void>;
   deleteSession(sessionId: string, cwd: string): Promise<void>;
   rewind(boundary: number): Promise<void>;
-  openInitialSession(cwd: string): Promise<void>;
+  openInitialSession(cwd?: string): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
@@ -238,6 +238,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       await get().startSession(attached.cwd, attached.sessionId);
       return;
     }
+    // No folder yet (setup no longer picks one) — the empty state asks for one
+    // rather than opening a session with nowhere to work.
+    if (!cwd) return;
     await get().startSession(cwd);
   },
 

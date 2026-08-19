@@ -1,8 +1,10 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, Minimize2, Target } from "lucide-react";
+import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, FolderOpen, Minimize2, Target } from "lucide-react";
 import type { TranscriptItem } from "@whalex/shared";
+import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
+import { whalex } from "../lib/ipc";
 import { StreamingMarkdown } from "./StreamingMarkdown";
 import { ToolCallCard } from "./ToolCallCard";
 import { PermissionCard } from "./PermissionCard";
@@ -144,32 +146,73 @@ const Item = memo(function Item({ item }: { item: TranscriptItem }) {
   }
 });
 
+/**
+ * Which greeting a blank session opens with. Six slots so late-night and
+ * pre-dawn work get their own line instead of a cheerful "good evening".
+ */
+export function timeOfDay(hour: number): "dawn" | "morning" | "lunch" | "afternoon" | "evening" | "night" {
+  if (hour < 5) return "dawn";
+  if (hour < 11) return "morning";
+  if (hour < 14) return "lunch";
+  if (hour < 17) return "afternoon";
+  if (hour < 21) return "evening";
+  return "night";
+}
+
 function EmptyState() {
   const { t } = useTranslation();
   const send = useSessionStore((s) => s.send);
   const status = useSessionStore((s) => s.status);
+  const cwd = useSessionStore((s) => s.cwd);
+  const startSession = useSessionStore((s) => s.startSession);
+  const updateSettings = useAppStore((s) => s.updateSettings);
+  const slot = timeOfDay(new Date().getHours());
   const examples = [
     t("transcript.example1"),
     t("transcript.example2"),
     t("transcript.example3"),
   ];
+
+  // Setup no longer picks a project folder, so the very first launch lands
+  // here with nothing open — ask for the folder before the examples.
+  const pickFolder = async () => {
+    const res = await whalex.invoke("dialog:pickFolder", undefined);
+    if (!res.path) return;
+    await updateSettings({ defaultCwd: res.path });
+    await startSession(res.path);
+  };
+
   return (
     <div className="flex h-[62vh] flex-col items-center justify-center text-center">
       <img src={logoUrl} alt="" className="mb-1 h-12 w-12" />
-      <div className="text-lg font-semibold">{t("transcript.empty.title")}</div>
-      <div className="mt-2 max-w-md text-[13px] text-muted">{t("transcript.empty.subtitle")}</div>
-      <div className="mt-5 flex w-full max-w-md flex-col gap-2">
-        {examples.map((ex) => (
+      <div className="text-lg font-semibold">{t(`transcript.greet.${slot}`)}</div>
+      <div className="mt-2 max-w-md text-[13px] text-muted">{t(`transcript.greet.${slot}.sub`)}</div>
+      {cwd ? (
+        <div className="mt-5 flex w-full max-w-md flex-col gap-2">
+          <div className="text-[12px] text-faint">{t("transcript.empty.subtitle")}</div>
+          {examples.map((ex) => (
+            <button
+              key={ex}
+              disabled={status !== "idle"}
+              onClick={() => void send(ex)}
+              className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-left text-[13px] text-muted transition-colors hover:border-accent hover:text-text disabled:opacity-50"
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-5 w-full max-w-md">
           <button
-            key={ex}
-            disabled={status !== "idle"}
-            onClick={() => void send(ex)}
-            className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-left text-[13px] text-muted transition-colors hover:border-accent hover:text-text disabled:opacity-50"
+            onClick={() => void pickFolder()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover"
           >
-            {ex}
+            <FolderOpen size={15} />
+            {t("transcript.pickFolder.button")}
           </button>
-        ))}
-      </div>
+          <div className="mt-2 text-[12px] text-faint">{t("transcript.pickFolder.hint")}</div>
+        </div>
+      )}
     </div>
   );
 }

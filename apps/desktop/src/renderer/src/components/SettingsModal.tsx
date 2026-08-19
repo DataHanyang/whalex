@@ -23,6 +23,7 @@ import {
   type Routine,
   type SkillInfo,
 } from "@whalex/shared";
+import { LANGUAGES } from "../i18n";
 import { useAppStore } from "../stores/appStore";
 import { useUiStore, type SettingsTab } from "../stores/uiStore";
 import { whalex } from "../lib/ipc";
@@ -61,11 +62,11 @@ function GeneralTab() {
           onChange={(e) => void update({ language: e.target.value as never })}
           className="rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         >
-          <option value="en">English</option>
-          <option value="ko">한국어</option>
-          <option value="zh">中文</option>
-          <option value="ja">日本語</option>
-          <option value="fr">Français</option>
+          {LANGUAGES.map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
           <option value="system">{t("settings.language.system")}</option>
         </select>
       </Row>

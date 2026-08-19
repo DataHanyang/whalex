@@ -11,7 +11,7 @@ Reads, edits and runs code in a folder on your machine, and shows you what it bu
 [![License: MIT](https://img.shields.io/badge/License-MIT-4d6bfe.svg)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-4d6bfe)](https://github.com/leejoong/whalex/releases)
 [![Made with DeepSeek](https://img.shields.io/badge/model-DeepSeek-4d6bfe)](https://platform.deepseek.com)
-[![i18n](https://img.shields.io/badge/i18n-EN·KO·中文·日本語·FR-4d6bfe)](#-languages)
+[![i18n](https://img.shields.io/badge/i18n-11%20languages-4d6bfe)](#-languages)
 
 <br>
 
@@ -386,7 +386,7 @@ WhaleX reads a few plain-Markdown files so you can shape how it behaves without 
 
 ## 🌐 Languages
 
-UI ships in **English** (default), **Korean**, **Chinese**, **Japanese**, and **French** — switch in Settings → Language (or **System** to follow your OS).
+UI ships in 11 languages — **English** (default), **한국어**, **简体中文**, **繁體中文**, **日本語**, **Français**, **Deutsch**, **Русский**, **Tiếng Việt**, **ไทย**, **Bahasa Indonesia** — switch in Settings → Language (or **System** to follow your OS; Traditional Chinese is picked for zh-TW/HK/MO locales).
 
 ## 🧪 Development
 
