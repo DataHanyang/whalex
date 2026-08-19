@@ -15,6 +15,12 @@ import { useUiStore } from "../stores/uiStore";
 import logoUrl from "../assets/logo.png";
 import { PanelLeftOpen } from "lucide-react";
 
+// macOS draws its traffic-light buttons at the top-left of the frameless
+// window; the logo must sit to their right or it overlaps them. Windows draws
+// its caption controls on the right and Linux has none there, so neither
+// needs the inset.
+const IS_MAC = navigator.userAgent.includes("Macintosh");
+
 export function AppShell() {
   const { t } = useTranslation();
   const status = useSessionStore((s) => s.status);
@@ -61,7 +67,11 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="titlebar-drag flex h-10 shrink-0 items-center border-b border-border bg-surface px-4">
+      <div
+        className={`titlebar-drag flex h-10 shrink-0 items-center border-b border-border bg-surface px-4 ${
+          IS_MAC ? "pl-[78px]" : ""
+        }`}
+      >
         <img src={logoUrl} alt="" className="mr-1.5 h-5 w-5" />
         <span className="text-[13px] font-semibold tracking-tight">WhaleX</span>
       </div>

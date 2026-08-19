@@ -135,11 +135,19 @@ function createWindow(): void {
     show: false,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#111113" : "#fafafa",
     titleBarStyle: "hidden",
+    // Windows caption buttons drawn as an overlay on the right; ignored on
+    // macOS/Linux (they have no such overlay).
     titleBarOverlay: {
       color: "rgba(0,0,0,0)",
       symbolColor: nativeTheme.shouldUseDarkColors ? "#9a9aa3" : "#5c5c66",
       height: 40,
     },
+    // macOS: center the traffic lights in the 40px-tall custom title bar
+    // (otherwise they sit too high). The renderer insets its logo to clear
+    // them — see AppShell's mac padding.
+    ...(process.platform === "darwin"
+      ? { trafficLightPosition: { x: 14, y: 13 } }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.mjs"),
       contextIsolation: true,
