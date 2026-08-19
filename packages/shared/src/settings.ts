@@ -123,6 +123,12 @@ export const SettingsSchema = z.object({
         maxAgents: z.number().int().min(1).max(1000).default(400),
         tokenBudget: z.number().int().min(0).default(0),
         confirmBeforeRun: z.boolean().default(true),
+        /**
+         * Give fleet agents the shell tool. Commands still pass the
+         * PermissionEngine, so in default mode each one prompts; pair with
+         * acceptEdits/bypass (or allow-rules) for unattended fleet shell.
+         */
+        fleetShell: z.boolean().default(true),
       })
       .default({}),
   ),

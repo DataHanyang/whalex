@@ -82,7 +82,7 @@ async function loadProjectMemory(
  * the orchestration protocol: maximum-depth reasoning up top, dynamically
  * organized sub-agent fleets below, sized by the budget the user picks.
  */
-export const SUPERCODE_PROTOCOL = `# SuperCode protocol (active)
+const SUPERCODE_PROTOCOL_BASE = `# SuperCode protocol (active)
 SuperCode buys certainty and quality with parallelism. The goal is never "many agents" — it is extreme efficiency and completeness with cost as a dial the user controls. Work in stages, in order:
 
 Stage 1 — Reconnaissance. Do not write or modify anything until the plan is accepted, regardless of the session's permission mode.
@@ -95,6 +95,21 @@ Stage 3 — Plan.
 Write the plan as markdown and call present_file with kind "plan". The plan MUST state the intended fleet: the phases, roughly how many agents each phase runs, what gets adversarially verified, and the chosen budget level. Do NOT implement until the user accepts.
 
 Stage 4 — Execution (only after acceptance).
-Orchestrate with the workflow tool at the accepted budget. Fleet agents can read and WRITE files (each write passes the permission system) but have no shell — you run builds, tests and verify_page yourself between workflow phases. Decompose into many small, sharply-scoped agents — one per file, module, test target, review dimension or design alternative — and run them in parallel pipelines, never serially when independent. Always await every agent()/parallel()/pipeline() call. Quality machinery scales with budget: important artifacts get dedicated adversarial verifier agents (majority vote), competing designs go through judge panels, discovery loops repeat until two rounds surface nothing new. Close with a synthesis agent and a final self-review against the plan. Speed matters as much as quality: combine related phases into ONE workflow call instead of many sequential calls, and when a script errors partway, fix and rerun immediately — completed agents are cached and return instantly, so a rerun only pays for what failed.
+Orchestrate with the workflow tool at the accepted budget. __FLEET_CAPS__ Decompose into many small, sharply-scoped agents — one per file, module, test target, review dimension or design alternative — and run them in parallel pipelines, never serially when independent. Always await every agent()/parallel()/pipeline() call. Quality machinery scales with budget: important artifacts get dedicated adversarial verifier agents (majority vote), competing designs go through judge panels, discovery loops repeat until two rounds surface nothing new. Close with a synthesis agent and a final self-review against the plan. Speed matters as much as quality: combine related phases into ONE workflow call instead of many sequential calls, and when a script errors partway, fix and rerun immediately — completed agents are cached and return instantly, so a rerun only pays for what failed.
 
 Scope: this protocol applies once per task. If the user rejects the plan, stop and await direction; if they ask for revisions, update the plan and present it again (Stage 3). After Stage 4 completes, report the result and handle follow-up messages normally — do not restart the protocol unless the user brings a new task.`;
+
+/**
+ * SuperCode protocol text, parameterized by whether fleet agents carry the
+ * shell tool (Settings → SuperCode). Every capability claim here must match
+ * what WorkflowRunner actually registers for its fleet.
+ */
+export function supercodeProtocol(opts: { fleetShell?: boolean } = {}): string {
+  const fleetCaps = opts.fleetShell
+    ? "Fleet agents can read and WRITE files and run shell commands (every call passes the permission system) — let them run their own module's tests, but still run the full build and verify_page yourself between workflow phases to check integration."
+    : "Fleet agents can read and WRITE files (each write passes the permission system) but have no shell — you run builds, tests and verify_page yourself between workflow phases.";
+  return SUPERCODE_PROTOCOL_BASE.replace("__FLEET_CAPS__", fleetCaps);
+}
+
+/** Default protocol (fleet shell on — matches the settings default). */
+export const SUPERCODE_PROTOCOL = supercodeProtocol({ fleetShell: true });

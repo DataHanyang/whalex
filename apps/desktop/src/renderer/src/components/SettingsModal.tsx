@@ -230,6 +230,16 @@ function ModelsTab() {
           className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         />
       </Row>
+      <Row label={t("settings.fleetShell")}>
+        <label className="flex items-center gap-2 text-[11.5px] text-faint">
+          <ToggleSwitch
+            checked={settings.superCode.fleetShell}
+            label={t("settings.fleetShell")}
+            onChange={(v) => void update({ superCode: { ...settings.superCode, fleetShell: v } })}
+          />
+          {t("settings.fleetShell.hint")}
+        </label>
+      </Row>
       <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">{t("settings.vision.title")}</div>
       <div className="mb-2 text-[11.5px] text-faint">{t("settings.vision.desc")}</div>
       <div className="mb-3 flex flex-wrap gap-1.5">

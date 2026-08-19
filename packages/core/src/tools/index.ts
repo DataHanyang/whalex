@@ -17,8 +17,10 @@ export { askUserTool } from "./askUser.js";
 export interface BuiltinToolOptions {
   /** Read-only agents (e.g. the "explore" subagent type) get a reduced set. */
   readOnlyOnly?: boolean;
-  /** Workflow fleet agents: files in/out but no shell, no user interaction. */
+  /** Workflow fleet agents: files in/out, no user interaction. */
   workerTools?: boolean;
+  /** Give workerTools fleets the shell too (gated by the PermissionEngine). */
+  workerShell?: boolean;
   includeWebFetch?: boolean;
   includePresent?: boolean;
   /** Subagents have no UI surface to answer questions — exclude ask_user. */
@@ -46,7 +48,11 @@ export function createBuiltinRegistry(opts: BuiltinToolOptions = {}): ToolRegist
   let tools = opts.readOnlyOnly ? all.filter((t) => t.readOnly) : all;
   if (opts.workerTools) {
     tools = all.filter(
-      (t) => t.readOnly || t.name === "write_file" || t.name === "edit_file",
+      (t) =>
+        t.readOnly ||
+        t.name === "write_file" ||
+        t.name === "edit_file" ||
+        (opts.workerShell === true && t.name === "execute"),
     );
   }
   for (const t of tools) registry.register(t);

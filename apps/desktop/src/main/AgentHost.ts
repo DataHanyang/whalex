@@ -3,7 +3,7 @@ import { Notification, app } from "electron";
 import type { BrowserWindow } from "electron";
 import {
   AgentLoop,
-  SUPERCODE_PROTOCOL,
+  supercodeProtocol,
   McpManager,
   OpenAICompatProvider,
   PermissionEngine,
@@ -336,7 +336,9 @@ export class AgentHost {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) return;
     hosted.superCode = on;
-    hosted.loop.setProtocolPrompt(on ? SUPERCODE_PROTOCOL : null);
+    hosted.loop.setProtocolPrompt(
+      on ? supercodeProtocol({ fleetShell: this.settings.get().superCode.fleetShell }) : null,
+    );
   }
 
   setGoalMode(sessionId: string, on: boolean): void {
@@ -447,6 +449,11 @@ export class AgentHost {
               maxAgents: s.superCode.maxAgents,
               concurrency: Math.max(4, Math.min(24, CPU * 2)),
               cache: hosted.workflowCache,
+              fleetShell: s.superCode.fleetShell,
+              // Route a fleet agent's permission "ask" to this session's
+              // normal approval card so fleet shell works outside bypass mode.
+              onPermissionAsk: (request) =>
+                this.emitDirect(sessionId, { type: "permission-request", request }),
               onUpdate: (state: WorkflowState) =>
                 this.emitDirect(sessionId, { type: "workflow-update", workflow: state }),
               signal: (() => {

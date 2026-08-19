@@ -267,6 +267,8 @@ const en = {
     "settings.defaultModel": "Default model",
     "settings.temperature": "Temperature ({{value}})",
     "settings.maxAgents": "SuperCode max agents",
+    "settings.fleetShell": "Fleet shell",
+    "settings.fleetShell.hint": "Let workflow agents run shell commands (still permission-gated)",
     "settings.vision.title": "Vision (optional)",
     "settings.vision.desc":
       "DeepSeek cannot see images. To understand images, connect an OpenAI-compatible vision model (e.g. local Ollama http://localhost:11434/v1 + llava).",
@@ -563,6 +565,8 @@ const ko = {
     "settings.defaultModel": "기본 모델",
     "settings.temperature": "Temperature ({{value}})",
     "settings.maxAgents": "SuperCode 최대 에이전트 수",
+    "settings.fleetShell": "플릿 셸",
+    "settings.fleetShell.hint": "워크플로 에이전트가 셸 명령 실행 (권한 검사는 유지)",
     "settings.vision.title": "비전 (선택)",
     "settings.vision.desc":
       "DeepSeek는 이미지를 볼 수 없습니다. 이미지 이해가 필요하면 OpenAI 호환 비전 모델을 연결하세요 (예: 로컬 Ollama http://localhost:11434/v1 + llava).",
@@ -851,6 +855,8 @@ const zh = {
     "settings.defaultModel": "默认模型",
     "settings.temperature": "Temperature（{{value}}）",
     "settings.maxAgents": "SuperCode 最大智能体数",
+    "settings.fleetShell": "集群 Shell",
+    "settings.fleetShell.hint": "允许工作流智能体执行 shell 命令（仍受权限控制）",
     "settings.vision.title": "视觉（可选）",
     "settings.vision.desc":
       "DeepSeek 无法识别图片。若需理解图片，请连接兼容 OpenAI 的视觉模型（例如本地 Ollama http://localhost:11434/v1 + llava）。",
@@ -1138,6 +1144,8 @@ const ja = {
     "settings.defaultModel": "デフォルトモデル",
     "settings.temperature": "Temperature（{{value}}）",
     "settings.maxAgents": "SuperCode 最大エージェント数",
+    "settings.fleetShell": "フリートシェル",
+    "settings.fleetShell.hint": "ワークフローエージェントにシェル実行を許可（権限確認は維持）",
     "settings.vision.title": "ビジョン（任意）",
     "settings.vision.desc":
       "DeepSeek は画像を認識できません。画像理解が必要な場合は OpenAI 互換のビジョンモデルを接続してください（例：ローカル Ollama http://localhost:11434/v1 + llava）。",
@@ -1425,6 +1433,8 @@ const fr = {
     "settings.defaultModel": "Modèle par défaut",
     "settings.temperature": "Temperature ({{value}})",
     "settings.maxAgents": "Agents max SuperCode",
+    "settings.fleetShell": "Shell de flotte",
+    "settings.fleetShell.hint": "Autoriser les agents de workflow à exécuter des commandes shell (toujours soumis aux permissions)",
     "settings.vision.title": "Vision (optionnel)",
     "settings.vision.desc":
       "DeepSeek ne peut pas voir les images. Pour comprendre des images, connectez un modèle de vision compatible OpenAI (ex. Ollama local http://localhost:11434/v1 + llava).",

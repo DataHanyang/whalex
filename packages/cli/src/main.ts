@@ -14,7 +14,7 @@ import {
   OpenAICompatProvider,
   PermissionEngine,
   SessionStore,
-  SUPERCODE_PROTOCOL,
+  supercodeProtocol,
   WorkflowRunner,
   createBuiltinRegistry,
   createWorkflowTool,
@@ -66,8 +66,10 @@ async function main(): Promise<void> {
   let workflowRan = false;
   let fleetTokens = 0;
   let fleetCostUsd = 0;
+  // Fleet shell on by default (matches the desktop default); WHALEX_FLEET_SHELL=0 opts out.
+  const fleetShell = process.env.WHALEX_FLEET_SHELL !== "0";
   if (superCode) {
-    loop.setProtocolPrompt(SUPERCODE_PROTOCOL);
+    loop.setProtocolPrompt(supercodeProtocol({ fleetShell }));
     if (modelInfo.supportsReasoning) loop.updateTuning({ reasoningEffort: "max" });
     const workflowCache = new Map<string, unknown>();
     registry.register(
@@ -84,6 +86,7 @@ async function main(): Promise<void> {
               maxAgents: Number(process.env.WHALEX_MAX_AGENTS ?? 400),
               concurrency: Math.max(4, Math.min(24, os.cpus().length * 2)),
               cache: workflowCache,
+              fleetShell,
               onUpdate: (state) => {
                 fleetTokens = state.totalTokens;
                 fleetCostUsd = state.costUsd;

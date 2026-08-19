@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { ModelInfo, WorkflowState, WorkflowAgent } from "@whalex/shared";
+import type { ModelInfo, PermissionRequest, WorkflowState, WorkflowAgent } from "@whalex/shared";
 import type { ProviderClient } from "../providers/Provider.js";
 import type { PermissionEngine } from "../permissions/PermissionEngine.js";
 import { createBuiltinRegistry, type ToolDef } from "../tools/index.js";
 import { SessionStore } from "../session/SessionStore.js";
 import { AgentLoop } from "../agent/AgentLoop.js";
+import { runWorkflowScript } from "./ScriptHost.js";
 
 export interface WorkflowDeps {
   provider: ProviderClient;
@@ -25,6 +26,18 @@ export interface WorkflowDeps {
    */
   cache?: Map<string, unknown>;
   onUpdate: (state: WorkflowState) => void;
+  /**
+   * Fleet agents get the shell (execute) tool. Every command still passes
+   * the shared PermissionEngine; pair with onPermissionAsk so "ask" verdicts
+   * reach a human instead of auto-denying.
+   */
+  fleetShell?: boolean;
+  /**
+   * Forward a fleet agent's permission "ask" to the host UI. The host shows
+   * the normal approval card; the shared engine resolves it. When absent,
+   * asks are auto-denied (fleet agents have no UI of their own).
+   */
+  onPermissionAsk?: (request: PermissionRequest) => void;
   signal: AbortSignal;
 }
 
@@ -88,26 +101,21 @@ export class WorkflowRunner {
     this.emit();
     const api = this.makeApi();
     try {
-      // The script body runs in an async function with only the injected
-      // hooks in scope. detectSandboxEscape() above statically rejects the
-      // known escape hatches (require/import/process/constructor/eval/…) and
-      // these shadowed params block the reachable globals. This is
-      // defense-in-depth: fleet agents' own tool calls still route through the
-      // PermissionEngine, so plan mode keeps writes blocked even if a script
-      // slips through.
-      const fn = new Function(
-        "agent",
-        "parallel",
-        "pipeline",
-        "phase",
-        "log",
-        "process",
-        "require",
-        "globalThis",
-        "global",
-        `"use strict"; return (async () => { ${script}\n })();`,
-      );
-      const result = await fn(api.agent, api.parallel, api.pipeline, api.phase, api.log);
+      // The script runs in a separate locked-down Node process (see
+      // ScriptHost): even a sandbox escape lands in a child that has no
+      // parent memory, no Electron, and — where the runtime supports the
+      // permission model — no filesystem or child_process either. The DSL
+      // hooks round-trip over IPC to here, where fleet agents' tool calls
+      // still route through the PermissionEngine. detectSandboxEscape()
+      // above stays as static defense-in-depth.
+      const outcome = await runWorkflowScript(script, {
+        agent: (prompt, opts) =>
+          api.agent(prompt, opts as { schema?: unknown; label?: string; phase?: string }),
+        phase: api.phase,
+        log: api.log,
+        warn: api.log,
+        signal: this.deps.signal,
+      });
       // A script that forgot to await its fan-out would otherwise return with
       // agents still running and an empty result; wait for them to settle.
       while (this.inflight.size > 0) {
@@ -115,6 +123,7 @@ export class WorkflowRunner {
       }
       this.state.state = this.deps.signal.aborted ? "aborted" : "done";
       this.emit();
+      const result = outcome.hasValue ? outcome.value : undefined;
       // A script with no return statement must still yield a string result —
       // JSON.stringify(undefined) is undefined and would crash the caller.
       const text =
@@ -253,17 +262,26 @@ export class WorkflowRunner {
       const session = SessionStore.createEphemeral(this.deps.cwd);
       const loop = new AgentLoop({
         provider: this.deps.provider,
-        // Fleet agents read and write files (every write still goes through
-        // the shared PermissionEngine — plan mode keeps them read-only), but
-        // they get no shell and no direct line to the user.
-        registry: createBuiltinRegistry({ workerTools: true, includePresent: false }),
+        // Fleet agents read and write files — and, when fleetShell is on,
+        // run shell commands. Every call still goes through the shared
+        // PermissionEngine (plan mode keeps them read-only; "ask" verdicts
+        // are forwarded to the host UI or denied, below).
+        registry: createBuiltinRegistry({
+          workerTools: true,
+          includePresent: false,
+          workerShell: this.deps.fleetShell,
+        }),
         permissions: this.deps.permissions,
         session,
         modelInfo: this.deps.modelInfo,
         temperature: this.deps.temperature,
         reasoningEffort: this.deps.reasoningEffort,
         extraSystemPrompt:
-          "# Workflow agent\nYou are one agent in a larger orchestrated workflow. Do exactly your assigned task — read what you need, write only the files your task names — and end with a concise, self-contained result." +
+          "# Workflow agent\nYou are one agent in a larger orchestrated workflow. Do exactly your assigned task — read what you need, write only the files your task names" +
+          (this.deps.fleetShell
+            ? ", run only the commands your task requires (e.g. the tests for the module you touched)"
+            : "") +
+          " — and end with a concise, self-contained result." +
           schemaHint,
       });
       let text = "";
@@ -276,17 +294,23 @@ export class WorkflowRunner {
         else if (ev.type === "file-edit") {
           this.fileEdits.push({ path: ev.path, oldText: ev.oldText, newText: ev.newText });
         }
-        // Fleet agents have no UI surface, so an "ask" decision would hang
-        // forever. Deny it with a reason the agent can act on; runs meant to
-        // write happen in acceptEdits/auto mode where writes never ask.
+        // Fleet agents have no UI surface of their own. When the host wires
+        // onPermissionAsk, the request is forwarded to the session's normal
+        // approval card and the shared engine resolves it (this is what makes
+        // fleet shell usable outside bypass mode). Otherwise deny with a
+        // reason the agent can act on.
         else if (ev.type === "permission-request") {
-          this.deps.permissions.resolve({
-            id: ev.request.id,
-            behavior: "deny",
-            scope: "once",
-            message:
-              "Workflow agents cannot wait for interactive approval. Report what you would have written instead.",
-          });
+          if (this.deps.onPermissionAsk) {
+            this.deps.onPermissionAsk(ev.request);
+          } else {
+            this.deps.permissions.resolve({
+              id: ev.request.id,
+              behavior: "deny",
+              scope: "once",
+              message:
+                "Workflow agents cannot wait for interactive approval. Report what you would have written instead.",
+            });
+          }
         }
       }
       const usage = loop.context.snapshot();
