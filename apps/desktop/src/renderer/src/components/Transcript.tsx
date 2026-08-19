@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ChevronDown, ChevronRight, CircleAlert, FileCode2, FolderOpen, Minimize2, Target } from "lucide-react";
+import { ArrowDown, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock, FileCode2, FolderOpen, Minimize2, Target } from "lucide-react";
 import type { TranscriptItem } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -40,10 +40,22 @@ const Item = memo(function Item({ item }: { item: TranscriptItem }) {
   switch (item.kind) {
     case "user":
       return (
-        <div className="transcript-item flex justify-end py-2.5">
+        <div className="transcript-item flex flex-col items-end py-2.5">
           <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-[13.5px] leading-relaxed">
             {item.text}
           </div>
+          {/* Only messages sent into a running turn carry a delivery state —
+              the model reads them a round later, not the moment you hit send. */}
+          {item.delivery && (
+            <div
+              className={`mt-1 flex items-center gap-1 pr-1 text-[10.5px] ${
+                item.delivery === "read" ? "text-faint" : "text-warn"
+              }`}
+            >
+              {item.delivery === "read" ? <CheckCheck size={11} /> : <Clock size={11} />}
+              {t(`transcript.delivery.${item.delivery}`)}
+            </div>
+          )}
         </div>
       );
     case "assistant":

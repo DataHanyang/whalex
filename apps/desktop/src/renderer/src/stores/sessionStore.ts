@@ -321,17 +321,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { activeSessionId, model, status } = get();
     if (!activeSessionId) return;
     const steering = status !== "idle";
+    const messageId = `local-${Date.now()}`;
     set({ lastError: null });
     set((s) => ({
       transcript: [
         ...s.transcript,
-        { kind: "user", id: `local-${Date.now()}`, text, ts: Date.now() },
+        // A steered message queues behind the running turn, so it starts
+        // unread; one that opens its own turn is in the model's context at
+        // once and carries no delivery state at all.
+        {
+          kind: "user",
+          id: messageId,
+          text,
+          ts: Date.now(),
+          ...(steering ? { delivery: "pending" as const } : {}),
+        },
       ],
       ...(steering
         ? {}
         : { status: "thinking" as const, turnStartedAt: Date.now(), lastTurnMs: null }),
     }));
-    await whalex.invoke("session:send", { sessionId: activeSessionId, text, model });
+    await whalex.invoke("session:send", { sessionId: activeSessionId, text, model, messageId });
     // The new session should appear in the sidebar immediately, not only
     // after the (possibly long) first turn finishes.
     if (!steering) void get().refreshSessions();
@@ -618,6 +628,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       case "usage":
         set({ usage: ev.usage });
         break;
+      case "steer-delivered": {
+        const ids = new Set(ev.messageIds);
+        set((s) => ({
+          transcript: s.transcript.map((t) =>
+            t.kind === "user" && ids.has(t.id) ? { ...t, delivery: "read" as const } : t,
+          ),
+        }));
+        break;
+      }
       case "status":
         set({ status: ev.state });
         break;

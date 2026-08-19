@@ -107,11 +107,15 @@ export class AgentLoop {
     return this.opts.modelInfo.id;
   }
 
-  /** Messages typed while the loop is running; injected before the next round. */
-  private steerQueue: string[] = [];
+  /**
+    * Messages typed while the loop is running; injected before the next round.
+    * The id is the renderer's transcript id, echoed back on delivery so the
+    * bubble can flip from unread to read.
+    */
+  private steerQueue: Array<{ text: string; id?: string }> = [];
 
-  steer(text: string): void {
-    this.steerQueue.push(text);
+  steer(text: string, id?: string): void {
+    this.steerQueue.push({ text, id });
   }
 
   /** Extra protocol section (e.g. SuperCode) appended to the system prompt. */
@@ -269,12 +273,16 @@ export class AgentLoop {
     return this.systemPrompt;
   }
 
-  private drainSteerQueue(session: AgentLoopOptions["session"]): void {
+  /** Returns the ids of the messages that just entered the model's context. */
+  private drainSteerQueue(session: AgentLoopOptions["session"]): string[] {
+    const delivered: string[] = [];
     while (this.steerQueue.length > 0) {
-      const text = this.steerQueue.shift()!;
-      session.append({ type: "user", id: randomUUID(), text, ts: Date.now() });
+      const { text, id } = this.steerQueue.shift()!;
+      session.append({ type: "user", id: id ?? randomUUID(), text, ts: Date.now() });
       this.context.addPending(text);
+      if (id) delivered.push(id);
     }
+    return delivered;
   }
 
   async *run(userText: string): AsyncGenerator<AgentEvent> {
@@ -301,7 +309,10 @@ export class AgentLoop {
         // A live protocol/SuperCode toggle invalidates the prompt mid-turn;
         // rebuild before the next completion instead of streaming null.
         const systemPrompt = await this.ensureSystemPrompt(session.cwd);
-        this.drainSteerQueue(session);
+        // Drained here, one step before the request that carries them — the
+        // event is the moment those messages become something the model reads.
+        const delivered = this.drainSteerQueue(session);
+        if (delivered.length > 0) yield { type: "steer-delivered", messageIds: delivered };
         const messageId = randomUUID();
         yield { type: "message-start", messageId };
 
@@ -402,8 +413,8 @@ export class AgentLoop {
           }
           if (this.steerQueue.length > 0) {
             // The user typed while the model was finishing — treat it as the
-            // next prompt of the same run instead of stopping.
-            this.drainSteerQueue(session);
+            // next prompt of the same run instead of stopping. The next round
+            // drains (now a no-op) and emits the delivery event.
             yield { type: "status", state: "thinking" };
             continue;
           }

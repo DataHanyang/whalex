@@ -92,7 +92,7 @@ export function registerIpc(deps: {
     "session:attached": () => host.attachedSession(),
     "session:start": (req) => host.start(req.cwd, req.resumeSessionId),
     "session:send": (req) => {
-      host.send(req.sessionId, req.text, req.model);
+      host.send(req.sessionId, req.text, req.model, req.messageId);
     },
     "session:abort": (req) => {
       host.abort(req.sessionId);

@@ -53,6 +53,11 @@ export type UserQuestion = z.infer<typeof UserQuestionSchema>;
 
 export const AgentEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("message-start"), messageId: z.string() }),
+  /**
+   * Messages steered into the running turn have just been folded into the
+   * context — the next completion includes them, so the UI can mark them read.
+   */
+  z.object({ type: z.literal("steer-delivered"), messageIds: z.array(z.string()) }),
   z.object({ type: z.literal("text-delta"), messageId: z.string(), delta: z.string() }),
   z.object({ type: z.literal("reasoning-delta"), messageId: z.string(), delta: z.string() }),
   z.object({

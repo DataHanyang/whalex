@@ -125,7 +125,13 @@ export const IPC_INVOKE = {
     }),
   },
   "session:send": {
-    req: z.object({ sessionId: z.string(), text: z.string(), model: z.string() }),
+    req: z.object({
+      sessionId: z.string(),
+      text: z.string(),
+      model: z.string(),
+      /** The renderer's transcript id, echoed back by steer-delivered. */
+      messageId: z.string().optional(),
+    }),
     res: z.void(),
   },
   "session:abort": {

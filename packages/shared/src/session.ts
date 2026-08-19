@@ -19,7 +19,18 @@ export type SessionMeta = z.infer<typeof SessionMetaSchema>;
  * AgentEvents into these; resuming a session replays them from JSONL.
  */
 export const TranscriptItemSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("user"), id: z.string(), text: z.string(), ts: z.number() }),
+  z.object({
+    kind: z.literal("user"),
+    id: z.string(),
+    text: z.string(),
+    ts: z.number(),
+    /**
+     * Only set for messages typed into a running turn: "pending" until the
+     * loop folds them into the model's context, "read" once it has. Absent on
+     * a message that started its own turn — the model saw it immediately.
+     */
+    delivery: z.enum(["pending", "read"]).optional(),
+  }),
   z.object({
     kind: z.literal("assistant"),
     id: z.string(),

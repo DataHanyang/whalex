@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Check, Eye, KeyRound, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { DEEPSEEK_PROVIDER_ID, resolveSystemLanguage, type AppLanguage } from "@whalex/shared";
 import { LANGUAGES } from "../i18n";
+import { ToggleSwitch } from "./ToggleSwitch";
 import { useAppStore } from "../stores/appStore";
 import { whalex } from "../lib/ipc";
 import logoUrl from "../assets/logo.png";
@@ -332,35 +333,29 @@ export function Onboarding() {
                 className="mt-1.5 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 text-[12.5px] leading-relaxed outline-none focus:border-accent"
               />
 
-              <button
-                type="button"
-                role="switch"
-                aria-checked={redactSecrets}
-                onClick={() => setRedactSecrets(!redactSecrets)}
-                className={`mt-3 flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left ${
-                  redactSecrets ? "border-accent bg-accent-soft" : "border-border hover:bg-surface-2"
+              <div
+                className={`mt-3 flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 ${
+                  redactSecrets ? "border-accent bg-accent-soft" : "border-border"
                 }`}
               >
                 <ShieldCheck
                   size={16}
                   className={`mt-0.5 shrink-0 ${redactSecrets ? "text-accent" : "text-faint"}`}
                 />
-                <span className="min-w-0">
-                  <span className="block text-[12.5px] font-medium">
-                    {t("onboarding.finish.redact")}
-                  </span>
-                  <span className="mt-0.5 block text-[11.5px] text-faint">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12.5px] font-medium">{t("onboarding.finish.redact")}</div>
+                  <div className="mt-0.5 text-[11.5px] text-faint">
                     {t("onboarding.finish.redactHint")}
-                  </span>
-                </span>
-                <span
-                  className={`ml-auto mt-0.5 h-4 w-4 shrink-0 rounded border ${
-                    redactSecrets ? "border-accent bg-accent" : "border-border-strong"
-                  }`}
-                >
-                  {redactSecrets && <Check size={14} className="text-white" />}
-                </span>
-              </button>
+                  </div>
+                </div>
+                <div className="mt-0.5">
+                  <ToggleSwitch
+                    checked={redactSecrets}
+                    label={t("onboarding.finish.redact")}
+                    onChange={setRedactSecrets}
+                  />
+                </div>
+              </div>
 
               <div className="mt-5 flex gap-2">
                 <button

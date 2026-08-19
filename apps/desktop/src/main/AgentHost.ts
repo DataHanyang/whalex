@@ -474,14 +474,14 @@ export class AgentHost {
     void this.mcp.connect(name, config).catch(() => {});
   }
 
-  send(sessionId: string, text: string, model: string): void {
+  send(sessionId: string, text: string, model: string, messageId?: string): void {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) throw new Error(`Unknown session: ${sessionId}`);
     if (hosted.loop.isRunning) {
       // Mid-run input becomes steering: the loop injects it before the next
       // round, and a model switch applies to the next completion too.
       hosted.loop.setModel(resolveModelInfo(model));
-      hosted.loop.steer(text);
+      hosted.loop.steer(text, messageId);
       return;
     }
     // Hard budget stop: refuse to start a new turn once a spend limit is

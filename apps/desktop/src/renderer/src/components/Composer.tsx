@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowUp, AtSign, Cpu, FolderOpen, Paperclip, ImageIcon, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
+import { ArrowUp, AtSign, Cpu, FileText, FolderOpen, Paperclip, ListTodo, Loader2, Shield, Sparkles, Square, Target, X } from "lucide-react";
 import { Picker } from "./Picker";
 import { EffortControl, type EffortLevel } from "./EffortControl";
 import type { FileMatch, SlashCommand } from "@whalex/shared";
@@ -45,6 +45,17 @@ function TodoChips() {
   );
 }
 
+/**
+ * Something queued to go out with the next message. Images ride to the vision
+ * sidecar as data URLs (a pasted screenshot has no path at all); files ride as
+ * a path the tools can open. Either way the chip carries them, not the input
+ * box — an absolute path pasted into the text is noise the user has to edit
+ * around.
+ */
+type Attachment =
+  | { id: string; kind: "image"; name: string; dataUrl: string; path?: string }
+  | { id: string; kind: "file"; name: string; path: string };
+
 interface Autocomplete {
   kind: "slash" | "mention";
   items: Array<{ label: string; sub: string }>;
@@ -56,7 +67,7 @@ export function Composer() {
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [ac, setAc] = useState<Autocomplete | null>(null);
-  const [image, setImage] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragging, setDragging] = useState(false);
   const [describing, setDescribing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -116,41 +127,64 @@ export function Composer() {
     return (file as File & { path?: string }).path;
   };
 
-  // Shared by the paperclip and by drops: images go to the vision sidecar,
-  // everything else rides along as a path mention the tools can read.
+  const addAttachment = (a: Attachment) => setAttachments((list) => [...list, a]);
+  const removeAttachment = (id: string) =>
+    setAttachments((list) => list.filter((a) => a.id !== id));
+
+  const readImageFile = (file: File, index: number) => {
+    // A pasted screenshot has no path at all; a dropped one does, and the chip
+    // shows it on hover the same way a file chip does.
+    const path = pathOf(file);
+    const reader = new FileReader();
+    reader.onload = () =>
+      addAttachment({
+        id: `${Date.now()}-${index}-${file.name}`,
+        kind: "image",
+        name: file.name || "image",
+        dataUrl: reader.result as string,
+        ...(path ? { path } : {}),
+      });
+    reader.readAsDataURL(file);
+  };
+
+  // One entry point for the paperclip, drops and pastes.
   const attachFiles = (files: File[]) => {
-    if (files.length === 0) return;
-    const images = files.filter((f) => f.type.startsWith("image/"));
-    const rest = files.filter((f) => !f.type.startsWith("image/"));
-    // The vision bridge describes one image per turn, so extra ones are
-    // dropped loudly rather than silently.
-    if (images[0]) readImageFile(images[0]);
-    if (images.length > 1) showNotice(t("composer.drop.oneImage"));
-    const paths = rest.map(pathOf).filter((p): p is string => !!p);
-    if (paths.length > 0) {
-      const mentions = paths.map((p) => `@${p}`).join(" ");
-      setText((t0) => (t0.trim() ? `${t0.trimEnd()} ${mentions} ` : `${mentions} `));
-    }
-    if (paths.length < rest.length) showNotice(t("composer.drop.noPath"));
+    let skipped = 0;
+    files.forEach((file, i) => {
+      if (file.type.startsWith("image/")) {
+        readImageFile(file, i);
+        return;
+      }
+      const path = pathOf(file);
+      // A non-image with no path (dragged out of a web page, say) is nothing
+      // the tools could open — say so instead of attaching an empty chip.
+      if (!path) {
+        skipped += 1;
+        return;
+      }
+      addAttachment({
+        id: `${Date.now()}-${i}-${file.name}`,
+        kind: "file",
+        name: file.name || path.split(/[\\/]/).pop() || path,
+        path,
+      });
+    });
+    if (skipped > 0) showNotice(t("composer.drop.noPath"));
   };
   const newSession = useSessionStore((s) => s.startSession);
 
   const running = status !== "idle";
   // Sending while a run is active is allowed — it steers the running agent.
-  const canSend = (text.trim().length > 0 || !!image) && !pendingPermission && !describing;
+  const canSend =
+    (text.trim().length > 0 || attachments.length > 0) && !pendingPermission && !describing;
 
-  const readImageFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => setImage(reader.result as string);
-    reader.readAsDataURL(file);
-  };
+  // Ctrl+V covers both a screenshot (an image blob with no path) and files
+  // copied in the file manager (real paths) — clipboardData.files has both.
   const onPaste = (e: React.ClipboardEvent) => {
-    const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
-    const file = item?.getAsFile();
-    if (file) {
-      e.preventDefault();
-      readImageFile(file);
-    }
+    const files = [...e.clipboardData.files];
+    if (files.length === 0) return;
+    e.preventDefault();
+    attachFiles(files);
   };
   // Drops are handled on the window, not just the textarea: anywhere in the
   // app is a target, and preventing the default stops Electron from
@@ -238,7 +272,7 @@ export function Composer() {
     const value = text.trim();
     // A lone slash command runs directly instead of being sent as a message.
     const slashMatch = /^\/(\w[\w-]*)\s*$/.exec(value);
-    if (slashMatch && !image) {
+    if (slashMatch && attachments.length === 0) {
       const name = slashMatch[1]!;
       const cmd = commandsRef.current.find((c) => c.name === name);
       if (cmd?.source === "builtin") {
@@ -249,30 +283,48 @@ export function Composer() {
     }
 
     let finalText = value;
-    if (image) {
-      // DeepSeek is text-only: describe the image via the vision sidecar and
-      // inject the description. No bridge configured → tell the user. The
-      // finally guarantees `describing` never sticks and locks the composer.
+    const images = attachments.flatMap((a) => (a.kind === "image" ? [a] : []));
+    const files = attachments.flatMap((a) => (a.kind === "file" ? [a] : []));
+
+    // Files go out as @path mentions appended to the message the model reads,
+    // so the chip stays a chip and the sent bubble still shows what was shared.
+    if (files.length > 0) {
+      const mentions = files.map((f) => `@${f.path}`).join(" ");
+      finalText = finalText ? `${finalText}\n\n${mentions}` : mentions;
+    }
+
+    if (images.length > 0) {
+      // DeepSeek is text-only: each image goes through the vision sidecar and
+      // comes back as text. No bridge configured → say so once. The finally
+      // guarantees `describing` never sticks and locks the composer.
       setDescribing(true);
+      const parts: string[] = [];
       try {
-        const res = await whalex.invoke("vision:describe", {
-          imageDataUrl: image,
-          question: value || undefined,
-        });
-        if (!res.configured) {
-          finalText = `${value}\n\n[An image was attached but no vision model is configured. Connect one in Settings → Models → Vision.]`;
-        } else if (res.ok && res.description) {
-          finalText = `${value ? value + "\n\n" : ""}[Attached image description]\n${res.description}`;
-        } else {
-          finalText = `${value}\n\n[Image analysis failed: ${res.error ?? "unknown"}]`;
+        for (const img of images) {
+          const res = await whalex.invoke("vision:describe", {
+            imageDataUrl: img.dataUrl,
+            question: value || undefined,
+          });
+          if (!res.configured) {
+            parts.push(
+              "[An image was attached but no vision model is configured. Connect one in Settings → Models → Vision.]",
+            );
+            break;
+          }
+          parts.push(
+            res.ok && res.description
+              ? `[Attached image: ${img.name}]\n${res.description}`
+              : `[Image analysis failed for ${img.name}: ${res.error ?? "unknown"}]`,
+          );
         }
       } catch (e) {
-        finalText = `${value}\n\n[Image analysis failed: ${e instanceof Error ? e.message : String(e)}]`;
+        parts.push(`[Image analysis failed: ${e instanceof Error ? e.message : String(e)}]`);
       } finally {
         setDescribing(false);
       }
-      setImage(null);
+      finalText = [finalText, ...parts].filter(Boolean).join("\n\n");
     }
+    setAttachments([]);
 
     setText("");
     setAc(null);
@@ -413,20 +465,31 @@ export function Composer() {
         </div>
       )}
       <div className="relative rounded-xl border border-border bg-surface shadow-sm focus-within:border-border-strong">
-        {image && (
-          <div className="flex items-center gap-2 px-4 pt-3">
-            <div className="relative">
-              <img src={image} alt="attachment" className="h-14 w-14 rounded-md border border-border object-cover" />
-              <button
-                onClick={() => setImage(null)}
-                className="absolute -right-1.5 -top-1.5 rounded-full bg-surface-2 p-0.5 text-faint hover:text-danger"
+        {attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-3">
+            {attachments.map((a) => (
+              <div
+                key={a.id}
+                title={a.path ?? a.name}
+                className="relative flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 py-1 pl-1 pr-6 text-[11.5px]"
               >
-                <X size={12} />
-              </button>
-            </div>
-            <span className="flex items-center gap-1 text-[11.5px] text-faint">
-              <ImageIcon size={12} /> {t("composer.image")}
-            </span>
+                {a.kind === "image" ? (
+                  <img src={a.dataUrl} alt="" className="h-7 w-7 rounded object-cover" />
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded bg-surface text-faint">
+                    <FileText size={13} />
+                  </span>
+                )}
+                <span className="max-w-[170px] truncate">{a.name}</span>
+                <button
+                  onClick={() => removeAttachment(a.id)}
+                  aria-label={t("composer.removeAttachment")}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-faint hover:text-danger"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
         {ac && (
