@@ -171,5 +171,5 @@ cannot see:
 | File | Use it for |
 |---|---|
 | `DESIGN.md` | The design system prompt — identity, workflow, hierarchy, type, colour, accessibility. **Read it first on any design task that is not a plain deck.** |
-| `skills/*.md` | 14 focused passes: `discovery-questions`, `design-system-extract`, `make-a-deck`, `make-a-prototype`, `wireframe`, `generate-variations`, `component-extract`, `make-tweakable`, `polish-pass`, `hierarchy-rhythm-review`, `interaction-states-pass`, `ai-slop-check`, `accessibility-audit`, `frontend-aesthetic-direction`. |
+| `skills/*.md` | 18 focused passes: `hi-fi-design` (the design process itself — load it first for any hi-fi ask), `discovery-questions`, `design-system-extract`, `make-a-deck`, `make-a-prototype`, `wireframe`, `generate-variations`, `options` (turn-stacked variants on the pan/zoom canvas), `flier`, `html-email`, `component-extract`, `make-tweakable`, `polish-pass`, `hierarchy-rhythm-review`, `interaction-states-pass`, `ai-slop-check`, `accessibility-audit`, `frontend-aesthetic-direction`. |
 | `qa/audit-pptx.mjs` | `node qa/audit-pptx.mjs <deck.pptx>` — parses the file, extracts its theme, flags AI-slop idioms, and reports contrast failures with the offending colour pairs. Run it before Step 4's visual QA; it catches in seconds what images take minutes to reveal. |

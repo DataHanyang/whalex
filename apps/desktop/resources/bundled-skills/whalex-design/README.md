@@ -6,8 +6,9 @@
 
 ```
 whalex-design/
-├── DESIGN.md              # 20챕터 디자인 시스템 프롬프트 — 모든 작업의 기본 지침
-├── skills/                # 14개 프로시저 스킬 (마크다운, 이름=트리거)
+├── DESIGN.md              # 24챕터 디자인 시스템 프롬프트 — 모든 작업의 기본 지침
+├── skills/                # 18개 프로시저 스킬 (마크다운, 이름=트리거)
+│   ├── hi-fi-design.md               # 하이파이 디자인 전 과정 (모든 디자인 요청의 진입점)
 │   ├── discovery-questions.md        # 시작 전 질문 프로토콜
 │   ├── frontend-aesthetic-direction.md # 브랜드 없을 때 룩 확정 (4방향)
 │   ├── wireframe.md                   # 저해상도 3+ 변형
@@ -15,6 +16,9 @@ whalex-design/
 │   ├── make-a-prototype.md            # 클릭 가능 프로토타입
 │   ├── make-tweakable.md              # 실시간 조정 패널 (Tweaks)
 │   ├── generate-variations.md         # 축별 3+ 고해상도 변형
+│   ├── options.md                     # 옵션 스택 (턴 스택 + 안정 id + 팬/줌 캔버스)
+│   ├── flier.md                       # 인쇄용 단면 전단/포스터
+│   ├── html-email.md                  # 메일 클라이언트에서 살아남는 HTML 이메일
 │   ├── design-system-extract.md       # 소스에서 토큰 추출
 │   ├── component-extract.md           # 재사용 컴포넌트 인벤토리
 │   ├── accessibility-audit.md         # WCAG·명암비·키보드·모션

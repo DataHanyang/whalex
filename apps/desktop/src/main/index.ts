@@ -14,6 +14,7 @@ import {
   shell,
 } from "electron";
 import { AgentHost } from "./AgentHost.js";
+import { injectCanvasHost, wantsCanvasMode } from "./canvasHost.js";
 import { SettingsManager } from "./settings.js";
 import { SecretVault } from "./secrets.js";
 import { registerIpc } from "./ipc.js";
@@ -234,7 +235,11 @@ void app.whenReady().then(() => {
     if (!art || art.kind !== "html" || !art.content) {
       return new Response("Artifact not found", { status: 404, headers: { "content-type": "text/plain" } });
     }
-    return new Response(art.content, {
+    // Design-canvas opt-in: documents declaring design_doc_mode=canvas get the
+    // pan/zoom host injected, so option stacks wider than the viewport stay
+    // navigable (see the design pack's `options` skill).
+    const content = wantsCanvasMode(art.content) ? injectCanvasHost(art.content) : art.content;
+    return new Response(content, {
       status: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
     });
