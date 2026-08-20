@@ -74,13 +74,20 @@ export function Sidebar() {
           <div className="px-2 py-3 text-[12px] text-faint">{t("sidebar.empty")}</div>
         )}
         {[...new Set(sessions.map((x) => x.cwd))].map((groupCwd) => (
-          <div key={groupCwd}>
+          <div key={groupCwd} className="group/proj">
             <div
               className="flex items-center gap-1.5 px-2 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-faint"
               title={groupCwd}
             >
-              <FolderOpen size={10} />
-              {groupCwd.split(/[\\/]/).pop()}
+              <FolderOpen size={10} className="shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{groupCwd.split(/[\\/]/).pop()}</span>
+              <button
+                onClick={() => void startSession(groupCwd)}
+                className="shrink-0 rounded p-0.5 text-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-text group-hover/proj:opacity-100"
+                title={t("sidebar.newSessionHere")}
+              >
+                <Plus size={12} />
+              </button>
             </div>
             {sessions.filter((x) => x.cwd === groupCwd).map((s) => (
           <div
