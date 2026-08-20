@@ -51,7 +51,8 @@ async function main(): Promise<void> {
     | "default"
     | "acceptEdits"
     | "bypassPermissions"
-    | "plan";
+    | "plan"
+    | "unrestricted";
   const permissions = new PermissionEngine({ mode: permMode, allow: [], deny: [] });
   const session = SessionStore.create(cwd);
 

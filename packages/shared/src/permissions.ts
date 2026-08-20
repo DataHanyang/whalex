@@ -5,6 +5,8 @@ export const PermissionModeSchema = z.enum([
   "acceptEdits",
   "bypassPermissions",
   "plan",
+  /** Everything runs, no questions — including destructive shell commands. */
+  "unrestricted",
 ]);
 export type PermissionMode = z.infer<typeof PermissionModeSchema>;
 

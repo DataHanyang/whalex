@@ -87,6 +87,7 @@ function GeneralTab() {
           <option value="default">{t("settings.mode.default")}</option>
           <option value="acceptEdits">{t("settings.mode.acceptEdits")}</option>
           <option value="bypassPermissions">{t("settings.mode.bypass")}</option>
+          <option value="unrestricted">{t("settings.mode.unrestricted")}</option>
           <option value="plan">{t("settings.mode.plan")}</option>
         </select>
       </Row>
@@ -1155,6 +1156,7 @@ function RoutinesTab() {
             <option value="acceptEdits">{t("settings.mode.acceptEdits")}</option>
             <option value="default">{t("settings.mode.default")}</option>
             <option value="bypassPermissions">{t("settings.mode.bypass")}</option>
+            <option value="unrestricted">{t("settings.mode.unrestricted")}</option>
           </select>
         </label>
         {saveError && <div className="text-[11.5px] text-danger">{saveError}</div>}

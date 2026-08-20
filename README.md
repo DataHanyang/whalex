@@ -142,6 +142,7 @@ Every write or command is gated by a **permission card** unless you switch modes
 | **Auto-edit** | Auto-approve file edits, still ask for shell |
 | **Plan** | Read-only — the agent plans without changing anything |
 | **Auto** | Approve everything (a warning banner stays on) |
+| **Full** | Approve everything, destructive commands included — no questions at all (danger-tinted; explicit deny rules still apply) |
 | **SuperCode** | The orchestration mode picks for you: strongest model + max reasoning + plan mode for recon and interview, then Auto the moment you accept the plan |
 
 ## 📊 Measured against Codex and Claude Code

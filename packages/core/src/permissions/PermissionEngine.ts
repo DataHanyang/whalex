@@ -14,7 +14,8 @@ export type PermissionDecision =
 /**
  * Patterns that stay ask-always even in bypassPermissions mode. Keep these
  * precise: e.g. matching bare "format" would false-positive on PowerShell's
- * ubiquitous Format-List/Format-Table.
+ * ubiquitous Format-List/Format-Table. The `unrestricted` mode (완전권한) is
+ * the only mode that skips this list — see check().
  */
 const HARD_DENY_ASK = [
   /rm\s+-rf?\s+[/~]/i,
@@ -88,8 +89,15 @@ export class PermissionEngine {
       }
     }
 
+    // Unrestricted (완전권한) mode is the one escape hatch: even the
+    // destructive-pattern guardrails below auto-approve. Explicit deny rules
+    // above still win in every mode — they are a hard blocklist, not a
+    // permission gate.
     const alwaysAsk =
-      tool.kind === "execute" && arg !== undefined && HARD_DENY_ASK.some((re) => re.test(arg));
+      this.rules.mode !== "unrestricted" &&
+      tool.kind === "execute" &&
+      arg !== undefined &&
+      HARD_DENY_ASK.some((re) => re.test(arg));
 
     if (!alwaysAsk) {
       for (const rule of [...this.rules.allow, ...this.sessionAllow]) {
@@ -98,6 +106,10 @@ export class PermissionEngine {
 
       switch (this.rules.mode) {
         case "bypassPermissions":
+          return { behavior: "allow" };
+        case "unrestricted":
+          // Full authority: every tool call auto-approves, destructive shell
+          // commands included. Only explicit deny rules (above) can stop it.
           return { behavior: "allow" };
         case "plan":
           if (tool.readOnly) return { behavior: "allow" };

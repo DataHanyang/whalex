@@ -81,7 +81,9 @@ export const RoutineSchema = z.object({
   cwd: z.string(),
   schedule: RoutineScheduleSchema,
   /** Permission mode for the unattended run — plan mode makes no sense here. */
-  permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions"]).default("acceptEdits"),
+  permissionMode: z
+    .enum(["default", "acceptEdits", "bypassPermissions", "unrestricted"])
+    .default("acceptEdits"),
   enabled: z.boolean().default(true),
   lastRunAt: z.number().optional(),
   lastSessionId: z.string().optional(),

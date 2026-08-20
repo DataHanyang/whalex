@@ -137,7 +137,9 @@ export const IPC_INVOKE = {
       // Actual host-side session state, so a reattaching UI restores what the
       // engine is really using instead of resetting to defaults.
       model: z.string().optional(),
-      permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan"]).optional(),
+      permissionMode: z
+        .enum(["default", "acceptEdits", "bypassPermissions", "plan", "unrestricted"])
+        .optional(),
       goalMode: z.boolean().optional(),
       superCode: z.boolean().optional(),
       /** Live, uncommitted state of a session still hosted in this process. */
@@ -174,7 +176,7 @@ export const IPC_INVOKE = {
   "session:setMode": {
     req: z.object({
       sessionId: z.string(),
-      mode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan"]),
+      mode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan", "unrestricted"]),
     }),
     res: z.void(),
   },
@@ -288,7 +290,9 @@ export const IPC_INVOKE = {
       prompt: z.string(),
       name: z.string().optional(),
       cwd: z.string(),
-      permissionMode: z.enum(["default", "acceptEdits", "bypassPermissions"]).optional(),
+      permissionMode: z
+        .enum(["default", "acceptEdits", "bypassPermissions", "unrestricted"])
+        .optional(),
     }),
     res: z.object({ ok: z.boolean(), routine: RoutineSchema.optional(), error: z.string().optional() }),
   },

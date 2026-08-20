@@ -49,14 +49,22 @@ interface SessionState {
   turnStartedAt: number | null;
   /** Total duration of the last completed turn (ms). */
   lastTurnMs: number | null;
-  permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan";
+  permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted";
   /** Mode the user had before SuperCode took over, restored on toggle-off. */
-  preSuperCodeMode: "default" | "acceptEdits" | "bypassPermissions" | "plan" | null;
+  preSuperCodeMode:
+    | "default"
+    | "acceptEdits"
+    | "bypassPermissions"
+    | "plan"
+    | "unrestricted"
+    | null;
   goalMode: boolean;
 
   setModel(model: string): void;
   setSuperCode(on: boolean): void;
-  setPermissionMode(mode: "default" | "acceptEdits" | "bypassPermissions" | "plan"): void;
+  setPermissionMode(
+    mode: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted",
+  ): void;
   setGoalMode(on: boolean): void;
   openArtifact(id: string): void;
   closeArtifact(): void;

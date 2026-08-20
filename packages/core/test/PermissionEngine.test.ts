@@ -62,6 +62,29 @@ describe("PermissionEngine", () => {
     expect(check(e, tool({}), { command: "format c:" }).behavior).toBe("ask");
   });
 
+  it("unrestricted auto-allows even destructive patterns that bypass mode still asks about", () => {
+    const e = new PermissionEngine({ mode: "unrestricted", allow: [], deny: [] });
+    expect(check(e, tool({}), { command: "echo hi" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "rm -rf /" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "format c:" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "rm -r C:\\Windows" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "Remove-Item -Recurse -Force C:\\x" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "rd /s /q C:\\temp" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "diskpart" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "reg delete HKLM\\Software\\X" }).behavior).toBe("allow");
+    expect(check(e, tool({}), { command: "del /s /q C:\\build" }).behavior).toBe("allow");
+  });
+
+  it("unrestricted still honors explicit deny rules — they are a hard blocklist", () => {
+    const e = new PermissionEngine({
+      mode: "unrestricted",
+      allow: [],
+      deny: ["Execute(git push*)"],
+    });
+    expect(check(e, tool({}), { command: "git push origin main" }).behavior).toBe("deny");
+    expect(check(e, tool({}), { command: "rm -rf /" }).behavior).toBe("allow");
+  });
+
   it("does not false-positive on PowerShell Format-List", () => {
     const e = new PermissionEngine({ mode: "bypassPermissions", allow: [], deny: [] });
     expect(check(e, tool({}), { command: "Get-Item x | Format-List" }).behavior).toBe("allow");

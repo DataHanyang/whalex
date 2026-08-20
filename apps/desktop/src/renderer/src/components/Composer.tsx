@@ -394,18 +394,21 @@ export function Composer() {
     });
   };
 
-  const MODES = ["default", "acceptEdits", "plan", "bypassPermissions"] as const;
+  const MODES = ["default", "acceptEdits", "plan", "bypassPermissions", "unrestricted"] as const;
   const MODE_LABEL: Record<string, string> = {
     default: t("mode.default"),
     acceptEdits: t("mode.acceptEdits"),
     plan: t("mode.plan"),
     bypassPermissions: t("mode.bypassPermissions"),
+    unrestricted: t("mode.unrestricted"),
   };
-  // Auto mode approves everything, so it is tinted as a warning; plan is
+  // Auto mode approves everything, so it is tinted as a warning; unrestricted
+  // additionally runs destructive commands and is tinted as a danger; plan is
   // read-only and tinted as informational.
   const MODE_OPTIONS = MODES.map((m) => ({
     value: m,
-    tone: m === "bypassPermissions" ? ("warn" as const)
+    tone: m === "unrestricted" ? ("danger" as const)
+      : m === "bypassPermissions" ? ("warn" as const)
       : m === "plan" ? ("accent" as const) : ("default" as const),
   }));
   const modelHint = (m?: { contextWindow?: number; supportsReasoning?: boolean }) => {

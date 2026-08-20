@@ -8,7 +8,7 @@ export interface PickerOption<T extends string> {
   hint?: string;
   icon?: ReactNode;
   /** Tints the trigger while this option is selected (e.g. a risky mode). */
-  tone?: "default" | "accent" | "warn";
+  tone?: "default" | "accent" | "warn" | "danger";
 }
 
 interface PickerProps<T extends string> {
@@ -28,6 +28,7 @@ const TONE_TRIGGER = {
   default: "border-border text-muted hover:bg-surface-2",
   accent: "border-accent bg-accent-soft text-accent",
   warn: "border-warn bg-warn-soft text-warn",
+  danger: "border-danger bg-danger-soft text-danger",
 } as const;
 
 /**
