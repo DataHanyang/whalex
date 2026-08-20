@@ -108,12 +108,50 @@ interface Slide {
 }
 
 /**
+ * Drop <Override> entries in [Content_Types].xml that name a part the zip
+ * never got. Decks assembled by merging single-slide files pick these up
+ * routinely — one slideMaster override per slide against a single real
+ * master, say. pptx-preview walks that list and calls
+ * `zip.files[part].async(...)`, which throws on the first phantom; its loader
+ * wraps the whole content-types pass in one try/catch, so the deck silently
+ * parses to zero slides and the viewer falls back to a text outline. PowerPoint
+ * opens these files fine, so the user has no idea what went wrong.
+ *
+ * Returns the original bytes when there is nothing to repair.
+ */
+async function dropDanglingOverrides(bytes: Uint8Array): Promise<ArrayBuffer> {
+  const original = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const zip = await JSZip.loadAsync(bytes);
+  const contentTypes = zip.file("[Content_Types].xml");
+  if (!contentTypes) return original;
+  const xml = await contentTypes.async("string");
+  let dropped = 0;
+  const repaired = xml.replace(/<Override\s+PartName="([^"]+)"[^>]*\/>/g, (match, part: string) => {
+    if (zip.file(part.replace(/^\//, ""))) return match;
+    dropped += 1;
+    return "";
+  });
+  if (dropped === 0) return original;
+  zip.file("[Content_Types].xml", repaired);
+  // STORE, not deflate: these bytes go straight back into the previewer, so
+  // re-compressing 30 MB of media would only cost seconds.
+  return zip.generateAsync({ type: "arraybuffer", compression: "STORE" });
+}
+
+/**
  * PowerPoint viewer. First choice is a real visual render (pptx-preview draws
  * backgrounds, shapes, images and positioned text); if that fails on a given
  * file it falls back to the text-outline pager below.
  */
 export function SlidesView({ base64 }: { base64: string }) {
+  const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement>(null);
+  // A big deck spends a second on unzip + repair + render; say so rather than
+  // showing an empty panel.
+  const [loading, setLoading] = useState(true);
   // Remember which payload failed, so a new deck retries the visual path
   // while the same broken deck doesn't retry-loop.
   const [failedFor, setFailedFor] = useState<string | null>(null);
@@ -124,18 +162,30 @@ export function SlidesView({ base64 }: { base64: string }) {
     const host = hostRef.current;
     if (!host) return;
     host.innerHTML = "";
+    setLoading(true);
     let cancelled = false;
     // Wait a frame so the container has a measured width.
     const raf = requestAnimationFrame(() => {
       try {
-        const width = Math.max(320, Math.min(host.clientWidth || 720, 1100));
+        // pptx-preview stacks every slide in one overflow-y:auto wrapper, so
+        // leave room for its vertical scrollbar or the slide picks up a
+        // horizontal one too.
+        const width = Math.max(320, Math.min((host.clientWidth || 720) - 18, 1100));
         const previewer = initPptxPreviewer(host, {
           width,
           height: Math.round((width * 9) / 16),
         });
         const bytes = b64ToBytes(base64);
-        void Promise.resolve(previewer.preview(bytes.buffer as ArrayBuffer))
+        // The repair is best-effort: a deck it cannot rewrite is still worth
+        // handing to the previewer unchanged.
+        void dropDanglingOverrides(bytes)
+          .catch(() => bytes.buffer as ArrayBuffer)
+          .then((buf) => {
+            if (cancelled) return;
+            return previewer.preview(buf);
+          })
           .then(() => {
+            if (cancelled) return;
             // pptx-preview can resolve yet draw nothing on decks it cannot
             // parse (seen with some pptxgenjs feature combos) — treat an
             // empty render as failure so the outline fallback kicks in.
@@ -145,10 +195,13 @@ export function SlidesView({ base64 }: { base64: string }) {
                 host.querySelector(".pptx-preview-slide-wrapper") &&
                 (host.textContent?.trim() || host.querySelector("svg, img, canvas"));
               if (!drewSomething) setFailedFor(base64);
+              setLoading(false);
             }, 400);
           })
           .catch(() => {
-            if (!cancelled) setFailedFor(base64);
+            if (cancelled) return;
+            setFailedFor(base64);
+            setLoading(false);
           });
       } catch {
         if (!cancelled) setFailedFor(base64);
@@ -164,6 +217,9 @@ export function SlidesView({ base64 }: { base64: string }) {
   if (failed) return <SlidesOutlineView base64={base64} />;
   return (
     <div className="h-full overflow-auto bg-surface p-4">
+      {loading && (
+        <div className="pb-3 text-center text-[13px] text-faint">{t("office.deck.opening")}</div>
+      )}
       <div ref={hostRef} className="mx-auto" />
     </div>
   );
