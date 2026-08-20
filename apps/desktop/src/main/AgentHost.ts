@@ -1,6 +1,6 @@
 import os from "node:os";
 import { randomUUID } from "node:crypto";
-import { Notification, app } from "electron";
+import { Notification, app, powerSaveBlocker } from "electron";
 import type { BrowserWindow } from "electron";
 import {
   AgentLoop,
@@ -547,6 +547,7 @@ export class AgentHost {
     const isFirstTurn = !hosted.store.effectiveRecords().some((r) => r.type === "user");
     const stream = hosted.goalMode ? hosted.loop.runGoal(text) : hosted.loop.run(text);
     void this.pump(sessionId, hosted, stream);
+    this.updateSleepBlocker();
     // Title generation runs concurrently with the first response, off the
     // question alone — the sidebar gets a real title without waiting for
     // the (possibly long) first turn to finish.
@@ -693,6 +694,54 @@ export class AgentHost {
     if (!hosted) return { restored: [], transcript: [] };
     const { restored } = await rewindTo(hosted.store, boundary);
     return { restored, transcript: hosted.store.transcript() };
+  }
+
+  /**
+   * Sleep can't be worked *through* — the OS suspends every process, sockets
+   * included — so the only way to let a long turn finish while the user walks
+   * away is to hold sleep off for as long as one is running. Released the
+   * moment the last session goes idle, so an idle app never pins the machine
+   * awake.
+   */
+  private sleepBlocker: number | null = null;
+
+  private updateSleepBlocker(): void {
+    const wanted =
+      this.settings.get().preventSleepWhileRunning &&
+      [...this.sessions.values()].some((h) => h.loop.isRunning);
+    try {
+      if (wanted && this.sleepBlocker === null) {
+        this.sleepBlocker = powerSaveBlocker.start("prevent-app-suspension");
+      } else if (!wanted && this.sleepBlocker !== null) {
+        powerSaveBlocker.stop(this.sleepBlocker);
+        this.sleepBlocker = null;
+      }
+    } catch {
+      // Not worth failing a turn over; the worst case is the machine sleeps.
+      this.sleepBlocker = null;
+    }
+  }
+
+  /**
+   * The machine slept mid-turn anyway (lid closed, forced sleep, the blocker
+   * off). Every socket died on suspend, but a half-read SSE stream doesn't
+   * error — it just never delivers another byte, and the UI spins on
+   * "thinking" forever. Fail those turns so they can be retried.
+   */
+  onSystemResume(): void {
+    for (const [sessionId, hosted] of this.sessions) {
+      if (!hosted.loop.isRunning) continue;
+      hosted.loop.abort();
+      this.emitDirect(sessionId, {
+        type: "error",
+        code: "network",
+        message:
+          "The connection did not survive the system going to sleep. " +
+          "The turn was stopped — send the message again to continue.",
+      });
+      this.emitDirect(sessionId, { type: "done", stopReason: "error" });
+    }
+    this.updateSleepBlocker();
   }
 
   abort(sessionId: string): void {
@@ -936,6 +985,7 @@ User: ${userText.slice(0, 400)}`,
         // A turn that was aborted (or died) can leave a workflow stuck in
         // "running" with no terminal update — persist whatever it reached.
         for (const wf of hosted.live.workflows.values()) this.persistWorkflow(hosted, wf);
+        this.updateSleepBlocker();
         break;
       default:
         break;

@@ -98,6 +98,16 @@ function GeneralTab() {
           onChange={(v) => void update({ autoCompact: v })}
         />
       </Row>
+      <Row label={t("settings.preventSleep")}>
+        <label className="flex items-center gap-2 text-[11.5px] text-faint">
+          <ToggleSwitch
+            checked={settings.preventSleepWhileRunning}
+            label={t("settings.preventSleep")}
+            onChange={(v) => void update({ preventSleepWhileRunning: v })}
+          />
+          {t("settings.preventSleep.hint")}
+        </label>
+      </Row>
       <Row label={t("settings.privacy.redact")}>
         <ToggleSwitch
           checked={settings.redactSecrets}

@@ -149,6 +149,12 @@ export const SettingsSchema = z.object({
   redactSecrets: z.boolean().default(false),
   /** Summarize and shrink the context automatically as it fills up. */
   autoCompact: z.boolean().default(true),
+  /**
+   * Hold off system sleep while a turn is running. Nothing can actually run
+   * *through* sleep — the OS suspends every process — so the only way to let a
+   * long turn finish unattended is to keep the machine awake for it.
+   */
+  preventSleepWhileRunning: z.boolean().default(true),
   updateChannel: z.enum(["stable", "beta"]).default("stable"),
   /** Optional vision sidecar — DeepSeek is text-only. Empty = disabled. */
   vision: z

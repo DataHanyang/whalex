@@ -2,7 +2,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BrowserWindow, Menu, Notification, Tray, app, nativeTheme, protocol, shell } from "electron";
+import {
+  BrowserWindow,
+  Menu,
+  Notification,
+  Tray,
+  app,
+  nativeTheme,
+  powerMonitor,
+  protocol,
+  shell,
+} from "electron";
 import { AgentHost } from "./AgentHost.js";
 import { SettingsManager } from "./settings.js";
 import { SecretVault } from "./secrets.js";
@@ -206,6 +216,13 @@ void app.whenReady().then(() => {
   const settings = new SettingsManager();
   const vault = new SecretVault();
   const host = new AgentHost(() => mainWindow, settings, vault);
+
+  // Waking up doesn't revive the sockets that died on suspend; a turn caught
+  // mid-stream would hang on "thinking" with nothing left to deliver.
+  powerMonitor.on("resume", () => {
+    logLine("system resumed — settling any turn that was in flight");
+    host.onSystemResume();
+  });
 
   // Serve HTML artifacts by id from the in-process cache (see the privileged
   // scheme registration above). Only html artifacts with content are served;
