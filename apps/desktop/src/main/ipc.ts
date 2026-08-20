@@ -72,6 +72,7 @@ export function registerIpc(deps: {
       host.applyLiveSettings();
       return out;
     },
+    "secrets:reveal": (req) => ({ value: vault.get(req.ref) }),
     "secrets:delete": (req) => {
       vault.delete(req.ref);
       host.applyLiveSettings();

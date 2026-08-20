@@ -12,6 +12,8 @@ import {
   Plug,
   RefreshCw,
   Check,
+  Eye,
+  EyeOff,
   Plus,
   Settings2,
   Sparkles,
@@ -159,6 +161,18 @@ function ApiKeyTab() {
   const [baseUrl, setBaseUrl] = useState(DEEPSEEK_BASE_URL);
   const [state, setState] = useState<{ s: "idle" | "testing" | "err"; msg?: string }>({ s: "idle" });
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  // ref → plaintext, only for keys the user asked to see. Local state, so
+  // closing Settings re-masks everything.
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
+
+  const toggleReveal = async (ref: string) => {
+    if (revealed[ref]) {
+      setRevealed(({ [ref]: _gone, ...rest }) => rest);
+      return;
+    }
+    const res = await whalex.invoke("secrets:reveal", { ref });
+    if (res.value) setRevealed((r) => ({ ...r, [ref]: res.value! }));
+  };
 
   const providers = settings.providers;
   const activeId = settings.activeProviderId;
@@ -226,6 +240,7 @@ function ApiKeyTab() {
       <div className="rounded-lg border border-border">
         {providers.map((p, i) => {
           const tail = p.apiKeyRef ? secrets[p.apiKeyRef] : null;
+          const shown = p.apiKeyRef ? revealed[p.apiKeyRef] : undefined;
           const active = p.id === activeId;
           return (
             <div
@@ -253,9 +268,21 @@ function ApiKeyTab() {
                     </span>
                   )}
                 </div>
-                <div className="mt-0.5 truncate font-mono text-[11px] text-faint">
-                  {tail ?? t("settings.apikey.unset")}
-                  {p.baseUrl !== DEEPSEEK_BASE_URL && ` · ${p.baseUrl}`}
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className="min-w-0 truncate font-mono text-[11px] text-faint">
+                    {shown ?? tail ?? t("settings.apikey.unset")}
+                    {p.baseUrl !== DEEPSEEK_BASE_URL && ` · ${p.baseUrl}`}
+                  </span>
+                  {p.apiKeyRef && tail && (
+                    <button
+                      onClick={() => void toggleReveal(p.apiKeyRef!)}
+                      title={shown ? t("settings.apikey.hide") : t("settings.apikey.reveal")}
+                      aria-label={shown ? t("settings.apikey.hide") : t("settings.apikey.reveal")}
+                      className="shrink-0 rounded p-0.5 text-faint hover:text-text"
+                    >
+                      {shown ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
+                  )}
                 </div>
               </div>
               {pendingDelete === p.id ? (

@@ -74,6 +74,16 @@ export const IPC_INVOKE = {
     req: z.object({ ref: z.string(), value: z.string() }),
     res: z.void(),
   },
+  /**
+   * The plaintext of one stored secret, for the reveal toggle in Settings.
+   * Deliberately pull-only: the renderer never receives key material until the
+   * user asks for that one key, and app:getState keeps handing out masked
+   * tails only.
+   */
+  "secrets:reveal": {
+    req: z.object({ ref: z.string() }),
+    res: z.object({ value: z.string().nullable() }),
+  },
   /** Forget a stored secret — deleting a saved API key. */
   "secrets:delete": {
     req: z.object({ ref: z.string() }),
