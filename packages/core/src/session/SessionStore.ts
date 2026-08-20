@@ -312,6 +312,13 @@ export class SessionStore {
           msgs.push({ role: "user", content: rec.text });
           break;
         case "assistant":
+          // A turn that produced only reasoning — interrupted mid-thought, or
+          // cut off by the output cap before any content — carries nothing on
+          // the wire, and the API rejects the whole history with "content or
+          // tool_calls must be set". Dropping it here keeps that turn's
+          // reasoning visible in the transcript without poisoning every later
+          // request in the session.
+          if (!rec.text && rec.toolCalls.length === 0) break;
           msgs.push({
             role: "assistant",
             content: rec.text || null,

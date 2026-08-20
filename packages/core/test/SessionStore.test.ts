@@ -37,6 +37,58 @@ describe("SessionStore", () => {
     expect(msgs[2]).toEqual({ role: "tool", tool_call_id: "c1", content: "contents" });
   });
 
+  it("omits a reasoning-only assistant turn from the wire format", () => {
+    // Regression: an interrupted turn that produced reasoning but no content
+    // and no tool calls used to be replayed as {content: null}, and every
+    // later request in the session 400'd with
+    // "Invalid assistant message: content or tool_calls must be set".
+    const s = SessionStore.createEphemeral("C:/proj");
+    s.append({ type: "user", id: "u1", text: "hi", ts: 1 });
+    s.append({
+      type: "assistant",
+      id: "a1",
+      text: "",
+      reasoning: "thought about it, got cut off",
+      toolCalls: [],
+      interrupted: true,
+      ts: 2,
+    });
+    s.append({ type: "user", id: "u2", text: "still there?", ts: 3 });
+    const msgs = s.messages();
+    expect(msgs).toEqual([
+      { role: "user", content: "hi" },
+      { role: "user", content: "still there?" },
+    ]);
+    // The turn stays visible to the user even though it never goes on the wire.
+    expect(s.transcript().some((i) => i.kind === "assistant")).toBe(true);
+  });
+
+  it("keeps an assistant turn that has tool calls but no text", () => {
+    const s = SessionStore.createEphemeral("C:/proj");
+    s.append({ type: "user", id: "u1", text: "read it", ts: 1 });
+    s.append({
+      type: "assistant",
+      id: "a1",
+      text: "",
+      reasoning: "",
+      toolCalls: [{ id: "c1", name: "read", argsJson: "{}" }],
+      ts: 2,
+    });
+    s.append({
+      type: "tool_result",
+      toolCallId: "c1",
+      toolName: "read",
+      args: {},
+      ok: true,
+      output: "contents",
+      durationMs: 1,
+      ts: 3,
+    });
+    const msgs = s.messages();
+    expect(msgs[1]).toMatchObject({ role: "assistant", content: null });
+    expect(msgs[2]).toMatchObject({ role: "tool", tool_call_id: "c1" });
+  });
+
   it("replaces pre-compaction history with the summary", () => {
     const s = SessionStore.createEphemeral("C:/proj");
     s.append({ type: "user", id: "u1", text: "old message", ts: 1 });
