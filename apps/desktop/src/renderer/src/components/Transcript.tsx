@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock, FileCode2, FolderOpen, Minimize2, Target } from "lucide-react";
+import { ArrowDown, CheckCheck, ChevronDown, ChevronRight, CircleAlert, Clock, FileCode2, FolderOpen, Minimize2, Pencil, Target, Trash2 } from "lucide-react";
 import type { TranscriptItem } from "@whalex/shared";
 import { useAppStore } from "../stores/appStore";
 import { useSessionStore } from "../stores/sessionStore";
@@ -33,31 +33,114 @@ function Reasoning({ text }: { text: string }) {
   );
 }
 
+/**
+ * A message from the user. While it is still queued behind a running turn it
+ * is editable and deletable — once the model has read it, neither is honest
+ * any more, so the controls disappear with the unread badge.
+ */
+function UserMessage({ item }: { item: Extract<TranscriptItem, { kind: "user" }> }) {
+  const { t } = useTranslation();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.text);
+  const editPending = useSessionStore((s) => s.editPending);
+  const cancelPending = useSessionStore((s) => s.cancelPending);
+  const pending = item.delivery === "pending";
+
+  // The badge can flip while the editor is open; an edit after that would
+  // silently do nothing, so close it instead.
+  useEffect(() => {
+    if (!pending) setEditing(false);
+  }, [pending]);
+
+  if (editing) {
+    return (
+      <div className="transcript-item flex justify-end py-2.5">
+        <div className="w-full max-w-[85%] rounded-2xl border border-accent bg-surface p-2">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            aria-label={t("transcript.editMessage")}
+            className="w-full resize-y bg-transparent px-2 py-1 text-[13.5px] leading-relaxed outline-none"
+          />
+          <div className="mt-1 flex justify-end gap-1.5">
+            <button
+              onClick={() => {
+                setDraft(item.text);
+                setEditing(false);
+              }}
+              className="rounded-md border border-border px-2.5 py-1 text-[11.5px] text-muted hover:bg-surface-2"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              onClick={() => {
+                void editPending(item.id, draft.trim());
+                setEditing(false);
+              }}
+              disabled={draft.trim().length === 0}
+              className="rounded-md bg-accent px-2.5 py-1 text-[11.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+            >
+              {t("common.save")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="transcript-item flex items-center justify-end gap-2 py-2.5">
+      {item.delivery && (
+        <div className="flex shrink-0 items-center gap-0.5">
+          {pending && (
+            <>
+              <button
+                onClick={() => {
+                  setDraft(item.text);
+                  setEditing(true);
+                }}
+                title={t("transcript.editMessage")}
+                aria-label={t("transcript.editMessage")}
+                className="rounded p-1 text-faint hover:bg-surface-2 hover:text-text"
+              >
+                <Pencil size={12} />
+              </button>
+              <button
+                onClick={() => void cancelPending(item.id)}
+                title={t("transcript.deleteMessage")}
+                aria-label={t("transcript.deleteMessage")}
+                className="rounded p-1 text-faint hover:bg-surface-2 hover:text-danger"
+              >
+                <Trash2 size={12} />
+              </button>
+            </>
+          )}
+          <span
+            className={`ml-0.5 flex items-center gap-1 text-[10.5px] ${
+              pending ? "text-warn" : "text-faint"
+            }`}
+          >
+            {pending ? <Clock size={11} /> : <CheckCheck size={11} />}
+            {t(`transcript.delivery.${item.delivery}`)}
+          </span>
+        </div>
+      )}
+      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-[13.5px] leading-relaxed">
+        {item.text}
+      </div>
+    </div>
+  );
+}
+
 // Memoized: on every streaming delta the whole transcript array re-renders,
 // but only the changed item's reference changes.
 const Item = memo(function Item({ item }: { item: TranscriptItem }) {
   const { t } = useTranslation();
   switch (item.kind) {
     case "user":
-      return (
-        <div className="transcript-item flex flex-col items-end py-2.5">
-          <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent-soft px-4 py-2.5 text-[13.5px] leading-relaxed">
-            {item.text}
-          </div>
-          {/* Only messages sent into a running turn carry a delivery state —
-              the model reads them a round later, not the moment you hit send. */}
-          {item.delivery && (
-            <div
-              className={`mt-1 flex items-center gap-1 pr-1 text-[10.5px] ${
-                item.delivery === "read" ? "text-faint" : "text-warn"
-              }`}
-            >
-              {item.delivery === "read" ? <CheckCheck size={11} /> : <Clock size={11} />}
-              {t(`transcript.delivery.${item.delivery}`)}
-            </div>
-          )}
-        </div>
-      );
+      return <UserMessage item={item} />;
     case "assistant":
       return (
         <div className="transcript-item py-2 text-[13.5px]">
@@ -173,20 +256,13 @@ export function timeOfDay(hour: number): "dawn" | "morning" | "lunch" | "afterno
 
 function EmptyState() {
   const { t } = useTranslation();
-  const send = useSessionStore((s) => s.send);
-  const status = useSessionStore((s) => s.status);
   const cwd = useSessionStore((s) => s.cwd);
   const startSession = useSessionStore((s) => s.startSession);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const slot = timeOfDay(new Date().getHours());
-  const examples = [
-    t("transcript.example1"),
-    t("transcript.example2"),
-    t("transcript.example3"),
-  ];
 
   // Setup no longer picks a project folder, so the very first launch lands
-  // here with nothing open — ask for the folder before the examples.
+  // here with nothing open.
   const pickFolder = async () => {
     const res = await whalex.invoke("dialog:pickFolder", undefined);
     if (!res.path) return;
@@ -196,25 +272,15 @@ function EmptyState() {
 
   return (
     <div className="flex h-[62vh] flex-col items-center justify-center text-center">
-      <img src={logoUrl} alt="" className="mb-1 h-12 w-12" />
-      <div className="text-lg font-semibold">{t(`transcript.greet.${slot}`)}</div>
-      <div className="mt-2 max-w-md text-[13px] text-muted">{t(`transcript.greet.${slot}.sub`)}</div>
-      {cwd ? (
-        <div className="mt-5 flex w-full max-w-md flex-col gap-2">
-          <div className="text-[12px] text-faint">{t("transcript.empty.subtitle")}</div>
-          {examples.map((ex) => (
-            <button
-              key={ex}
-              disabled={status !== "idle"}
-              onClick={() => void send(ex)}
-              className="rounded-lg border border-border bg-surface px-3.5 py-2.5 text-left text-[13px] text-muted transition-colors hover:border-accent hover:text-text disabled:opacity-50"
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-5 w-full max-w-md">
+      <img src={logoUrl} alt="" className="mb-4 h-24 w-24" />
+      <div className="text-[26px] font-semibold tracking-tight">
+        {t(`transcript.greet.${slot}`)}
+      </div>
+      <div className="mt-3 max-w-lg text-[15px] text-muted">
+        {t(`transcript.greet.${slot}.sub`)}
+      </div>
+      {!cwd && (
+        <div className="mt-7 w-full max-w-sm">
           <button
             onClick={() => void pickFolder()}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-[13.5px] font-medium text-white hover:bg-accent-hover"

@@ -118,6 +118,25 @@ export class AgentLoop {
     this.steerQueue.push({ text, id });
   }
 
+  /**
+   * Rewrite a queued message. False once it has been drained — at that point
+   * the model has it and the only honest answer is "too late".
+   */
+  editSteered(id: string, text: string): boolean {
+    const entry = this.steerQueue.find((q) => q.id === id);
+    if (!entry) return false;
+    entry.text = text;
+    return true;
+  }
+
+  /** Drop a queued message before the model ever sees it. */
+  cancelSteered(id: string): boolean {
+    const i = this.steerQueue.findIndex((q) => q.id === id);
+    if (i < 0) return false;
+    this.steerQueue.splice(i, 1);
+    return true;
+  }
+
   /** Extra protocol section (e.g. SuperCode) appended to the system prompt. */
   private protocolPrompt: string | null = null;
 

@@ -178,13 +178,22 @@ export function Composer() {
   const canSend =
     (text.trim().length > 0 || attachments.length > 0) && !pendingPermission && !describing;
 
-  // Ctrl+V covers both a screenshot (an image blob with no path) and files
-  // copied in the file manager (real paths) — clipboardData.files has both.
-  const onPaste = (e: React.ClipboardEvent) => {
-    const files = [...e.clipboardData.files];
-    if (files.length === 0) return;
-    e.preventDefault();
-    attachFiles(files);
+  /**
+   * Files on the clipboard, however the OS chose to expose them: a screenshot
+   * arrives as a bare image blob under `items`, files copied in the file
+   * manager arrive under `files`. Returns [] for a plain text paste, which is
+   * the signal to leave the event alone.
+   */
+  const clipboardFiles = (dt: DataTransfer): File[] => {
+    const files = [...dt.files];
+    if (files.length > 0) return files;
+    for (let i = 0; i < dt.items.length; i++) {
+      const item = dt.items[i]!;
+      if (item.kind !== "file") continue;
+      const f = item.getAsFile();
+      if (f) files.push(f);
+    }
+    return files;
   };
   // Drops are handled on the window, not just the textarea: anywhere in the
   // app is a target, and preventing the default stops Electron from
@@ -219,11 +228,21 @@ export function Composer() {
       e.preventDefault();
       attachRef.current([...(e.dataTransfer?.files ?? [])]);
     };
+    const onPaste = (e: ClipboardEvent) => {
+      if (!e.clipboardData) return;
+      const files = clipboardFiles(e.clipboardData);
+      // No files on the clipboard — it is a text paste, so let it through.
+      if (files.length === 0) return;
+      e.preventDefault();
+      attachRef.current(files);
+    };
+    window.addEventListener("paste", onPaste);
     window.addEventListener("dragenter", onEnter);
     window.addEventListener("dragover", onOver);
     window.addEventListener("dragleave", onLeave);
     window.addEventListener("drop", onDrop);
     return () => {
+      window.removeEventListener("paste", onPaste);
       window.removeEventListener("dragenter", onEnter);
       window.removeEventListener("dragover", onOver);
       window.removeEventListener("dragleave", onLeave);
@@ -537,7 +556,6 @@ export function Composer() {
             void updateAutocomplete(e.target.value, e.target.selectionStart);
           }}
           onKeyDown={onKeyDown}
-          onPaste={onPaste}
           placeholder={t("composer.placeholder")}
           rows={1}
           disabled={!!pendingPermission}

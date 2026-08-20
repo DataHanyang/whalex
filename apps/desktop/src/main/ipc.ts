@@ -94,6 +94,12 @@ export function registerIpc(deps: {
     "session:send": (req) => {
       host.send(req.sessionId, req.text, req.model, req.messageId);
     },
+    "session:steerEdit": (req) => ({
+      ok: host.editSteered(req.sessionId, req.messageId, req.text),
+    }),
+    "session:steerCancel": (req) => ({
+      ok: host.cancelSteered(req.sessionId, req.messageId),
+    }),
     "session:abort": (req) => {
       host.abort(req.sessionId);
     },

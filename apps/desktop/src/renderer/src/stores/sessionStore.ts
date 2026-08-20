@@ -70,6 +70,10 @@ interface SessionState {
   openInitialSession(cwd?: string): Promise<void>;
   startSession(cwd: string, resumeSessionId?: string): Promise<void>;
   send(text: string): Promise<void>;
+  /** Rewrite a still-unread message; no-op once the model has read it. */
+  editPending(messageId: string, text: string): Promise<void>;
+  /** Drop a still-unread message; no-op once the model has read it. */
+  cancelPending(messageId: string): Promise<void>;
   abort(): Promise<void>;
   respondPermission(res: Omit<PermissionResponse, "id"> & { id: string }): Promise<void>;
   handleEnvelope(env: AgentEventEnvelope): void;
@@ -345,6 +349,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     // The new session should appear in the sidebar immediately, not only
     // after the (possibly long) first turn finishes.
     if (!steering) void get().refreshSessions();
+  },
+
+  async editPending(messageId, text) {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const res = await whalex.invoke("session:steerEdit", { sessionId: id, messageId, text });
+    set((s) => ({
+      transcript: s.transcript.map((t) =>
+        t.kind === "user" && t.id === messageId
+          // Lost the race: the model already has the original text, so show
+          // that it was read rather than pretending the edit landed.
+          ? res.ok
+            ? { ...t, text }
+            : { ...t, delivery: "read" as const }
+          : t,
+      ),
+    }));
+  },
+
+  async cancelPending(messageId) {
+    const id = get().activeSessionId;
+    if (!id) return;
+    const res = await whalex.invoke("session:steerCancel", { sessionId: id, messageId });
+    set((s) => ({
+      transcript: res.ok
+        ? s.transcript.filter((t) => !(t.kind === "user" && t.id === messageId))
+        : s.transcript.map((t) =>
+            t.kind === "user" && t.id === messageId ? { ...t, delivery: "read" as const } : t,
+          ),
+    }));
   },
 
   async abort() {

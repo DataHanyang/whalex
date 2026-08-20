@@ -138,6 +138,19 @@ export const IPC_INVOKE = {
     req: z.object({ sessionId: z.string() }),
     res: z.void(),
   },
+  /**
+   * Rewrite a message still waiting in the steer queue. `ok: false` means the
+   * model already took it — the UI flips it to read and keeps the old text.
+   */
+  "session:steerEdit": {
+    req: z.object({ sessionId: z.string(), messageId: z.string(), text: z.string() }),
+    res: z.object({ ok: z.boolean() }),
+  },
+  /** Drop a still-queued message. `ok: false` means it was already delivered. */
+  "session:steerCancel": {
+    req: z.object({ sessionId: z.string(), messageId: z.string() }),
+    res: z.object({ ok: z.boolean() }),
+  },
   "session:setMode": {
     req: z.object({
       sessionId: z.string(),

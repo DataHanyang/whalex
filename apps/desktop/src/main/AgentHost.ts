@@ -474,6 +474,16 @@ export class AgentHost {
     void this.mcp.connect(name, config).catch(() => {});
   }
 
+  /** Edit a message still queued behind the running turn. */
+  editSteered(sessionId: string, messageId: string, text: string): boolean {
+    return this.sessions.get(sessionId)?.loop.editSteered(messageId, text) ?? false;
+  }
+
+  /** Drop a message still queued behind the running turn. */
+  cancelSteered(sessionId: string, messageId: string): boolean {
+    return this.sessions.get(sessionId)?.loop.cancelSteered(messageId) ?? false;
+  }
+
   send(sessionId: string, text: string, model: string, messageId?: string): void {
     const hosted = this.sessions.get(sessionId);
     if (!hosted) throw new Error(`Unknown session: ${sessionId}`);
