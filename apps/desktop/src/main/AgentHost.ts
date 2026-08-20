@@ -266,6 +266,7 @@ export class AgentHost {
           modelInfo,
           temperature: s.temperature,
         reasoningEffort: s.reasoningEffort,
+          uncensoredMode: s.uncensoredMode,
           cwd,
           disabledTypes: s.disabledAgentTypes,
           extraTools: () => this.mcp.toolDefs(),
@@ -325,6 +326,7 @@ export class AgentHost {
         extraTools: () => this.mcp.toolDefs(),
         hooks: this.hooks,
         autoCompact: s.autoCompact,
+        uncensoredMode: s.uncensoredMode,
       }),
     };
     this.sessions.set(sessionId, hosted);
@@ -570,6 +572,7 @@ export class AgentHost {
               modelInfo: resolveModelInfo(model),
               temperature: s.temperature,
         reasoningEffort: s.reasoningEffort,
+              uncensoredMode: s.uncensoredMode,
               cwd: hosted.store.cwd,
               extraTools: () => this.mcp.toolDefs(),
               maxAgents: s.superCode.maxAgents,

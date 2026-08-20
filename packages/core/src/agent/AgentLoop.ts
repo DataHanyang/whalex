@@ -36,6 +36,8 @@ export interface AgentLoopOptions {
   hooks?: HookRunner;
   /** Auto-compaction as the context fills (default on). */
   autoCompact?: boolean;
+  /** Uncensored mode: drop safety guidance, add a directness instruction. */
+  uncensoredMode?: boolean;
 }
 
 interface CallOutcome {
@@ -294,7 +296,7 @@ export class AgentLoop {
 
   private async ensureSystemPrompt(cwd: string): Promise<string> {
     if (this.systemPrompt !== null) return this.systemPrompt;
-    const base = await buildSystemPrompt(cwd);
+    const base = await buildSystemPrompt(cwd, { uncensored: this.opts.uncensoredMode });
     const parts = [base];
     if (this.opts.extraSystemPrompt) parts.push(this.opts.extraSystemPrompt);
     if (this.protocolPrompt) parts.push(this.protocolPrompt);

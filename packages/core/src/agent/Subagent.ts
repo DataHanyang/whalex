@@ -34,6 +34,8 @@ export interface SubagentDeps {
   cwd: string;
   /** Agent types the user disabled — the tool won't offer them. */
   disabledTypes?: string[];
+  /** Uncensored mode: subagents inherit the parent's directness prompt. */
+  uncensoredMode?: boolean;
   /** MCP tools, shared with the parent so subagents can use them too. */
   extraTools?: () => ToolDef<never>[];
   /** Streams subagent progress up to the parent UI. */
@@ -95,6 +97,7 @@ export function createAgentTool(deps: SubagentDeps): ToolDef<{
         modelInfo: deps.modelInfo,
         temperature: deps.temperature,
         reasoningEffort: deps.reasoningEffort,
+        uncensoredMode: deps.uncensoredMode,
         extraTools: typeInfo.readOnlyOnly ? undefined : deps.extraTools,
         extraSystemPrompt: `# Subagent role
 You are a ${input.agent_type} subagent. Complete the delegated task autonomously and end with a concise summary of what you found or did — that summary is your entire return value to the calling agent. You cannot ask the user questions.`,

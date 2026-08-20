@@ -15,6 +15,8 @@ export interface WorkflowDeps {
   temperature: number;
   /** Passed through so sub-agents think as hard as the main session. */
   reasoningEffort?: string;
+  /** Uncensored mode: fleet agents inherit the parent's directness prompt. */
+  uncensoredMode?: boolean;
   cwd: string;
   extraTools?: () => ToolDef<never>[];
   maxAgents: number;
@@ -276,6 +278,7 @@ export class WorkflowRunner {
         modelInfo: this.deps.modelInfo,
         temperature: this.deps.temperature,
         reasoningEffort: this.deps.reasoningEffort,
+        uncensoredMode: this.deps.uncensoredMode,
         extraSystemPrompt:
           "# Workflow agent\nYou are one agent in a larger orchestrated workflow. Do exactly your assigned task — read what you need, write only the files your task names" +
           (this.deps.fleetShell

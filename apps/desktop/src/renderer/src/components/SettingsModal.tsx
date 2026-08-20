@@ -116,6 +116,16 @@ function GeneralTab() {
           onChange={(v) => void update({ redactSecrets: v })}
         />
       </Row>
+      <Row label={t("settings.uncensored")}>
+        <label className="flex items-center gap-2 text-[11.5px] text-faint">
+          <ToggleSwitch
+            checked={settings.uncensoredMode}
+            label={t("settings.uncensored")}
+            onChange={(v) => void update({ uncensoredMode: v })}
+          />
+          {t("settings.uncensored.hint")}
+        </label>
+      </Row>
       {(
         [
           ["subagents", "settings.feature.subagents"],

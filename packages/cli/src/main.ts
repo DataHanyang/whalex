@@ -54,6 +54,9 @@ async function main(): Promise<void> {
     | "plan"
     | "unrestricted";
   const permissions = new PermissionEngine({ mode: permMode, allow: [], deny: [] });
+  // WHALEX_UNCENSORED=1 drops safety guidance from the system prompt and adds
+  // a directness instruction (see buildSystemPrompt).
+  const uncensored = process.env.WHALEX_UNCENSORED === "1";
   const session = SessionStore.create(cwd);
 
   // Skills: same discovery as the desktop (bundled pack + ~/.whalex/skills +
@@ -87,6 +90,7 @@ async function main(): Promise<void> {
     session,
     modelInfo,
     temperature: 0.2,
+    uncensoredMode: uncensored,
     extraSystemPrompt: skills.catalog(),
   });
 
@@ -112,6 +116,7 @@ async function main(): Promise<void> {
               permissions,
               modelInfo,
               temperature: 0.2,
+              uncensoredMode: uncensored,
               reasoningEffort: process.env.WHALEX_FLEET_EFFORT ?? "medium",
               cwd,
               maxAgents: Number(process.env.WHALEX_MAX_AGENTS ?? 400),

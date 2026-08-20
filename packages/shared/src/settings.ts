@@ -149,6 +149,13 @@ export const SettingsSchema = z.object({
    * (env files, configs); onboarding asks the user which they want.
    */
   redactSecrets: z.boolean().default(false),
+  /**
+   * Uncensored mode: drop the app's cautionary safety instructions from the
+   * system prompt and tell the model to answer directly without refusing or
+   * adding disclaimers. The app itself never filters model output — provider
+   * content moderation (e.g. DeepSeek's server-side filter) still applies.
+   */
+  uncensoredMode: z.boolean().default(true),
   /** Summarize and shrink the context automatically as it fills up. */
   autoCompact: z.boolean().default(true),
   /**
