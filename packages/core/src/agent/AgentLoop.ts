@@ -112,10 +112,20 @@ export class AgentLoop {
     * The id is the renderer's transcript id, echoed back on delivery so the
     * bubble can flip from unread to read.
     */
-  private steerQueue: Array<{ text: string; id?: string }> = [];
+  private steerQueue: Array<{ text: string; id?: string; ts: number }> = [];
 
   steer(text: string, id?: string): void {
-    this.steerQueue.push({ text, id });
+    this.steerQueue.push({ text, id, ts: Date.now() });
+  }
+
+  /**
+   * Messages still waiting on the model. They are not in the session file
+   * yet — appending early would slot a user turn ahead of the assistant
+   * and tool messages of the round in flight — so a reloading renderer has
+   * to get them from here or they vanish from the transcript.
+   */
+  get pendingSteer(): Array<{ id?: string; text: string; ts: number }> {
+    return this.steerQueue.map((q) => ({ ...q }));
   }
 
   /**
@@ -296,8 +306,8 @@ export class AgentLoop {
   private drainSteerQueue(session: AgentLoopOptions["session"]): string[] {
     const delivered: string[] = [];
     while (this.steerQueue.length > 0) {
-      const { text, id } = this.steerQueue.shift()!;
-      session.append({ type: "user", id: id ?? randomUUID(), text, ts: Date.now() });
+      const { text, id, ts } = this.steerQueue.shift()!;
+      session.append({ type: "user", id: id ?? randomUUID(), text, ts });
       this.context.addPending(text);
       if (id) delivered.push(id);
     }

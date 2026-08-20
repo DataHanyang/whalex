@@ -799,6 +799,11 @@ User: ${userText.slice(0, 400)}`,
       usage: live.usage ?? undefined,
       permissionRequests: [...hosted.pendingPermissions.values()],
       questionRequest: hosted.pendingQuestion ?? undefined,
+      // Only the ones the renderer named: an id-less entry has no bubble to
+      // restore.
+      pendingSteer: hosted.loop.pendingSteer.flatMap((q) =>
+        q.id ? [{ id: q.id, text: q.text, ts: q.ts }] : [],
+      ),
     };
   }
 

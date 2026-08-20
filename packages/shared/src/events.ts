@@ -212,6 +212,14 @@ export const LiveSnapshotSchema = z.object({
    */
   permissionRequests: z.array(PermissionRequestSchema).default([]),
   questionRequest: UserQuestionSchema.optional(),
+  /**
+   * Messages typed into the running turn that the model has not taken yet.
+   * They exist only in memory until the loop drains them, so a reload has to
+   * put them back or the user watches their own message disappear.
+   */
+  pendingSteer: z
+    .array(z.object({ id: z.string(), text: z.string(), ts: z.number() }))
+    .default([]),
 });
 export type LiveSnapshot = z.infer<typeof LiveSnapshotSchema>;
 

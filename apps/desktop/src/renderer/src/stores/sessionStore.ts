@@ -278,6 +278,15 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     );
     // The bubble still streaming in main isn't in the transcript yet; re-hang
     // it under the same id so later deltas continue it.
+    // Still-unread messages are not on disk yet; re-hang them after the
+    // persisted transcript, in the order they were typed.
+    const pending: TranscriptItem[] = (res.live?.pendingSteer ?? []).map((p) => ({
+      kind: "user" as const,
+      id: p.id,
+      text: p.text,
+      ts: p.ts,
+      delivery: "pending" as const,
+    }));
     const transcript = res.live?.streaming
       ? [
           ...res.transcript,
@@ -290,8 +299,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             interrupted: false,
             ts: Date.now(),
           },
+          ...pending,
         ]
-      : res.transcript;
+      : [...res.transcript, ...pending];
     set({
       cwd,
       activeSessionId: res.sessionId,
