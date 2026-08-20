@@ -161,3 +161,15 @@ a vision model connected (설정 → 비전).
 `present_file` with `kind: "slides"` and the .pptx path. Summarize the theme
 (palette, fonts, motif) in one sentence so the user can ask for consistent
 follow-up edits.
+
+## Beyond decks — the wider design pack
+
+The files next to this one cover the rest of the design surface (documents,
+PDFs, HTML, prototypes) and the review passes that catch what a generator
+cannot see:
+
+| File | Use it for |
+|---|---|
+| `DESIGN.md` | The design system prompt — identity, workflow, hierarchy, type, colour, accessibility. **Read it first on any design task that is not a plain deck.** |
+| `skills/*.md` | 14 focused passes: `discovery-questions`, `design-system-extract`, `make-a-deck`, `make-a-prototype`, `wireframe`, `generate-variations`, `component-extract`, `make-tweakable`, `polish-pass`, `hierarchy-rhythm-review`, `interaction-states-pass`, `ai-slop-check`, `accessibility-audit`, `frontend-aesthetic-direction`. |
+| `qa/audit-pptx.mjs` | `node qa/audit-pptx.mjs <deck.pptx>` — parses the file, extracts its theme, flags AI-slop idioms, and reports contrast failures with the offending colour pairs. Run it before Step 4's visual QA; it catches in seconds what images take minutes to reveal. |
