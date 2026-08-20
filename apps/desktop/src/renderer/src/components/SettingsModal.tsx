@@ -11,12 +11,15 @@ import {
   Play,
   Plug,
   RefreshCw,
+  Check,
+  Plus,
   Settings2,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
 import {
+  DEEPSEEK_BASE_URL,
   MCP_PRESETS,
   type IpcResponse,
   type McpServerConfig,
@@ -136,54 +139,211 @@ function GeneralTab() {
   );
 }
 
+/**
+ * Saved API keys. Each one is a provider entry with its own vault ref, so
+ * several accounts (or several endpoints) can sit side by side and
+ * activeProviderId decides which the agent actually uses. The active key is
+ * applied to open sessions too, not only to the next one.
+ */
 function ApiKeyTab() {
   const { t } = useTranslation();
+  const settings = useAppStore((s) => s.settings)!;
   const secrets = useAppStore((s) => s.secrets);
+  const update = useAppStore((s) => s.updateSettings);
   const refreshModels = useAppStore((s) => s.refreshModels);
   const refreshState = useAppStore((s) => s.refreshState);
-  const [key, setKey] = useState("");
-  const [state, setState] = useState<{ s: "idle" | "testing" | "ok" | "err"; msg?: string }>({ s: "idle" });
-  const tail = secrets["deepseek-api-key"];
 
-  const save = async () => {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [key, setKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(DEEPSEEK_BASE_URL);
+  const [state, setState] = useState<{ s: "idle" | "testing" | "err"; msg?: string }>({ s: "idle" });
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+
+  const providers = settings.providers;
+  const activeId = settings.activeProviderId;
+
+  const resetForm = () => {
+    setAdding(false);
+    setName("");
+    setKey("");
+    setBaseUrl(DEEPSEEK_BASE_URL);
+    setState({ s: "idle" });
+  };
+
+  // Verify before storing: a key that cannot list models is worth rejecting
+  // here rather than at the start of the user's next turn.
+  const addKey = async () => {
     setState({ s: "testing" });
-    const res = await whalex.invoke("provider:test", { providerId: "deepseek", apiKey: key.trim() });
-    if (res.ok) {
-      await whalex.invoke("secrets:set", { ref: "deepseek-api-key", value: key.trim() });
-      setKey("");
-      setState({ s: "ok", msg: t("settings.apikey.connected", { count: res.models.length }) });
-      await refreshState();
-      await refreshModels();
-    } else {
+    const res = await whalex.invoke("provider:test", {
+      providerId: "",
+      apiKey: key.trim(),
+      baseUrl: baseUrl.trim(),
+    });
+    if (!res.ok) {
       setState({ s: "err", msg: res.error });
+      return;
     }
+    const id = `provider-${crypto.randomUUID()}`;
+    const ref = `apikey-${id}`;
+    await whalex.invoke("secrets:set", { ref, value: key.trim() });
+    await update({
+      providers: [
+        ...providers,
+        { id, name: name.trim() || t("settings.apikey.untitled"), baseUrl: baseUrl.trim(), apiKeyRef: ref },
+      ],
+      // A key you just added is the one you meant to use.
+      activeProviderId: id,
+    });
+    resetForm();
+    await refreshState();
+    await refreshModels();
+  };
+
+  const activate = async (id: string) => {
+    await update({ activeProviderId: id });
+    await refreshModels();
+  };
+
+  const remove = async (id: string) => {
+    const gone = providers.find((p) => p.id === id);
+    const rest = providers.filter((p) => p.id !== id);
+    if (rest.length === 0) return;
+    if (gone?.apiKeyRef) await whalex.invoke("secrets:delete", { ref: gone.apiKeyRef });
+    await update({
+      providers: rest,
+      // Deleting the active key has to hand the session to another one.
+      activeProviderId: id === activeId ? rest[0]!.id : activeId,
+    });
+    setPendingDelete(null);
+    await refreshState();
+    await refreshModels();
   };
 
   return (
     <div>
-      <Row label={t("settings.apikey.label")}>
-        <span className="font-mono text-[12px] text-muted">{tail ?? t("settings.apikey.unset")}</span>
-      </Row>
-      <div className="mt-4">
-        <input
-          type="password"
-          value={key}
-          onChange={(e) => setKey(e.target.value)}
-          placeholder="sk-..."
-          className="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-[12.5px] outline-none focus:border-accent"
-        />
-        <div className="mt-2 flex items-center gap-2">
-          <button
-            onClick={() => void save()}
-            disabled={key.trim().length < 8 || state.s === "testing"}
-            className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
-          >
-            {state.s === "testing" ? t("settings.apikey.testing") : t("settings.apikey.save")}
-          </button>
-          {state.s === "ok" && <span className="text-[12px] text-ok">{state.msg}</span>}
-          {state.s === "err" && <span className="text-[12px] text-danger">{state.msg}</span>}
-        </div>
+      <div className="mb-2 text-[12px] font-semibold text-muted">{t("settings.apikey.keys")}</div>
+      <div className="rounded-lg border border-border">
+        {providers.map((p, i) => {
+          const tail = p.apiKeyRef ? secrets[p.apiKeyRef] : null;
+          const active = p.id === activeId;
+          return (
+            <div
+              key={p.id}
+              className={`flex items-center gap-2.5 px-3 py-2.5 ${i > 0 ? "border-t border-border" : ""}`}
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={active}
+                aria-label={t("settings.apikey.use")}
+                onClick={() => void activate(p.id)}
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                  active ? "border-accent bg-accent text-white" : "border-border-strong hover:border-accent"
+                }`}
+              >
+                {active && <Check size={11} />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-[13px]">
+                  <span className="truncate">{p.name}</span>
+                  {active && (
+                    <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
+                      {t("settings.apikey.active")}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 truncate font-mono text-[11px] text-faint">
+                  {tail ?? t("settings.apikey.unset")}
+                  {p.baseUrl !== DEEPSEEK_BASE_URL && ` · ${p.baseUrl}`}
+                </div>
+              </div>
+              {pendingDelete === p.id ? (
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span className="text-[11.5px] text-muted">{t("settings.apikey.deleteConfirm")}</span>
+                  <button
+                    onClick={() => setPendingDelete(null)}
+                    className="rounded-md border border-border px-2 py-1 text-[11.5px] text-muted hover:bg-surface-2"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    onClick={() => void remove(p.id)}
+                    className="rounded-md bg-danger px-2 py-1 text-[11.5px] font-medium text-white hover:opacity-90"
+                  >
+                    {t("settings.apikey.delete")}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setPendingDelete(p.id)}
+                  disabled={providers.length < 2}
+                  title={providers.length < 2 ? t("settings.apikey.lastOne") : t("settings.apikey.delete")}
+                  aria-label={t("settings.apikey.delete")}
+                  className="shrink-0 rounded p-1 text-faint hover:text-danger disabled:opacity-30 disabled:hover:text-faint"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {adding ? (
+        <div className="mt-3 rounded-lg border border-border p-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("settings.apikey.namePlaceholder")}
+            aria-label={t("settings.apikey.name")}
+            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-[12.5px] outline-none focus:border-accent"
+          />
+          <input
+            type="password"
+            value={key}
+            onChange={(e) => {
+              setKey(e.target.value);
+              setState({ s: "idle" });
+            }}
+            placeholder="sk-..."
+            aria-label={t("settings.apikey.label")}
+            className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-[12.5px] outline-none focus:border-accent"
+          />
+          <input
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder={DEEPSEEK_BASE_URL}
+            aria-label={t("settings.apikey.endpoint")}
+            className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-[11.5px] text-muted outline-none focus:border-accent"
+          />
+          <div className="mt-1 text-[11px] text-faint">{t("settings.apikey.endpointHint")}</div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <button
+              onClick={() => void addKey()}
+              disabled={key.trim().length < 8 || !baseUrl.trim() || state.s === "testing"}
+              className="rounded-md bg-accent px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+            >
+              {state.s === "testing" ? t("settings.apikey.testing") : t("settings.apikey.save")}
+            </button>
+            <button
+              onClick={resetForm}
+              className="rounded-md border border-border px-3 py-1.5 text-[12.5px] text-muted hover:bg-surface-2"
+            >
+              {t("common.cancel")}
+            </button>
+            {state.s === "err" && <span className="text-[12px] text-danger">{state.msg}</span>}
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="mt-3 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[12.5px] text-muted hover:bg-surface-2"
+        >
+          <Plus size={13} />
+          {t("settings.apikey.add")}
+        </button>
+      )}
     </div>
   );
 }

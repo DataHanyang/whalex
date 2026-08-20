@@ -37,15 +37,18 @@ export function registerIpc(deps: {
 }): void {
   const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage } = deps;
 
-  const makeProvider = (providerId: string, apiKeyOverride?: string) => {
+  const makeProvider = (providerId: string, apiKeyOverride?: string, baseUrlOverride?: string) => {
     // Cloud edition routes through the hosted proxy with the session token.
     if (isCloud) {
       return new OpenAICompatProvider({ baseUrl: CLOUD_CONFIG.apiBaseUrl, apiKey: auth.token() });
     }
     const p = settings.get().providers.find((x) => x.id === providerId);
-    if (!p) throw new Error(`Unknown provider: ${providerId}`);
-    const apiKey = apiKeyOverride ?? (p.apiKeyRef ? vault.get(p.apiKeyRef) : null);
-    return new OpenAICompatProvider({ baseUrl: p.baseUrl, apiKey });
+    // A key being added has no provider entry yet, so the caller passes the
+    // endpoint and the key straight in.
+    const baseUrl = baseUrlOverride ?? p?.baseUrl;
+    if (!baseUrl) throw new Error(`Unknown provider: ${providerId}`);
+    const apiKey = apiKeyOverride ?? (p?.apiKeyRef ? vault.get(p.apiKeyRef) : null);
+    return new OpenAICompatProvider({ baseUrl, apiKey });
   };
 
   const handlers: Handlers = {
@@ -69,6 +72,10 @@ export function registerIpc(deps: {
       host.applyLiveSettings();
       return out;
     },
+    "secrets:delete": (req) => {
+      vault.delete(req.ref);
+      host.applyLiveSettings();
+    },
     "secrets:set": (req) => {
       vault.set(req.ref, req.value);
       // Push the new key into live sessions — their providers were built
@@ -77,7 +84,7 @@ export function registerIpc(deps: {
     },
     "provider:test": async (req) => {
       try {
-        const models = await makeProvider(req.providerId, req.apiKey).listModels();
+        const models = await makeProvider(req.providerId, req.apiKey, req.baseUrl).listModels();
         return { ok: true, models };
       } catch (err) {
         return { ok: false, models: [], error: err instanceof Error ? err.message : String(err) };

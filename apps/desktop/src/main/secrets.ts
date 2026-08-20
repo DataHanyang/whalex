@@ -40,6 +40,18 @@ export class SecretVault {
     }
   }
 
+  /** Forget a secret entirely — deleting a saved key must not leave the
+   *  value behind in the file. */
+  delete(ref: string): void {
+    if (!(ref in this.store)) return;
+    delete this.store[ref];
+    try {
+      fs.writeFileSync(this.file, JSON.stringify(this.store), { encoding: "utf8", mode: 0o600 });
+    } catch {
+      // best effort — the entry is already gone from the in-memory store
+    }
+  }
+
   get(ref: string): string | null {
     const entry = this.store[ref];
     if (!entry) return null;

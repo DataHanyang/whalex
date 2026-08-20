@@ -63,6 +63,16 @@ export class OpenAICompatProvider implements ProviderClient {
     this.client = this.makeClient(apiKey);
   }
 
+  /**
+   * Repoint a live provider at a different endpoint and credential. Switching
+   * which saved key is active has to reach sessions that are already open, or
+   * they keep billing the account the user just switched away from.
+   */
+  setEndpoint(baseUrl: string, apiKey: string | null): void {
+    this.opts.baseUrl = baseUrl;
+    this.client = this.makeClient(apiKey);
+  }
+
   async *streamChat(req: ChatRequest): AsyncIterable<ProviderDelta> {
     // Retry the initial request on transient rate limits before streaming
     // begins. Once bytes are flowing a mid-stream failure is surfaced as-is.

@@ -74,8 +74,18 @@ export const IPC_INVOKE = {
     req: z.object({ ref: z.string(), value: z.string() }),
     res: z.void(),
   },
+  /** Forget a stored secret — deleting a saved API key. */
+  "secrets:delete": {
+    req: z.object({ ref: z.string() }),
+    res: z.void(),
+  },
   "provider:test": {
-    req: z.object({ providerId: z.string(), apiKey: z.string().optional() }),
+    req: z.object({
+      providerId: z.string(),
+      apiKey: z.string().optional(),
+      /** Endpoint to test against before the provider entry exists. */
+      baseUrl: z.string().optional(),
+    }),
     res: z.object({
       ok: z.boolean(),
       models: z.array(ModelInfoSchema).default([]),

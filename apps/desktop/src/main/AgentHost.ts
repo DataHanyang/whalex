@@ -431,9 +431,18 @@ export class AgentHost {
     for (const hosted of this.sessions.values()) {
       hosted.loop.updateTuning({ reasoningEffort: s.reasoningEffort, temperature: s.temperature });
     }
+    // Follow whichever saved key is active now, endpoint included: a session
+    // opened before the switch must not keep using the account the user just
+    // switched away from.
+    const active = s.providers.find((p) => p.id === s.activeProviderId) ?? s.providers[0];
     for (const [p, keyRef] of this.providers) {
       p.redactSecrets = s.redactSecrets;
-      p.setApiKey(keyRef ? this.vault.get(keyRef) : null);
+      if (active) {
+        p.setEndpoint(active.baseUrl, active.apiKeyRef ? this.vault.get(active.apiKeyRef) : null);
+        this.providers.set(p, active.apiKeyRef ?? null);
+      } else {
+        p.setApiKey(keyRef ? this.vault.get(keyRef) : null);
+      }
     }
   }
 
