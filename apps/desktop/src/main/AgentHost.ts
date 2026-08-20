@@ -169,6 +169,7 @@ export class AgentHost {
   ) {
     this.hooks = new HookManager(settings);
     this.mcp.setStatusListener((statuses) => this.emitMcpStatus(statuses));
+    this.watchForSuspend();
   }
 
   setBrowser(controller: BrowserController): void {
@@ -718,8 +719,33 @@ export class AgentHost {
       }
     } catch {
       // Not worth failing a turn over; the worst case is the machine sleeps.
+      // (Linux routes this through logind; a box without it silently no-ops.)
       this.sleepBlocker = null;
     }
+  }
+
+  /**
+   * Backstop for the OS resume event. Electron raises "resume" on all three
+   * platforms, but on Linux it comes from logind over D-Bus — a machine
+   * without that service never says a word, and the turn would hang exactly as
+   * it did before. A repeating timer can't be fooled the same way: wall clock
+   * doesn't stop while the process is suspended, so a tick that arrives far
+   * later than it was scheduled means the machine was away. Also covers
+   * hibernate and a paused VM, which no power event reports at all.
+   */
+  private watchForSuspend(): void {
+    const TICK_MS = 20_000;
+    // Well past any plausible event-loop stall, well under the shortest nap.
+    const SUSPEND_GAP_MS = 90_000;
+    let last = Date.now();
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const gap = now - last;
+      last = now;
+      if (gap > SUSPEND_GAP_MS) this.onSystemResume();
+    }, TICK_MS);
+    // Never a reason to hold the process open.
+    timer.unref?.();
   }
 
   /**
