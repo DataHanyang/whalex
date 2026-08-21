@@ -19,6 +19,7 @@ import {
   createWorkflowTool,
   listCheckpoints,
   rewindTo,
+  whalexHome,
   type BrowserController,
   type ComputerController,
   type ToolDef,
@@ -325,7 +326,13 @@ export class AgentHost {
         temperature: s.temperature,
         reasoningEffort: s.reasoningEffort,
         extraSystemPrompt: [
-          appUsageGuide(),
+          appUsageGuide({
+            version: app.getVersion(),
+            exePath: process.execPath,
+            whalexHome: whalexHome(),
+            platform: `${process.platform} ${process.arch}`,
+            hostname: os.hostname(),
+          }),
           s.customInstructions.trim()
             ? `# User instructions\nThe user set these app-wide instructions in Settings; they apply to every session and project:\n\n${s.customInstructions.trim().slice(0, 20_000)}`
             : "",
