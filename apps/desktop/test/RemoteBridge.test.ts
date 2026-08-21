@@ -20,11 +20,11 @@ import type { Handlers } from "../src/main/ipc.js";
 
 // ---- stubs: everything in-memory, no Electron, no ~/.whalex ----
 
-function makeSettings(port: number, insecure = false): SettingsManager {
+function makeSettings(port: number, insecure = false, tunnel = false): SettingsManager {
   let s: Settings = structuredClone(DEFAULT_SETTINGS);
   s = {
     ...s,
-    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false, insecure },
+    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false, insecure, tunnel },
   };
   return {
     get: () => s,
@@ -65,14 +65,20 @@ let nextPort = 41000 + Math.floor(Math.random() * 5000);
 const tmpDirs: string[] = [];
 const bridges: RemoteBridge[] = [];
 
-function makeBridge(insecure = false): { bridge: RemoteBridge; port: number; calls: Array<{ channel: string; req: unknown }> } {
+function makeBridge(
+  insecure = false,
+  tunnel = false,
+): { bridge: RemoteBridge; port: number; calls: Array<{ channel: string; req: unknown }> } {
   const port = nextPort++;
   const certDir = fs.mkdtempSync(path.join(os.tmpdir(), "whalex-bridge-"));
   tmpDirs.push(certDir);
   const calls: Array<{ channel: string; req: unknown }> = [];
   const bridge = new RemoteBridge({
-    settings: makeSettings(port, insecure),
+    settings: makeSettings(port, insecure, tunnel),
     vault: makeVault(),
+    // No cloudflared in tests: the tunnel never comes up, which is exactly the
+    // state the LAN-restriction rules have to hold in.
+    bundledCloudflared: () => path.join(certDir, "nonexistent-cloudflared"),
     getWindow: () => null,
     version: "0.0.0-test",
     certDir,
@@ -113,14 +119,25 @@ function httpsJson(
   });
 }
 
+/** This machine's first non-internal IPv4, or null when there is none. */
+function lanAddress(): string | null {
+  for (const ifaces of Object.values(os.networkInterfaces())) {
+    for (const iface of ifaces ?? []) {
+      if (iface.family === "IPv4" && !iface.internal) return iface.address;
+    }
+  }
+  return null;
+}
+
 function httpJson(
   port: number,
   method: string,
   urlPath: string,
   body?: unknown,
+  host = "127.0.0.1",
 ): Promise<{ status: number; json: unknown }> {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: "127.0.0.1", port, method, path: urlPath }, (res) => {
+    const req = http.request({ host, port, method, path: urlPath }, (res) => {
       let data = "";
       res.on("data", (c: Buffer) => (data += c.toString()));
       res.on("end", () =>
@@ -377,6 +394,38 @@ describe("RemoteBridge", () => {
       ws.on("error", () => resolve(false));
     });
     expect(opened).toBe(true);
+  });
+
+  it("tunnel mode answers /info on the LAN but refuses everything else there", async () => {
+    const { bridge, port } = makeBridge(false, true);
+    const lanIp = lanAddress();
+    // Loopback is cloudflared's path in: full access.
+    const local = await httpJson(port, "POST", "/pair", { secret: "x", deviceName: "P" });
+    expect(local.status).toBe(404); // no pairing window — reached the handler
+    const localInfo = await httpJson(port, "GET", "/info");
+    expect(localInfo.status).toBe(200);
+
+    if (!lanIp) return; // CI runner without a LAN interface
+    // From the LAN, /info is allowed (that's how a phone re-finds the tunnel)…
+    const lanInfo = await httpJson(port, "GET", "/info", undefined, lanIp);
+    expect(lanInfo.status).toBe(200);
+    expect(lanInfo.json).toMatchObject({ app: "whalex" });
+    // …and nothing else is.
+    const lanPair = await httpJson(port, "POST", "/pair", { secret: "x", deviceName: "P" }, lanIp);
+    expect(lanPair.status).toBe(403);
+    // A session upgrade from the LAN is refused even with a valid token.
+    const opened = await new Promise<boolean>((resolve) => {
+      const ws = new WebSocket(`ws://${lanIp}:${port}/ws`, {
+        headers: { authorization: "Bearer whatever" },
+      });
+      ws.on("open", () => {
+        ws.close();
+        resolve(true);
+      });
+      ws.on("error", () => resolve(false));
+    });
+    expect(opened).toBe(false);
+    expect(bridge.status().tunnel.state).not.toBe("up");
   });
 
   it("revoking a device closes its live connection with the revoked code", async () => {

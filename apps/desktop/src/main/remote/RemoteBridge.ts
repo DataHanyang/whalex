@@ -27,6 +27,7 @@ import type { Handlers } from "../ipc.js";
 import type { SettingsManager } from "../settings.js";
 import { PairingManager } from "./PairingManager.js";
 import { DiscoveryResponder } from "./discovery.js";
+import { TunnelManager } from "./TunnelManager.js";
 
 /** Structural slices of Electron types so this file (and its tests) never load Electron. */
 interface VaultLike {
@@ -65,6 +66,8 @@ const ALERT_TYPES: readonly string[] = REMOTE_ALERT_EVENT_TYPES;
 export class RemoteBridge {
   private server: https.Server | http.Server | null = null;
   private insecureActive = false;
+  private tunnelActive = false;
+  private tunnel: TunnelManager;
   private wss: WebSocketServer | null = null;
   private conns = new Map<WebSocket, ConnState>();
   private keepalive: NodeJS.Timeout | null = null;
@@ -84,10 +87,17 @@ export class RemoteBridge {
       log?: (msg: string) => void;
       /** Where remote-cert.pem lives; defaults to ~/.whalex (tests inject a temp dir). */
       certDir?: string;
+      /** Path to the cloudflared shipped in the installer, when present. */
+      bundledCloudflared?: () => string | null;
     },
   ) {
     this.pairing = new PairingManager(deps.settings);
     this.log = deps.log ?? (() => {});
+    this.tunnel = new TunnelManager({
+      bundled: deps.bundledCloudflared,
+      log: this.log,
+      onState: () => this.emitStatus(),
+    });
   }
 
   /** Wired after construction — the handler table needs the bridge in its deps. */
@@ -116,7 +126,12 @@ export class RemoteBridge {
       if (wasRunning) this.emitStatus();
       return;
     }
-    if (this.server && this.port === cfg.port && this.insecureActive === cfg.insecure) {
+    if (
+      this.server &&
+      this.port === cfg.port &&
+      this.insecureActive === cfg.insecure &&
+      this.tunnelActive === cfg.tunnel
+    ) {
       // Port/transport unchanged — only the discovery toggle may need reconciling.
       if (cfg.discovery && !this.discovery) this.startDiscovery();
       if (!cfg.discovery && this.discovery) {
@@ -126,25 +141,32 @@ export class RemoteBridge {
       return;
     }
     this.stop();
-    this.start(cfg.port, cfg.discovery, cfg.insecure);
+    this.start(cfg.port, cfg.discovery, cfg.insecure, cfg.tunnel);
   }
 
   isRunning(): boolean {
     return this.server !== null;
   }
 
-  private start(port: number, discovery: boolean, insecure = false): void {
+  private start(port: number, discovery: boolean, insecure = false, tunnel = false): void {
     this.port = port;
-    this.insecureActive = insecure;
+    this.tunnelActive = tunnel;
+    // Tunnel mode terminates TLS at Cloudflare and reaches us over loopback,
+    // so the local hop is plaintext but never leaves the machine.
+    this.insecureActive = insecure || tunnel;
     let server: https.Server | http.Server;
-    if (insecure) {
+    if (this.insecureActive) {
       // DEV ONLY plaintext mode — the phone's TLS pinning work isn't on
       // devices yet. The QR carries insecure:true and no fingerprint.
       this.fingerprint = "";
       server = http.createServer((req, res) => {
         void this.handleHttp(req, res);
       });
-      this.log("remote bridge starting in INSECURE (plaintext) dev mode");
+      this.log(
+        tunnel
+          ? "remote bridge starting on loopback behind a quick tunnel"
+          : "remote bridge starting in INSECURE (plaintext) dev mode",
+      );
     } else {
       const { key, cert } = this.ensureCert();
       server = https.createServer({ key, cert }, (req, res) => {
@@ -165,6 +187,12 @@ export class RemoteBridge {
     this.server = server;
     this.keepalive = setInterval(() => this.reapDead(), KEEPALIVE_MS);
     if (discovery) this.startDiscovery();
+    if (tunnel) {
+      void this.tunnel.start(port).catch((err: unknown) => {
+        this.log(`quick tunnel failed to start: ${String(err)}`);
+        this.emitStatus();
+      });
+    }
   }
 
   stop(): void {
@@ -172,6 +200,8 @@ export class RemoteBridge {
       clearInterval(this.keepalive);
       this.keepalive = null;
     }
+    this.tunnel.stop();
+    this.tunnelActive = false;
     this.discovery?.stop();
     this.discovery = null;
     for (const ws of this.conns.keys()) ws.terminate();
@@ -195,8 +225,22 @@ export class RemoteBridge {
 
   // ---- pairing UI surface (invoked from the renderer via remote:* channels) ----
 
+  /**
+   * The address a phone should use: an explicitly configured proxy wins, then
+   * the quick tunnel. Null means LAN-only.
+   */
+  publicUrl(): string | null {
+    const configured = this.deps.settings.get().remoteBridge.publicUrl.trim();
+    if (configured) return configured.replace(/\/+$/, "");
+    return this.tunnel.url();
+  }
+
   startPairing(): { qrPayload: string; expiresAt: number } {
     if (!this.server) throw new Error("Remote bridge is not running — enable it first.");
+    const url = this.publicUrl();
+    if (this.tunnelActive && !url) {
+      throw new Error("The tunnel is still coming up — try again in a moment.");
+    }
     const { secret, expiresAt } = this.pairing.open();
     const payload = QrPayloadSchema.parse({
       v: 1,
@@ -204,12 +248,11 @@ export class RemoteBridge {
       computerId: this.computerId(),
       name: this.machineName(),
       addrs: this.lanAddresses().map((ip) => ({ ip, port: this.port })),
-      ...(this.deps.settings.get().remoteBridge.publicUrl
-        ? { url: this.deps.settings.get().remoteBridge.publicUrl }
-        : {}),
+      ...(url ? { url } : {}),
       secret,
       fp: this.fingerprint,
-      ...(this.insecureActive ? { insecure: true } : {}),
+      ...(this.insecureActive && !this.tunnelActive ? { insecure: true } : {}),
+      ...(this.tunnelActive ? { lanInfoOnly: true } : {}),
     });
     return { qrPayload: JSON.stringify(payload), expiresAt };
   }
@@ -233,6 +276,7 @@ export class RemoteBridge {
       running: this.isRunning(),
       port: cfg.port,
       addresses: this.isRunning() ? this.lanAddresses() : [],
+      tunnel: this.tunnel.state(),
       devices: cfg.devices,
       connected: [...this.conns.values()]
         .filter((c) => c.helloDone)
@@ -276,7 +320,16 @@ export class RemoteBridge {
           protocolVersion: REMOTE_PROTOCOL_VERSION,
           computerId: this.computerId(),
           name: this.machineName(),
+          // How a phone recovers after a restart changed the tunnel address.
+          // Not a secret: connecting to it still requires a device token.
+          ...(this.publicUrl() ? { publicUrl: this.publicUrl() } : {}),
         });
+        return;
+      }
+      // Tunnel mode: the LAN may ask where the tunnel is and nothing else.
+      // Sessions, pairing and upgrades all travel the encrypted tunnel.
+      if (this.tunnelActive && !isLoopback(req.socket.remoteAddress)) {
+        respond(403, { error: "forbidden" });
         return;
       }
       if (req.method === "POST" && req.url === "/pair") {
@@ -315,8 +368,13 @@ export class RemoteBridge {
 
   private handleUpgrade(req: http.IncomingMessage, socket: Duplex, head: Buffer): void {
     // Browsers always send Origin; native clients don't. Rejecting it kills
-    // any browser-page CSRF against the local port.
-    if (req.headers.origin !== undefined || req.url !== "/ws") {
+    // any browser-page CSRF against the local port. In tunnel mode the only
+    // legitimate peer is cloudflared on loopback.
+    if (
+      req.headers.origin !== undefined ||
+      req.url !== "/ws" ||
+      (this.tunnelActive && !isLoopback(req.socket.remoteAddress))
+    ) {
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
       return;
@@ -386,6 +444,9 @@ export class RemoteBridge {
           computerId: this.computerId(),
           name: this.machineName(),
           deviceId: st.deviceId,
+          // Quick-tunnel addresses churn across restarts; handing the live one
+          // to every phone that connects keeps their stored copy fresh.
+          ...(this.publicUrl() ? { publicUrl: this.publicUrl() ?? undefined } : {}),
           attached,
         });
         this.emitStatus();
@@ -510,6 +571,13 @@ export class RemoteBridge {
     }
     return out;
   }
+}
+
+/** True for connections arriving over the loopback interface. */
+function isLoopback(address: string | undefined): boolean {
+  if (!address) return false;
+  const addr = address.replace(/^::ffff:/, "");
+  return addr === "127.0.0.1" || addr.startsWith("127.") || addr === "::1";
 }
 
 /** SHA-256 hex over the certificate's DER bytes — what the phone pins. */

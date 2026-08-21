@@ -222,9 +222,16 @@ export const SettingsSchema = z.object({
       /** Stable machine identity baked into QR payloads; minted on first bridge start. */
       computerId: z.string().default(""),
       /**
+       * Run a Cloudflare quick tunnel so the phone reaches this computer from
+       * anywhere — no account, domain, or router setup. The tunnel's real
+       * certificate also removes the self-signed pinning problem, so this is
+       * the path a bare install uses.
+       */
+      tunnel: z.boolean().default(false),
+      /**
        * Public https base URL a reverse proxy / tunnel serves the bridge at
-       * (e.g. "https://example.com/whalex"). Included in pairing payloads so
-       * the app can connect from outside the LAN over real TLS. Empty = LAN only.
+       * (e.g. "https://example.com/whalex"), for users who front it
+       * themselves. Overrides the quick tunnel when set.
        */
       publicUrl: z.string().default(""),
       devices: z.array(RemoteDeviceSchema).default([]),

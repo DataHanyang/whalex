@@ -9,9 +9,36 @@ export function wsEndpoints(computer: PairedComputer): string[] {
     // trusted by the system store, reachable from anywhere.
     out.push(`${computer.publicUrl.replace(/^http/, "ws").replace(/\/+$/, "")}/ws`);
   }
-  const scheme = computer.insecure ? "ws" : "wss";
-  for (const addr of computer.addrs) out.push(`${scheme}://${addr.ip}:${addr.port}/ws`);
+  // In tunnel mode the LAN addresses answer /info only — never a session.
+  if (!computer.lanInfoOnly) {
+    const scheme = computer.insecure ? "ws" : "wss";
+    for (const addr of computer.addrs) out.push(`${scheme}://${addr.ip}:${addr.port}/ws`);
+  }
   return out;
+}
+
+/**
+ * Ask the desktop over the local network where its tunnel currently lives.
+ * A quick-tunnel address dies with every desktop restart, so this is what
+ * turns "phone stopped working after I rebooted the PC" into a silent
+ * refresh the next time the phone is home.
+ */
+export async function probePublicUrl(computer: PairedComputer): Promise<string | null> {
+  for (const addr of computer.addrs) {
+    for (const scheme of computer.lanInfoOnly || computer.insecure ? ["http"] : ["https", "http"]) {
+      try {
+        const res = await fetch(`${scheme}://${addr.ip}:${addr.port}/info`);
+        if (!res.ok) continue;
+        const body = (await res.json()) as { computerId?: string; publicUrl?: string };
+        // Guard against a stale DHCP lease now held by someone else's machine.
+        if (body.computerId !== computer.computerId) continue;
+        if (body.publicUrl) return body.publicUrl.replace(/\/+$/, "");
+      } catch {
+        // unreachable on this address — try the next
+      }
+    }
+  }
+  return null;
 }
 
 /**

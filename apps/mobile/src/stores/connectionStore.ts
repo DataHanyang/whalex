@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { RemoteClient, type HelloOk } from "@whalex/client-core";
 import type { AgentEventEnvelope } from "@whalex/shared";
 import { getToken, saveComputer, type PairedComputer } from "../lib/computers";
-import { makeSocketFactory } from "../lib/socketFactory";
+import { makeSocketFactory, probePublicUrl } from "../lib/socketFactory";
 
 export type ConnectionPhase =
   | "disconnected"
@@ -74,7 +74,15 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         return;
       }
       set({ phase: "connected", client, hello, attempt: 0 });
-      void saveComputer({ ...computer, lastConnectedAt: Date.now() });
+      // The desktop's quick-tunnel address changes on every restart, so adopt
+      // whatever it reports now — that's what keeps the next trip out working.
+      const fresh: PairedComputer = {
+        ...computer,
+        ...(hello.publicUrl ? { publicUrl: hello.publicUrl } : {}),
+        lastConnectedAt: Date.now(),
+      };
+      set({ computer: fresh });
+      void saveComputer(fresh);
     } catch (err) {
       if (gen !== generation) return;
       const msg = err instanceof Error ? err.message : String(err);
@@ -84,6 +92,19 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
         return;
       }
       set({ lastError: msg, client: null });
+      // The desktop may have restarted onto a new tunnel address. If we can
+      // still see it on this network, adopt the new address and retry at once
+      // instead of backing off against a URL that is now permanently dead.
+      const fresh = await probePublicUrl(computer);
+      if (gen !== generation) return;
+      if (fresh && fresh !== computer.publicUrl) {
+        const updated = { ...computer, publicUrl: fresh };
+        await saveComputer(updated);
+        if (gen !== generation) return;
+        set({ attempt: 0 });
+        void get().connect(updated);
+        return;
+      }
       scheduleRetry(set, get, gen);
     }
   },

@@ -94,6 +94,7 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
     addrs: qr.addrs,
     fp: qr.fp,
     insecure: qr.insecure === true,
+    lanInfoOnly: qr.lanInfoOnly === true,
     publicUrl: qr.url ? qr.url.replace(/\/+$/, "") : undefined,
     pairedAt: Date.now(),
   };

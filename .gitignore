@@ -16,3 +16,6 @@ apps/desktop/*.png
 apps/desktop/*.gif
 .claude/
 apps/mobile/*.apk
+
+# cloudflared is fetched at package time, not committed
+apps/desktop/resources/cloudflared/

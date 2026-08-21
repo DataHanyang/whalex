@@ -17,6 +17,11 @@ export interface PairedComputer {
   insecure?: boolean;
   /** Public https base (tunnel/proxy with a real cert); preferred over addrs. */
   publicUrl?: string;
+  /**
+   * Tunnel mode: `addrs` serve only GET /info. They are how we re-learn the
+   * tunnel address after the desktop restarted, not a way to run a session.
+   */
+  lanInfoOnly?: boolean;
   pairedAt: number;
   lastConnectedAt?: number;
 }

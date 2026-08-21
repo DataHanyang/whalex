@@ -53,6 +53,14 @@ export const RemoteStatusSchema = z.object({
   port: z.number(),
   /** LAN IPv4 addresses the bridge is reachable on. */
   addresses: z.array(z.string()),
+  /** Quick-tunnel progress; "up" carries the public address in use. */
+  tunnel: z.discriminatedUnion("state", [
+    z.object({ state: z.literal("off") }),
+    z.object({ state: z.literal("downloading"), percent: z.number() }),
+    z.object({ state: z.literal("starting") }),
+    z.object({ state: z.literal("up"), url: z.string() }),
+    z.object({ state: z.literal("error"), message: z.string() }),
+  ]),
   devices: z.array(RemoteDeviceSchema),
   connected: z.array(
     z.object({ deviceId: z.string(), name: z.string(), ip: z.string(), since: z.number() }),

@@ -13,6 +13,12 @@ extraResources:
   # Default skill pack — read at runtime from process.resourcesPath.
   - from: resources/bundled-skills
     to: bundled-skills
+  # cloudflared, fetched per-platform by scripts/fetch-cloudflared.mjs before
+  # packaging. Shipping it is what makes phone pairing work on a bare machine
+  # with nothing installed; the tunnel manager falls back to downloading it
+  # when this directory is absent (dev runs, unsupported arches).
+  - from: resources/cloudflared
+    to: cloudflared
 asarUnpack:
   - "**/node_modules/@vscode/ripgrep/**"
   - "**/node_modules/@nut-tree-fork/**"

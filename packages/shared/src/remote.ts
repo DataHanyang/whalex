@@ -91,6 +91,12 @@ export const RemoteServerMessageSchema = z.discriminatedUnion("type", [
     computerId: z.string(),
     name: z.string(),
     deviceId: z.string(),
+    /**
+     * The bridge's current public address. Quick-tunnel URLs change whenever
+     * the desktop restarts, so every connected phone refreshes its stored
+     * copy from here rather than going stale and needing a re-scan.
+     */
+    publicUrl: z.string().optional(),
     /** The session the desktop window is on, so the phone can land there. */
     attached: z.object({
       sessionId: z.string().nullable(),
@@ -156,6 +162,13 @@ export const QrPayloadSchema = z.object({
   fp: z.string(),
   /** Bridge is in plaintext dev mode — connect with ws:// and skip pinning. */
   insecure: z.boolean().optional(),
+  /**
+   * Tunnel mode: `addrs` carry no session traffic — the bridge answers only
+   * GET /info there. They exist so a phone back on the home network can look
+   * up the current tunnel address after the desktop restarted and its
+   * quick-tunnel URL changed.
+   */
+  lanInfoOnly: z.boolean().optional(),
 });
 export type QrPayload = z.infer<typeof QrPayloadSchema>;
 

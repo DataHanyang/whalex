@@ -289,6 +289,14 @@ void app.whenReady().then(() => {
     getWindow: () => mainWindow,
     version: app.getVersion(),
     log: logLine,
+    // Shipped via extraResources so a bare machine needs no extra download.
+    bundledCloudflared: () =>
+      path.join(
+        app.isPackaged
+          ? path.join(process.resourcesPath, "cloudflared")
+          : path.join(__dirname, "../../resources/cloudflared"),
+        process.platform === "win32" ? "cloudflared.exe" : "cloudflared",
+      ),
   });
   host.addEnvelopeSink((batch) => bridge.broadcast(batch));
 

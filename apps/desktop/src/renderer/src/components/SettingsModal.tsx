@@ -1331,6 +1331,33 @@ function RemoteTab() {
           {t("settings.remote.enable.hint")}
         </label>
       </Row>
+      <Row label={t("settings.remote.tunnel")}>
+        <label className="flex max-w-[320px] items-center gap-2 text-[11.5px] text-faint">
+          <ToggleSwitch
+            checked={bridge.tunnel}
+            label={t("settings.remote.tunnel")}
+            onChange={(v) => void update({ remoteBridge: { ...bridge, tunnel: v } }).then(refresh)}
+          />
+          {t("settings.remote.tunnel.hint")}
+        </label>
+      </Row>
+      {bridge.tunnel && status && (
+        <Row label={t("settings.remote.tunnel.status")}>
+          <span className="text-[11.5px] text-faint">
+            {status.tunnel.state === "up" ? (
+              <span className="font-mono text-accent">{status.tunnel.url}</span>
+            ) : status.tunnel.state === "downloading" ? (
+              t("settings.remote.tunnel.downloading")
+            ) : status.tunnel.state === "starting" ? (
+              t("settings.remote.tunnel.starting")
+            ) : status.tunnel.state === "error" ? (
+              <span className="text-danger">{status.tunnel.message}</span>
+            ) : (
+              t("settings.remote.off")
+            )}
+          </span>
+        </Row>
+      )}
       <Row label={t("settings.remote.insecure")}>
         <label className="flex max-w-[320px] items-center gap-2 text-[11.5px] text-danger">
           <ToggleSwitch
