@@ -13,6 +13,8 @@ export interface PairedComputer {
   addrs: Array<{ ip: string; port: number }>;
   /** SHA-256 hex of the desktop's TLS cert, pinned at pairing. */
   fp: string;
+  /** Desktop bridge is in plaintext dev mode — connect with ws://. */
+  insecure?: boolean;
   pairedAt: number;
   lastConnectedAt?: number;
 }

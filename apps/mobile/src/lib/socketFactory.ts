@@ -27,8 +27,9 @@ export function makeSocketFactory(
     protocols?: string[] | null,
     options?: { headers: Record<string, string> },
   ) => WebSocketLike;
+  const scheme = computer.insecure ? "ws" : "wss";
   return () =>
-    new RNWebSocket(`wss://${addr.ip}:${addr.port}/ws`, null, {
+    new RNWebSocket(`${scheme}://${addr.ip}:${addr.port}/ws`, null, {
       headers: { authorization: `Bearer ${token}` },
     });
 }

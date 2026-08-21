@@ -213,6 +213,12 @@ export const SettingsSchema = z.object({
       port: z.number().int().min(1024).max(65535).default(48632),
       /** Answer UDP discovery probes so a paired phone can find a changed LAN IP. */
       discovery: z.boolean().default(true),
+      /**
+       * DEV ONLY: serve plain ws:// instead of pinned TLS. Anyone on the same
+       * network can read the traffic — for trusted home Wi-Fi while the
+       * mobile TLS pinning work lands. Off by default, warned about in the UI.
+       */
+      insecure: z.boolean().default(false),
       /** Stable machine identity baked into QR payloads; minted on first bridge start. */
       computerId: z.string().default(""),
       devices: z.array(RemoteDeviceSchema).default([]),

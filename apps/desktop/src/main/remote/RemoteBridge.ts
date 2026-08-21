@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
-import type http from "node:http";
+import http from "node:http";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
@@ -63,7 +63,8 @@ const ALERT_TYPES: readonly string[] = REMOTE_ALERT_EVENT_TYPES;
  * whitelist, so behavior and validation can't drift between surfaces.
  */
 export class RemoteBridge {
-  private server: https.Server | null = null;
+  private server: https.Server | http.Server | null = null;
+  private insecureActive = false;
   private wss: WebSocketServer | null = null;
   private conns = new Map<WebSocket, ConnState>();
   private keepalive: NodeJS.Timeout | null = null;
@@ -115,8 +116,8 @@ export class RemoteBridge {
       if (wasRunning) this.emitStatus();
       return;
     }
-    if (this.server && this.port === cfg.port) {
-      // Port unchanged — only the discovery toggle may need reconciling.
+    if (this.server && this.port === cfg.port && this.insecureActive === cfg.insecure) {
+      // Port/transport unchanged — only the discovery toggle may need reconciling.
       if (cfg.discovery && !this.discovery) this.startDiscovery();
       if (!cfg.discovery && this.discovery) {
         this.discovery.stop();
@@ -125,19 +126,31 @@ export class RemoteBridge {
       return;
     }
     this.stop();
-    this.start(cfg.port, cfg.discovery);
+    this.start(cfg.port, cfg.discovery, cfg.insecure);
   }
 
   isRunning(): boolean {
     return this.server !== null;
   }
 
-  private start(port: number, discovery: boolean): void {
-    const { key, cert } = this.ensureCert();
+  private start(port: number, discovery: boolean, insecure = false): void {
     this.port = port;
-    const server = https.createServer({ key, cert }, (req, res) => {
-      void this.handleHttp(req, res);
-    });
+    this.insecureActive = insecure;
+    let server: https.Server | http.Server;
+    if (insecure) {
+      // DEV ONLY plaintext mode — the phone's TLS pinning work isn't on
+      // devices yet. The QR carries insecure:true and no fingerprint.
+      this.fingerprint = "";
+      server = http.createServer((req, res) => {
+        void this.handleHttp(req, res);
+      });
+      this.log("remote bridge starting in INSECURE (plaintext) dev mode");
+    } else {
+      const { key, cert } = this.ensureCert();
+      server = https.createServer({ key, cert }, (req, res) => {
+        void this.handleHttp(req, res);
+      });
+    }
     this.wss = new WebSocketServer({ noServer: true });
     server.on("upgrade", (req, socket, head) => this.handleUpgrade(req, socket, head));
     server.on("error", (err) => {
@@ -193,6 +206,7 @@ export class RemoteBridge {
       addrs: this.lanAddresses().map((ip) => ({ ip, port: this.port })),
       secret,
       fp: this.fingerprint,
+      ...(this.insecureActive ? { insecure: true } : {}),
     });
     return { qrPayload: JSON.stringify(payload), expiresAt };
   }

@@ -137,6 +137,8 @@ export const QrPayloadSchema = z.object({
   secret: z.string(),
   /** SHA-256 hex of the bridge's self-signed TLS cert — the phone pins this. */
   fp: z.string(),
+  /** Bridge is in plaintext dev mode — connect with ws:// and skip pinning. */
+  insecure: z.boolean().optional(),
 });
 export type QrPayload = z.infer<typeof QrPayloadSchema>;
 

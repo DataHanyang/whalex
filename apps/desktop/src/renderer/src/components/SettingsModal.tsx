@@ -1331,6 +1331,16 @@ function RemoteTab() {
           {t("settings.remote.enable.hint")}
         </label>
       </Row>
+      <Row label={t("settings.remote.insecure")}>
+        <label className="flex max-w-[320px] items-center gap-2 text-[11.5px] text-danger">
+          <ToggleSwitch
+            checked={bridge.insecure}
+            label={t("settings.remote.insecure")}
+            onChange={(v) => void update({ remoteBridge: { ...bridge, insecure: v } }).then(refresh)}
+          />
+          {t("settings.remote.insecure.hint")}
+        </label>
+      </Row>
       <Row label={t("settings.remote.port")}>
         <input
           type="number"

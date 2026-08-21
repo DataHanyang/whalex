@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import http from "node:http";
 import https from "node:https";
 import os from "node:os";
 import path from "node:path";
@@ -19,11 +20,11 @@ import type { Handlers } from "../src/main/ipc.js";
 
 // ---- stubs: everything in-memory, no Electron, no ~/.whalex ----
 
-function makeSettings(port: number): SettingsManager {
+function makeSettings(port: number, insecure = false): SettingsManager {
   let s: Settings = structuredClone(DEFAULT_SETTINGS);
   s = {
     ...s,
-    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false },
+    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false, insecure },
   };
   return {
     get: () => s,
@@ -64,13 +65,13 @@ let nextPort = 41000 + Math.floor(Math.random() * 5000);
 const tmpDirs: string[] = [];
 const bridges: RemoteBridge[] = [];
 
-function makeBridge(): { bridge: RemoteBridge; port: number; calls: Array<{ channel: string; req: unknown }> } {
+function makeBridge(insecure = false): { bridge: RemoteBridge; port: number; calls: Array<{ channel: string; req: unknown }> } {
   const port = nextPort++;
   const certDir = fs.mkdtempSync(path.join(os.tmpdir(), "whalex-bridge-"));
   tmpDirs.push(certDir);
   const calls: Array<{ channel: string; req: unknown }> = [];
   const bridge = new RemoteBridge({
-    settings: makeSettings(port),
+    settings: makeSettings(port, insecure),
     vault: makeVault(),
     getWindow: () => null,
     version: "0.0.0-test",
@@ -106,6 +107,26 @@ function httpsJson(
         );
       },
     );
+    req.on("error", reject);
+    if (body !== undefined) req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
+function httpJson(
+  port: number,
+  method: string,
+  urlPath: string,
+  body?: unknown,
+): Promise<{ status: number; json: unknown }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port, method, path: urlPath }, (res) => {
+      let data = "";
+      res.on("data", (c: Buffer) => (data += c.toString()));
+      res.on("end", () =>
+        resolve({ status: res.statusCode ?? 0, json: data ? JSON.parse(data) : null }),
+      );
+    });
     req.on("error", reject);
     if (body !== undefined) req.write(JSON.stringify(body));
     req.end();
@@ -323,6 +344,39 @@ describe("RemoteBridge", () => {
     // B's text-delta must never arrive in any frame.
     await expect(phone.next("events", 300)).rejects.toThrow();
     phone.close();
+  });
+
+  it("insecure dev mode serves plain http/ws and flags the QR payload", async () => {
+    const { bridge, port } = makeBridge(true);
+    // Plain HTTP works…
+    const info = await new Promise<{ status: number }>((resolve, reject) => {
+      const req = http.request({ host: "127.0.0.1", port, path: "/info" }, (res) => {
+        res.resume();
+        resolve({ status: res.statusCode ?? 0 });
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    expect(info.status).toBe(200);
+    // …the QR admits it's plaintext with no fingerprint…
+    const { qrPayload } = bridge.startPairing();
+    const qr = JSON.parse(qrPayload) as QrPayload;
+    expect(qr.insecure).toBe(true);
+    expect(qr.fp).toBe("");
+    // …and a plain ws:// client with a valid token connects.
+    const res = await httpJson(port, "POST", "/pair", { secret: qr.secret, deviceName: "P" });
+    const token = (res.json as { deviceToken: string }).deviceToken;
+    const opened = await new Promise<boolean>((resolve) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      ws.on("open", () => {
+        ws.close();
+        resolve(true);
+      });
+      ws.on("error", () => resolve(false));
+    });
+    expect(opened).toBe(true);
   });
 
   it("revoking a device closes its live connection with the revoked code", async () => {

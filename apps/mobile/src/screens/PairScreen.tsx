@@ -93,6 +93,7 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
     name: qr.name,
     addrs: qr.addrs,
     fp: qr.fp,
+    insecure: qr.insecure === true,
     pairedAt: Date.now(),
   };
   // Known computer → keep the existing token, just refresh addresses.
@@ -100,10 +101,11 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
     await saveComputer(computer);
     return computer;
   }
+  const scheme = computer.insecure ? "http" : "https";
   let lastErr = "no reachable address";
   for (const addr of qr.addrs) {
     try {
-      const res = await fetch(`https://${addr.ip}:${addr.port}/pair`, {
+      const res = await fetch(`${scheme}://${addr.ip}:${addr.port}/pair`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ secret: qr.secret, deviceName: "WhaleX Android" }),
