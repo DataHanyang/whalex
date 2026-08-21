@@ -11,6 +11,7 @@
     "@whalex/client-core": "workspace:*",
     "@whalex/shared": "workspace:*",
     "expo": "~57.0.15",
+    "expo-build-properties": "~57.0.13",
     "expo-camera": "~57.0.4",
     "expo-clipboard": "~57.0.1",
     "expo-font": "~57.0.1",
