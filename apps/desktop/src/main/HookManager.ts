@@ -46,8 +46,24 @@ export class HookManager implements HookRunner {
             message: (res.stderr || res.stdout || "Blocked by a PreToolUse hook.").trim().slice(0, 500),
           };
         }
-      } catch {
-        // A failing hook must not break the agent turn.
+        // A PreToolUse hook that never delivered a verdict (timed out or was
+        // killed) fails CLOSED — a broken lock must not swing the door open.
+        // Exit codes other than 2 are a verdict: not blocking.
+        if (ctx.event === "PreToolUse" && (res.timedOut || res.exitCode === undefined)) {
+          return {
+            block: true,
+            message: `PreToolUse hook did not finish (${res.timedOut ? "timeout" : "killed"}) — blocking the tool to stay safe.`,
+          };
+        }
+      } catch (err) {
+        // Same fail-closed rule when the hook cannot even spawn; hooks on
+        // other events stay non-fatal — they observe, they don't gate.
+        if (ctx.event === "PreToolUse") {
+          return {
+            block: true,
+            message: `PreToolUse hook failed to run (${String(err).slice(0, 200)}) — blocking the tool to stay safe.`,
+          };
+        }
       }
     }
     return {};

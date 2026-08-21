@@ -145,6 +145,11 @@ Every write or command is gated by a **permission card** unless you switch modes
 | **Full** | Approve everything, destructive commands included — no questions at all (danger-tinted; explicit deny rules still apply) |
 | **SuperCode** | The orchestration mode picks for you: strongest model + max reasoning + plan mode for recon and interview, then Auto the moment you accept the plan |
 
+Separate from permission modes: **Uncensored mode** (Settings → General, **on by
+default**) drops the built-in safety preamble so the model answers directly instead
+of refusing or moralizing. Turn it off to restore the stock guardrails; the CLI
+equivalent is `WHALEX_UNCENSORED=0`.
+
 ## 📊 Measured against Codex and Claude Code
 
 Five tasks, same prompts, all three CLIs running full-auto on the same Windows machine. Tokens come from each
@@ -424,14 +429,17 @@ Push a `v*` tag → GitHub Actions builds Windows / macOS / Linux and publishes 
 ## 🔒 Privacy
 
 WhaleX is bring-your-own-key and sends nothing anywhere except the model endpoint you
-configure. There is no account, no telemetry, and no middleman server.
+configure. In the default OSS edition there is no account, no telemetry, and no
+middleman server (the optional cloud edition adds a login and a hosted API proxy —
+see [Editions](#-editions)).
 
-- **Secret masking, on by default.** Before any request leaves your machine, WhaleX
-  masks secret-shaped strings — API keys, tokens, JWTs, private-key blocks,
-  `PASSWORD=`-style assignments — with stable placeholders, so the model can reason
-  about "the key in `.env`" without ever seeing its value. Toggle it in Settings →
-  General. The model still reads the code it works on; masking targets credentials,
-  not your source.
+- **Secret masking, opt-in.** When enabled (Settings → General), WhaleX masks
+  secret-shaped strings before any request leaves your machine — API keys, tokens,
+  JWTs, private-key blocks, `PASSWORD=`-style assignments — with stable placeholders,
+  so the model can reason about "the key in `.env`" without ever seeing its value.
+  It ships **off by default** because masking can over-trigger on code that merely
+  looks credential-shaped; flip it on if your repos carry live secrets. The model
+  still reads the code it works on; masking targets credentials, not your source.
 - **Encrypted in transit and at rest.** All API traffic is TLS; your API key is stored
   with the OS keychain (DPAPI on Windows) and never shown to the renderer.
 - **Fully local option.** Point the provider at any OpenAI-compatible local server
