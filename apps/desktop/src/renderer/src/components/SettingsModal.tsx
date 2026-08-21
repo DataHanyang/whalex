@@ -1356,6 +1356,20 @@ function RemoteTab() {
           className="w-24 rounded-md border border-border bg-surface px-2 py-1 text-right text-[12.5px]"
         />
       </Row>
+      <Row label={t("settings.remote.publicUrl")}>
+        <input
+          type="text"
+          defaultValue={bridge.publicUrl}
+          placeholder="https://example.com/whalex"
+          onBlur={(e) => {
+            const publicUrl = e.target.value.trim().replace(/\/+$/, "");
+            if (publicUrl !== bridge.publicUrl) {
+              void update({ remoteBridge: { ...bridge, publicUrl } }).then(refresh);
+            }
+          }}
+          className="w-64 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
+        />
+      </Row>
       {status?.running && status.addresses.length > 0 && (
         <Row label={t("settings.remote.addresses")}>
           <span className="font-mono text-[11.5px] text-faint">

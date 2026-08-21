@@ -204,6 +204,9 @@ export class RemoteBridge {
       computerId: this.computerId(),
       name: this.machineName(),
       addrs: this.lanAddresses().map((ip) => ({ ip, port: this.port })),
+      ...(this.deps.settings.get().remoteBridge.publicUrl
+        ? { url: this.deps.settings.get().remoteBridge.publicUrl }
+        : {}),
       secret,
       fp: this.fingerprint,
       ...(this.insecureActive ? { insecure: true } : {}),

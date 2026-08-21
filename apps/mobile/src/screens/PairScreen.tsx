@@ -94,18 +94,29 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
     addrs: qr.addrs,
     fp: qr.fp,
     insecure: qr.insecure === true,
+    publicUrl: qr.url ? qr.url.replace(/\/+$/, "") : undefined,
     pairedAt: Date.now(),
   };
+  // Provisioned payload: the desktop already minted our device token.
+  if (qr.token) {
+    await saveComputer(computer, qr.token);
+    return computer;
+  }
   // Known computer → keep the existing token, just refresh addresses.
   if (await getToken(qr.computerId)) {
     await saveComputer(computer);
     return computer;
   }
+  // Public tunnel first (real TLS, works from anywhere), then LAN addrs.
   const scheme = computer.insecure ? "http" : "https";
+  const endpoints = [
+    ...(computer.publicUrl ? [`${computer.publicUrl}/pair`] : []),
+    ...qr.addrs.map((a) => `${scheme}://${a.ip}:${a.port}/pair`),
+  ];
   let lastErr = "no reachable address";
-  for (const addr of qr.addrs) {
+  for (const endpoint of endpoints) {
     try {
-      const res = await fetch(`${scheme}://${addr.ip}:${addr.port}/pair`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ secret: qr.secret, deviceName: "WhaleX Android" }),

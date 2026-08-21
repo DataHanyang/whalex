@@ -15,6 +15,8 @@ export interface PairedComputer {
   fp: string;
   /** Desktop bridge is in plaintext dev mode — connect with ws://. */
   insecure?: boolean;
+  /** Public https base (tunnel/proxy with a real cert); preferred over addrs. */
+  publicUrl?: string;
   pairedAt: number;
   lastConnectedAt?: number;
 }

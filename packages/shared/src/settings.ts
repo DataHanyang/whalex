@@ -221,6 +221,12 @@ export const SettingsSchema = z.object({
       insecure: z.boolean().default(false),
       /** Stable machine identity baked into QR payloads; minted on first bridge start. */
       computerId: z.string().default(""),
+      /**
+       * Public https base URL a reverse proxy / tunnel serves the bridge at
+       * (e.g. "https://example.com/whalex"). Included in pairing payloads so
+       * the app can connect from outside the LAN over real TLS. Empty = LAN only.
+       */
+      publicUrl: z.string().default(""),
       devices: z.array(RemoteDeviceSchema).default([]),
     })
     .default({}),

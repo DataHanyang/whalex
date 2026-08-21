@@ -124,7 +124,12 @@ export const REMOTE_CLOSE_CODES = {
   helloTimeout: 4008,
 } as const;
 
-/** Contents of the pairing QR shown by the desktop Settings → Remote tab. */
+/**
+ * Contents of the pairing QR shown by the desktop Settings → Remote tab —
+ * also accepted as pasted JSON by the app's manual pairing flow, which is
+ * how provisioned payloads (with `token`) are delivered to a phone that
+ * isn't in front of the desktop.
+ */
 export const QrPayloadSchema = z.object({
   v: z.literal(1),
   app: z.literal("whalex"),
@@ -133,8 +138,20 @@ export const QrPayloadSchema = z.object({
   name: z.string(),
   /** Every LAN address the bridge listens on; the phone tries them in order. */
   addrs: z.array(z.object({ ip: z.string(), port: z.number().int() })),
+  /**
+   * Public https base the bridge is reachable at through a reverse proxy /
+   * tunnel with a real certificate (e.g. "https://example.com/whalex").
+   * The app prefers this over LAN addrs: wss://…/ws from anywhere.
+   */
+  url: z.string().optional(),
   /** Single-use pairing secret, valid for the open pairing window only. */
   secret: z.string(),
+  /**
+   * Provisioned pairing: a device token minted on the desktop side ahead of
+   * time. When present the app stores it directly and never calls /pair —
+   * `secret` is ignored.
+   */
+  token: z.string().optional(),
   /** SHA-256 hex of the bridge's self-signed TLS cert — the phone pins this. */
   fp: z.string(),
   /** Bridge is in plaintext dev mode — connect with ws:// and skip pinning. */
