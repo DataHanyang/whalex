@@ -10,7 +10,11 @@ import type { SettingsManager } from "./settings.js";
  * No matching hooks → returns immediately without spawning a shell.
  */
 export class HookManager implements HookRunner {
-  constructor(private settings: SettingsManager) {}
+  // timeoutMs is injectable so tests don't have to wait out the real 30s.
+  constructor(
+    private settings: SettingsManager,
+    private timeoutMs = 30_000,
+  ) {}
 
   async run(ctx: HookContext): Promise<{ block?: boolean; message?: string }> {
     const hooks = this.settings.get().hooks.filter((h) => this.matches(h, ctx));
@@ -32,15 +36,32 @@ export class HookManager implements HookRunner {
           ? ["-NoProfile", "-NonInteractive", "-Command", hook.command]
           : ["-c", hook.command];
       try {
-        const res = await execa(shell, args, {
+        const child = execa(shell, args, {
           cwd: ctx.cwd,
           input: payload,
-          timeout: 30_000,
+          timeout: this.timeoutMs,
           reject: false,
           windowsHide: true,
         });
+        // execa's own timeout kills the shell but not its children; on
+        // Windows a grandchild keeps the stdio pipes open and the await never
+        // settles. Race a hard deadline and kill the whole tree ourselves.
+        let deadline: NodeJS.Timeout | undefined;
+        const res = await Promise.race([
+          child,
+          new Promise<null>((resolve) => {
+            deadline = setTimeout(() => resolve(null), this.timeoutMs + 500);
+          }),
+        ]).finally(() => clearTimeout(deadline));
+        if (res === null && child.pid) {
+          if (process.platform === "win32") {
+            void execa("taskkill", ["/PID", String(child.pid), "/T", "/F"], { reject: false, windowsHide: true });
+          } else {
+            child.kill("SIGKILL");
+          }
+        }
         // Exit code 2 on a PreToolUse hook blocks the tool.
-        if (ctx.event === "PreToolUse" && res.exitCode === 2) {
+        if (res && ctx.event === "PreToolUse" && res.exitCode === 2) {
           return {
             block: true,
             message: (res.stderr || res.stdout || "Blocked by a PreToolUse hook.").trim().slice(0, 500),
@@ -49,10 +70,10 @@ export class HookManager implements HookRunner {
         // A PreToolUse hook that never delivered a verdict (timed out or was
         // killed) fails CLOSED — a broken lock must not swing the door open.
         // Exit codes other than 2 are a verdict: not blocking.
-        if (ctx.event === "PreToolUse" && (res.timedOut || res.exitCode === undefined)) {
+        if (ctx.event === "PreToolUse" && (res === null || res.timedOut || res.exitCode === undefined)) {
           return {
             block: true,
-            message: `PreToolUse hook did not finish (${res.timedOut ? "timeout" : "killed"}) — blocking the tool to stay safe.`,
+            message: "PreToolUse hook did not finish (timeout) — blocking the tool to stay safe.",
           };
         }
       } catch (err) {
