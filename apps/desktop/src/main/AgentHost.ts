@@ -41,7 +41,8 @@ import {
 import type { SettingsManager } from "./settings.js";
 import type { SecretVault } from "./secrets.js";
 import { HookManager } from "./HookManager.js";
-import { createRoutineTool } from "./routineTool.js";
+import { createRoutineTools } from "./routineTool.js";
+import { appUsageGuide } from "./appGuide.js";
 import { parseRoutine } from "./routineParse.js";
 
 interface HostedSession {
@@ -284,14 +285,23 @@ export class AgentHost {
       );
     }
 
-    // Routine tool — lets the agent save a scheduled/on-demand routine from
-    // chat; the schedule is parsed from the prompt and managed in Settings.
-    registry.register(
-      createRoutineTool({
-        cwd,
-        save: (input) => this.saveRoutine({ ...input, provider }),
-      }) as ToolDef<never>,
-    );
+    // Routine tools — the agent can create, list, update, and delete routines
+    // from chat; schedules are parsed from the prompt. Same store as Settings.
+    for (const tool of createRoutineTools({
+      cwd,
+      save: (input) => this.saveRoutine({ ...input, provider }),
+      list: () => this.settings.get().routines,
+      remove: (id) =>
+        this.settings.update({
+          routines: this.settings.get().routines.filter((r) => r.id !== id),
+        }),
+      setEnabled: (id, enabled) =>
+        this.settings.update({
+          routines: this.settings.get().routines.map((r) => (r.id === id ? { ...r, enabled } : r)),
+        }),
+    })) {
+      registry.register(tool);
+    }
 
     const hosted: HostedSession = {
       store,
@@ -315,6 +325,7 @@ export class AgentHost {
         temperature: s.temperature,
         reasoningEffort: s.reasoningEffort,
         extraSystemPrompt: [
+          appUsageGuide(),
           s.customInstructions.trim()
             ? `# User instructions\nThe user set these app-wide instructions in Settings; they apply to every session and project:\n\n${s.customInstructions.trim().slice(0, 20_000)}`
             : "",
