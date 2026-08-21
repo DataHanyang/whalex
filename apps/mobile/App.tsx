@@ -44,14 +44,36 @@ export default function App() {
   );
 }
 
+/** Design-review build: renders the real screens over sample state. */
+const DEMO = process.env.EXPO_PUBLIC_DEMO === "1";
+
+/** Scenario picker for the preview, so one bundle can show every screen. */
+function demoParams(): { screen: string | null; permission: boolean; menu: boolean } {
+  if (typeof window === "undefined" || !window.location?.search) {
+    return { screen: null, permission: false, menu: false };
+  }
+  const q = new URLSearchParams(window.location.search);
+  return {
+    screen: q.get("screen"),
+    permission: q.get("permission") === "1",
+    menu: q.get("menu") === "1",
+  };
+}
+
 function Shell() {
-  const [screen, setScreen] = useState<Screen>("boot");
+  const [screen, setScreen] = useState<Screen>(DEMO ? "sessions" : "boot");
   const phase = useConnectionStore((s) => s.phase);
   const connect = useConnectionStore((s) => s.connect);
   const kick = useConnectionStore((s) => s.kick);
 
   // Boot: reconnect to the most recently used computer, else go pair.
   useEffect(() => {
+    if (DEMO) {
+      const p = demoParams();
+      void import("./src/demo").then((m) => m.seedDemo(p.permission));
+      if (p.screen === "chat" || p.screen === "pair") setScreen(p.screen);
+      return;
+    }
     void (async () => {
       const computers = await listComputers();
       const last = computers.sort(

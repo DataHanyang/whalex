@@ -11,8 +11,7 @@ import { ToolCard } from "./ToolCard";
  * tool activity, diffs and code. So assistant output runs full-bleed like a
  * document — every pixel of width matters when you are reading a diff on a
  * phone — and only the user's own messages, which are short commands, get a
- * contained bubble. Machine activity hangs off a rail so it reads as one
- * continuous run rather than a series of replies.
+ * contained bubble.
  */
 
 export const TranscriptRow = memo(function TranscriptRow({ item }: { item: TranscriptItem }) {
@@ -44,15 +43,15 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
 
     case "tool":
       return (
-        <Rail>
+        <>
           <ToolCard item={item} />
-        </Rail>
+        </>
       );
 
     case "todos": {
       const done = item.todos.filter((t) => t.status === "completed").length;
       return (
-        <Rail>
+        <>
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <Feather name="check-square" size={13} color={colors.deep} />
@@ -89,13 +88,13 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
               </View>
             ))}
           </View>
-        </Rail>
+        </>
       );
     }
 
     case "error":
       return (
-        <Rail>
+        <>
           <View style={[styles.card, styles.errorCard]}>
             <View style={styles.cardHead}>
               <Feather name="alert-triangle" size={13} color={colors.coral} />
@@ -103,12 +102,12 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
             </View>
             <Text style={styles.errorText}>{item.message}</Text>
           </View>
-        </Rail>
+        </>
       );
 
     case "artifact":
       return (
-        <Rail>
+        <>
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <Feather name="layout" size={13} color={colors.sonar} />
@@ -117,12 +116,12 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
             </View>
             <Text style={styles.hint}>Open on desktop to view</Text>
           </View>
-        </Rail>
+        </>
       );
 
     case "subagent":
       return (
-        <Rail>
+        <>
           <View style={styles.thin}>
             <Feather name="users" size={12} color={colors.deep} />
             <Text style={styles.thinText} numberOfLines={1}>
@@ -130,19 +129,19 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
             </Text>
             <Text style={styles.cardMeta}>{item.state}</Text>
           </View>
-        </Rail>
+        </>
       );
 
     case "workflow":
       return (
-        <Rail>
+        <>
           <View style={styles.thin}>
             <Feather name="git-branch" size={12} color={colors.deep} />
             <Text style={styles.thinText} numberOfLines={1}>
               {item.name}
             </Text>
           </View>
-        </Rail>
+        </>
       );
 
     case "compaction":
@@ -160,16 +159,6 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
       return null;
   }
 });
-
-/** The vertical thread machine activity hangs from. */
-function Rail({ children }: { children: React.ReactNode }) {
-  return (
-    <View style={styles.rail}>
-      <View style={styles.railLine} />
-      <View style={styles.railBody}>{children}</View>
-    </View>
-  );
-}
 
 /** Shown while the model is thinking but hasn't emitted prose yet. */
 function Reasoning({ text }: { text: string }) {
@@ -221,10 +210,6 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   reasoningText: { ...type.caption, color: colors.deep, fontStyle: "italic" },
-
-  rail: { flexDirection: "row", gap: space.md },
-  railLine: { width: 1.5, backgroundColor: colors.line, borderRadius: 1, marginLeft: 3 },
-  railBody: { flex: 1, paddingVertical: 1 },
 
   card: {
     backgroundColor: colors.hull,

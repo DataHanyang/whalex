@@ -56,15 +56,30 @@ function plain(text: string): Tok[] {
   }
 }
 
+function paint(line: string): React.ReactNode {
+  return tokenize(line).map((t, j) => (
+    <Text key={j} style={t.color ? { color: t.color } : undefined}>
+      {t.text}
+    </Text>
+  ));
+}
+
 export const CodeBlock = memo(function CodeBlock({
   code,
   language,
   /** Output panes are dense and unhighlighted; source gets colour. */
   plainText = false,
+  /**
+   * Wrap instead of scrolling sideways. Used where the reader has to see the
+   * whole string to make a decision — a command they are about to approve
+   * must not be able to hide its tail off-screen.
+   */
+  wrap = false,
 }: {
   code: string;
   language?: string;
   plainText?: boolean;
+  wrap?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const lines = useMemo(() => code.replace(/\n+$/, "").split("\n"), [code]);
@@ -87,22 +102,30 @@ export const CodeBlock = memo(function CodeBlock({
           </Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pad}>
-        <View>
+      {wrap ? (
+        <View style={styles.pad}>
           {shown.map((line, i) => (
             <Text key={i} style={styles.line}>
-              {plainText
-                ? line || " "
-                : tokenize(line).map((t, j) => (
-                    <Text key={j} style={t.color ? { color: t.color } : undefined}>
-                      {t.text}
-                    </Text>
-                  ))}
-              {line === "" ? " " : ""}
+              {plainText ? line || " " : paint(line)}
             </Text>
           ))}
         </View>
-      </ScrollView>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pad}
+        >
+          <View>
+            {shown.map((line, i) => (
+              <Text key={i} style={styles.line}>
+                {plainText ? line || " " : paint(line)}
+                {line === "" ? " " : ""}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
+      )}
       {truncated && (
         <Text style={styles.more}>{lines.length - 400} more lines — open on desktop</Text>
       )}

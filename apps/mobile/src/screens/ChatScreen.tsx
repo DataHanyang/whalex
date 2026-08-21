@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -17,42 +17,44 @@ import { useMobileSession } from "../stores/sessionStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { TranscriptRow } from "../components/Transcript";
 import { Composer } from "../components/Composer";
+import { MenuSheet } from "../components/MenuSheet";
 import { PermissionSheet } from "../components/PermissionSheet";
 import { QuestionSheet } from "../components/QuestionSheet";
 
 const STATUS: Record<string, { label: string; color: string }> = {
-  thinking: { label: "Thinking", color: colors.sonar },
-  streaming: { label: "Writing", color: colors.sonar },
+  thinking: { label: "Thinking", color: colors.cyan },
+  streaming: { label: "Writing", color: colors.cyan },
   tool: { label: "Working", color: colors.beacon },
-  idle: { label: "Idle", color: colors.deep },
+  idle: { label: "Ready", color: colors.deep },
 };
 
 export function ChatScreen({ onBack }: { onBack: () => void }) {
   const insets = useSafeAreaInsets();
   const transcript = useMobileSession((s) => s.transcript);
   const status = useMobileSession((s) => s.status);
-  const usage = useMobileSession((s) => s.usage);
   const cwd = useMobileSession((s) => s.cwd);
   const closeSession = useMobileSession((s) => s.closeSession);
   const phase = useConnectionStore((s) => s.phase);
+  // Preview builds can land straight on the menu for a design review.
+  const [menu, setMenu] = useState(
+    typeof window !== "undefined" && window.location?.search?.includes("menu=1"),
+  );
 
   // Inverted list: newest at the bottom without measuring or scrolling.
   const rows = useMemo(() => [...transcript].reverse(), [transcript]);
   const folder = cwd?.split(/[\\/]/).filter(Boolean).pop() ?? "Session";
   const state = STATUS[status] ?? STATUS.idle!;
 
+  const leave = (): void => {
+    closeSession();
+    onBack();
+  };
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.bar}>
-        <Pressable
-          style={styles.back}
-          onPress={() => {
-            closeSession();
-            onBack();
-          }}
-          hitSlop={10}
-        >
-          <Feather name="chevron-left" size={20} color={colors.mist} />
+        <Pressable style={styles.iconBtn} onPress={leave} hitSlop={10}>
+          <Feather name="chevron-left" size={21} color={colors.mist} />
         </Pressable>
         <View style={styles.barMid}>
           <Text style={styles.folder} numberOfLines={1}>
@@ -63,9 +65,11 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
             <Text style={[styles.status, { color: state.color }]}>
               {phase === "connected" ? state.label : "Reconnecting"}
             </Text>
-            {usage && <Text style={styles.usage}>· {usage.contextPct}% context</Text>}
           </View>
         </View>
+        <Pressable style={styles.iconBtn} onPress={() => setMenu(true)} hitSlop={10}>
+          <Feather name="more-horizontal" size={20} color={colors.mist} />
+        </Pressable>
       </View>
 
       <KeyboardAvoidingView
@@ -82,9 +86,10 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
           keyboardDismissMode="interactive"
           ListEmptyComponent={<Empty />}
         />
-        <Composer />
+        <Composer onOpenMenu={() => setMenu(true)} />
       </KeyboardAvoidingView>
 
+      <MenuSheet visible={menu} onDismiss={() => setMenu(false)} onSwitchSession={leave} />
       <PermissionSheet />
       <QuestionSheet />
     </View>
@@ -94,8 +99,10 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
 function Empty() {
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>Nothing here yet</Text>
-      <Text style={styles.emptyBody}>Send the first instruction to start this session.</Text>
+      <Text style={styles.emptyTitle}>Ready when you are</Text>
+      <Text style={styles.emptyBody}>
+        Describe what you want built, fixed or investigated.
+      </Text>
     </View>
   );
 }
@@ -124,16 +131,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: space.sm,
     paddingBottom: space.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
   },
-  back: { padding: space.sm },
-  barMid: { flex: 1, gap: 2 },
+  iconBtn: { padding: space.sm },
+  barMid: { flex: 1, gap: 1, alignItems: "center" },
   folder: { ...type.ui, fontFamily: "PlexSansSemi" },
   statusRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
   dot: { width: 6, height: 6, borderRadius: radius.pill },
   status: { ...type.caption, fontSize: 11.5 },
-  usage: { ...type.caption, fontSize: 11.5 },
   list: { paddingHorizontal: space.lg, paddingVertical: space.lg },
   empty: {
     // The list is inverted, so its empty state has to be too.

@@ -11,27 +11,29 @@ import { Platform, type TextStyle } from "react-native";
  */
 
 export const colors = {
-  /** App ground. Blue-black, never neutral — it sits under everything. */
-  abyss: "#0B0F14",
+  /** App ground. Carries the logo's navy, never a neutral black. */
+  abyss: "#080D16",
   /** Raised surface: tool rows, list rows, cards. */
-  hull: "#131A22",
+  hull: "#101827",
   /** Higher surface: sheets, inputs, code blocks. */
-  hull2: "#1B242E",
+  hull2: "#17202F",
   /** Hairlines and card edges. */
-  line: "#26313D",
+  line: "#232E40",
   /** Stronger edge for focus and active states. */
-  lineStrong: "#35435291",
+  lineStrong: "#33415788",
 
   /** Primary text. */
-  foam: "#E6EDF3",
+  foam: "#E8EEF7",
   /** Secondary text: descriptions, meta. */
-  mist: "#8FA3B5",
+  mist: "#94A3B8",
   /** Tertiary: timestamps, hints, disabled. */
-  deep: "#5A6B7C",
+  deep: "#5E6B7E",
 
-  /** The accent: live activity, links, primary actions. */
-  sonar: "#38BDF8",
-  sonarSoft: "#0E2A3C",
+  /** The accent, lifted straight off the mark's X. Used sparingly. */
+  sonar: "#2F80FF",
+  sonarSoft: "#0F2244",
+  /** The tail's cyan — reserved for live activity. */
+  cyan: "#22D3EE",
   /** Attention — something is waiting on you. */
   beacon: "#F5A524",
   beaconSoft: "#3A2A0C",

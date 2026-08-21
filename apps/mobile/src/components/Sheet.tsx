@@ -1,5 +1,13 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Modal, Pressable, StyleSheet, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import { colors, radius, space } from "../theme";
 
 /**
@@ -22,6 +30,10 @@ export function Sheet({
   accent?: string;
 }) {
   const anim = useRef(new Animated.Value(0)).current;
+  // A percentage cap needs a parent with a resolved height, which a Modal
+  // does not reliably provide; measuring the window keeps the actions on
+  // screen no matter how long the payload is.
+  const { height } = useWindowDimensions();
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -37,11 +49,14 @@ export function Sheet({
       <Animated.View style={[styles.backdrop, { opacity: anim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} disabled={!onDismiss} />
       </Animated.View>
-      <View style={styles.anchor} pointerEvents="box-none">
+      {/* Explicit height: a Modal's own container does not always resolve one,
+          and a flex-only anchor then lets the sheet grow past the screen. */}
+      <View style={[styles.anchor, { height }]} pointerEvents="box-none">
         <Animated.View
           style={[
             styles.sheet,
             {
+              maxHeight: Math.round(height * 0.86),
               borderTopColor: accent,
               transform: [
                 { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [420, 0] }) },
@@ -59,14 +74,13 @@ export function Sheet({
 
 const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(3,7,11,0.72)" },
-  anchor: { flex: 1, justifyContent: "flex-end" },
+  anchor: { position: "absolute", left: 0, right: 0, bottom: 0, justifyContent: "flex-end" },
   sheet: {
     backgroundColor: colors.hull,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     borderTopWidth: 2,
     paddingBottom: space.xxl,
-    maxHeight: "88%",
   },
   grabber: {
     alignSelf: "center",

@@ -95,7 +95,7 @@ function Body({
             maxRows={120}
           />
         )}
-        {!request.diff && command && <CodeBlock code={command} language="shell" />}
+        {!request.diff && command && <CodeBlock code={command} language="shell" wrap />}
         {!request.diff && !command && Object.keys(request.args ?? {}).length > 0 && (
           <CodeBlock code={JSON.stringify(request.args, null, 2)} language="json" />
         )}

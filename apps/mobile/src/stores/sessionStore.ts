@@ -17,17 +17,31 @@ const foldCtx: FoldContext = {
       : `Continuing toward goal (${ev.iteration}/${ev.maxIterations})`,
 };
 
+/** A working folder on the desktop, with the sessions that live in it. */
+export interface Project {
+  cwd: string;
+  name: string;
+  sessions: SessionMeta[];
+  updatedAt: number;
+}
+
 interface MobileSessionState extends ClientSessionState {
   sessions: SessionMeta[];
+  /** Folders the desktop has open or opened recently, newest work first. */
+  projects: Project[];
   activeSessionId: string | null;
   cwd: string | null;
   model: string;
+  permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted";
   /** Highest applied envelope seq; gaps force a fresh snapshot. */
   lastSeq: number;
   opening: boolean;
 
   refreshSessions(): Promise<void>;
   open(cwd: string, resumeSessionId?: string): Promise<void>;
+  /** Start a fresh session in a project folder. */
+  startNew(cwd: string): Promise<void>;
+  setPermissionMode(mode: MobileSessionState["permissionMode"]): Promise<void>;
   closeSession(): void;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
@@ -77,15 +91,61 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
   return {
     ...emptyClientState(),
     sessions: [],
+    projects: [],
     activeSessionId: null,
     cwd: null,
     model: "deepseek-v4-flash",
+    permissionMode: "default",
     lastSeq: 0,
     opening: false,
 
     async refreshSessions() {
-      const sessions = await client().invoke("session:list", {});
-      set({ sessions });
+      const c = client();
+      const sessions = await c.invoke("session:list", {});
+      // The desktop's sidebar groups by folder; mirror that, and fold in the
+      // recent folders it knows about so a project with no session yet can
+      // still be opened from the phone.
+      let recent: string[] = [];
+      try {
+        recent = (await c.invoke("remote:appInfo", undefined)).recentCwds;
+      } catch {
+        // older desktop without the channel — sessions alone still group fine
+      }
+      const byCwd = new Map<string, Project>();
+      const ensure = (cwd: string): Project => {
+        const found = byCwd.get(cwd);
+        if (found) return found;
+        const created: Project = {
+          cwd,
+          name: cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd,
+          sessions: [],
+          updatedAt: 0,
+        };
+        byCwd.set(cwd, created);
+        return created;
+      };
+      for (const cwd of recent) ensure(cwd);
+      for (const s of sessions) {
+        const p = ensure(s.cwd);
+        p.sessions.push(s);
+        p.updatedAt = Math.max(p.updatedAt, s.updatedAt);
+      }
+      for (const p of byCwd.values()) p.sessions.sort((a, b) => b.updatedAt - a.updatedAt);
+      set({
+        sessions,
+        projects: [...byCwd.values()].sort((a, b) => b.updatedAt - a.updatedAt),
+      });
+    },
+
+    async startNew(cwd) {
+      await get().open(cwd);
+      await get().refreshSessions();
+    },
+
+    async setPermissionMode(mode) {
+      const id = get().activeSessionId;
+      set({ permissionMode: mode });
+      if (id) await client().invoke("session:setMode", { sessionId: id, mode });
     },
 
     async open(cwd, resumeSessionId) {
@@ -104,6 +164,7 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
           activeSessionId: res.sessionId,
           cwd: res.cwd,
           model: res.model ?? get().model,
+          permissionMode: res.permissionMode ?? get().permissionMode,
           lastSeq: snapshotSeq,
           opening: false,
           turnStartedAt: null,
