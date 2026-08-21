@@ -113,11 +113,27 @@ function parseSkill(raw: string, fallbackName: string): { name: string; descript
   let body = raw;
   if (fm) {
     body = raw.slice(fm[0].length).trim();
-    for (const line of fm[1]!.split("\n")) {
-      const m = /^(\w[\w-]*):\s*(.*)$/.exec(line.trim());
+    const lines = fm[1]!.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      // A top-level key starts at column 0 — indented lines are continuations
+      // of a block scalar, never keys (a folded description may well contain
+      // "word: something" text of its own).
+      const m = /^(\w[\w-]*):\s*(.*)$/.exec(lines[i]!);
       if (!m) continue;
       const key = m[1]!.toLowerCase();
-      const value = m[2]!.replace(/^["']|["']$/g, "").trim();
+      let value = m[2]!.trim();
+      // YAML block scalars (`description: >` / `|`, with optional +/- chomp):
+      // gather the indented lines that follow. `>` folds with spaces, `|`
+      // keeps newlines — for a one-line catalog entry both fold fine.
+      if (/^[>|][+-]?$/.test(value)) {
+        const parts: string[] = [];
+        while (i + 1 < lines.length && (/^\s/.test(lines[i + 1]!) || lines[i + 1]!.trim() === "")) {
+          i++;
+          parts.push(lines[i]!.trim());
+        }
+        value = parts.filter(Boolean).join(" ");
+      }
+      value = value.replace(/^["']|["']$/g, "").trim();
       if (key === "name") name = value;
       if (key === "description") description = value;
     }

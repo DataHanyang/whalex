@@ -1,0 +1,4 @@
+Karpathy Guidelines — from the andrej-karpathy-skills plugin
+(guidelines derived from Andrej Karpathy's public observations on LLM
+coding pitfalls). SKILL.md declares `license: MIT` in its frontmatter and
+is bundled verbatim under the MIT License.
