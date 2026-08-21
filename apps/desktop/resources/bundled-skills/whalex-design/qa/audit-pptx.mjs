@@ -426,9 +426,11 @@ export async function auditPptx(pptxPath) {
     auditSlide(slide, parseInt(f.match(/slide(\d+)/)[1], 10), report.theme, report);
   }
 
-  // 폰트 레드 플래그 (AI 슬롭 관용구 폰트)
+  // 폰트 레드 플래그 (AI 슬롭 관용구 폰트). Arial/Calibri는 SKILL.md가
+  // 메트릭 안전 폰트로 지정하는 조합이므로 여기서 플래그하지 않는다 —
+  // 웹폰트 관용구(Inter/Roboto)만 잡는다.
   for (const [font, cnt] of Object.entries(report.designSystem.fontUsage)) {
-    if (/(^|[^A-Za-z])Inter([^A-Za-z]|$)/.test(font) || /Roboto/.test(font) || /Arial/.test(font) || /Calibri/.test(font)) {
+    if (/(^|[^A-Za-z])Inter([^A-Za-z]|$)/.test(font) || /Roboto/.test(font)) {
       report.aiSlop.fontRedFlags.push({ font, count: cnt });
     }
   }

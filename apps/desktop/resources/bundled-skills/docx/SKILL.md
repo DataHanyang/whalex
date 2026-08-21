@@ -20,8 +20,10 @@ Table). Rules that make it read as designed:
   one-off formatting per paragraph.
 - Type scale: Title 20-24pt bold, H1 16pt, H2 13pt bold, body 10.5-11pt,
   captions 9pt muted. Line spacing 1.15-1.3 (`spacing: { line: 276 }` = 1.15).
-- Fonts: Calibri or Cambria for Latin; for Korean set `font: { ascii:
-  "Calibri", eastAsia: "Malgun Gothic" }` on every style that carries Hangul.
+- Fonts: Calibri or Cambria for Latin; for CJK set `font: { ascii:
+  "Calibri", eastAsia: <platform gothic> }` on every style that carries CJK
+  text (`Malgun Gothic` on Windows, `Apple SD Gothic Neo` on macOS,
+  `Noto Sans CJK` elsewhere — Word substitutes cleanly across platforms).
 - Real structure: cover block, headings that nest correctly, tables with a
   styled header row (`shading`) and consistent column widths, page numbers in
   the footer (`PageNumber.CURRENT`), generous margins (≥ 2cm).

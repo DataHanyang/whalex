@@ -41,8 +41,9 @@ const THEME = {
 - **Type scale is law**: same title size on every content slide, same body
   size everywhere. Inconsistent sizes across slides is the #1 amateur tell.
 - **Fonts**: metric-safe only — Arial, Calibri, Cambria, Times New Roman,
-  Courier New. Korean text: `Malgun Gothic` (Windows ships it; set as the
-  `fontFace` for any Hangul run). Never Aptos, never Inter/Roboto.
+  Courier New. CJK text: the platform's default gothic (`Malgun Gothic` on
+  Windows, `Apple SD Gothic Neo` on macOS, `Noto Sans CJK` elsewhere) — set
+  it as the `fontFace` for any CJK run. Never Aptos, never Inter/Roboto.
 
 ### Named styles (pick one, or let the topic pick)
 
