@@ -207,7 +207,7 @@ export class McpManager {
   async callTool(namespaced: string, args: unknown, signal: AbortSignal): Promise<ToolResult> {
     const match = /^mcp__([^_]+(?:_[^_]+)*?)__(.+)$/.exec(namespaced);
     if (!match) return { ok: false, output: `Bad MCP tool name: ${namespaced}` };
-    const [, serverName, toolName] = match;
+    const [, , toolName] = match;
     // Find the connection whose name is the longest matching prefix, so a
     // server "foo" never shadows "foo__bar" (or vice versa) by insertion order.
     let conn: Connection | undefined;

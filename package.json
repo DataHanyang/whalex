@@ -12,17 +12,29 @@
     "test": "pnpm -r test",
     "dev": "pnpm --filter @whalex/desktop dev",
     "cli": "pnpm --filter @whalex/cli start",
-    "bump": "node scripts/bump-version.mjs"
+    "bump": "node scripts/bump-version.mjs",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "puppeteer-core": "^25.7.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.67.0"
   },
   "pnpm": {
     "//": "ripgrep resolves its binary from a per-arch optional dependency at runtime, so a cross-arch build would otherwise ship the runner's arch and break grep. Install both macOS arches everywhere.",
     "supportedArchitectures": {
-      "os": ["current", "darwin"],
-      "cpu": ["current", "x64", "arm64"]
+      "os": [
+        "current",
+        "darwin"
+      ],
+      "cpu": [
+        "current",
+        "x64",
+        "arm64"
+      ]
     }
   }
 }

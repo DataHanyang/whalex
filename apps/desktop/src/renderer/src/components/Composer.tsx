@@ -547,7 +547,7 @@ export function Composer() {
             className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] text-faint hover:bg-surface-2 hover:text-muted"
           >
             <FolderOpen size={11} className="shrink-0" />
-            <span className="max-w-[240px] truncate">{cwd ? (cwd.split(/[\/]/).pop() ?? cwd) : t("sidebar.changeFolder")}</span>
+            <span className="max-w-[240px] truncate">{cwd ? (cwd.split(/[\\/]/).pop() ?? cwd) : t("sidebar.changeFolder")}</span>
           </button>
         </div>
         <textarea

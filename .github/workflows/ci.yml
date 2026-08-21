@@ -26,8 +26,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --filter "./packages/*" build
+      - run: pnpm lint
       - run: pnpm -r typecheck
       # Build the Electron app too — a renderer/electron-vite break must fail CI,
       # not surface for the first time on a release tag.
       - run: pnpm --filter @whalex/desktop build
       - run: pnpm --filter @whalex/core test
+      - run: pnpm --filter @whalex/desktop test
+      # Boot the built app against a throwaway profile and assert the shell
+      # renders (sidebar, project group, composer). Windows is the primary
+      # platform and needs no display server, so the smoke runs there.
+      - if: runner.os == 'Windows'
+        run: node scripts/ui-smoke.mjs

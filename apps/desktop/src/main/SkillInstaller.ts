@@ -65,7 +65,7 @@ function parseGitUrl(url: string): { repo: string; branch?: string; subpath?: st
 async function findSkillDirs(root: string): Promise<string[]> {
   if (await exists(path.join(root, "SKILL.md"))) return [root];
   const out: string[] = [];
-  let entries: Array<{ name: string; isDirectory(): boolean }> = [];
+  let entries: Array<{ name: string; isDirectory(): boolean }>;
   try {
     entries = await fs.readdir(root, { withFileTypes: true });
   } catch {

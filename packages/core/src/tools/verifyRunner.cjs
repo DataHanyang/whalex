@@ -120,7 +120,6 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.resolve(src));
   } catch (err) {
-    loaded = false;
     console.log(JSON.stringify({
       loaded: false, animates: null, canvasCovered: null, bodyHeight: null,
       imageCount: null, consoleErrors: [String(err.message).slice(0, 200)],

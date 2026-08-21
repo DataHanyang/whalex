@@ -25,7 +25,7 @@ const PATTERNS: Pattern[] = [
   {
     // KEY=value / "password": "..." style assignments with secret-ish names.
     kind: "secret",
-    re: /\b((?:api[_-]?key|apikey|secret|token|passwd|password|client[_-]?secret|access[_-]?key|auth)[A-Za-z0-9_-]*\s*[:=]\s*["']?)([A-Za-z0-9+/_.\-]{10,})/gi,
+    re: /\b((?:api[_-]?key|apikey|secret|token|passwd|password|client[_-]?secret|access[_-]?key|auth)[A-Za-z0-9_-]*\s*[:=]\s*["']?)([A-Za-z0-9+/_.-]{10,})/gi,
     group: 2,
   },
 ];

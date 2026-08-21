@@ -35,7 +35,6 @@ import {
   type Routine,
   type SlashCommand,
   type Todo,
-  type TranscriptItem,
   type UsageInfo,
   type WorkflowState,
 } from "@whalex/shared";
