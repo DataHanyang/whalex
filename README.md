@@ -55,6 +55,7 @@ Three ideas drive it:
 | ⏪ **Checkpoints** | `/rewind` restores your files *and* the conversation to any earlier turn. | `/rewind` |
 | 🔌 **Extensible** | One-click MCP presets, `SKILL.md` skills, git or local plugins, and shell Hooks on tool events. | MCP · Skills · Plugins |
 | 🖼 **Vision bridge** | Connect any OpenAI-compatible vision model (one-click Gemini free-tier preset) and the agent can *see*: pasted images, and its own rendered output via `view_image` for self-QA. | optional |
+| 📱 **Phone remote** | Scan a QR once and drive your desktop's sessions from an Android app — watch the stream, send work, approve file writes and shell commands while you're away. [Set it up →](#-whalex-mobile--your-desktop-agent-from-your-phone) | `apps/mobile` |
 | ⚡ **Fast &amp; current** | Read-only tools run in parallel, rate limits retry themselves, and the app updates itself in place. | auto-update |
 
 ## 📸 In action
@@ -389,6 +390,42 @@ WhaleX reads a few plain-Markdown files so you can shape how it behaves without 
 - **Plugins** — install from a git URL or a local folder (skills + MCP + commands).
 - **Hooks** — run shell commands on `PreToolUse` / `PostToolUse` / `UserPromptSubmit` / `Stop`; a `PreToolUse` hook can block a tool.
 - **Feature toggles** — turn sub-agents, SuperCode, browser use, web fetch on/off in Settings.
+
+## 📱 WhaleX Mobile — your desktop agent, from your phone
+
+An Android companion app that drives the sessions running on your desktop: follow
+the stream as it writes, send new work, answer its questions, and — the reason it
+exists — approve a file write or a shell command while you're nowhere near the
+machine. The desktop stays the brain; the phone is a remote.
+
+**Setup is a QR scan.** No account, no domain, no port forwarding:
+
+1. Install and run the desktop app.
+2. Settings → **Remote** → turn on *Allow mobile access*. To use it away from
+   home, also turn on *Reach this computer from anywhere* — WhaleX runs a
+   Cloudflare quick tunnel for you (`cloudflared` ships inside the installer).
+3. Click **Pair a device** and scan the QR with the phone app.
+
+That's it. The phone reconnects on its own afterwards, and keeps working across
+desktop restarts: quick-tunnel addresses change every launch, so the desktop
+reports its current address in the handshake and over a `GET /info` the phone
+can reach on your home network — whichever it finds first, it adopts silently.
+
+**How the security works**
+
+- The phone connects to *your* computer. Nothing routes through a third party's
+  server, and traffic is encrypted end to end by the tunnel's real certificate.
+- Only paired devices get in: pairing mints a device token (stored hashed on the
+  desktop, in the Android Keystore on the phone), the pairing window is
+  single-use and expires in two minutes, and any device can be revoked later.
+- With the tunnel on, the bridge answers only `GET /info` on your local network
+  — sessions, pairing and upgrades all travel the encrypted tunnel.
+- API keys never leave the desktop; the remote channel can't read them.
+- Remote clients reach a whitelisted subset of the IPC contract, and a phone
+  attaching to a session never steals it from the desktop window.
+
+Download the APK from the [releases page](https://github.com/leejoong/whalex/releases/latest),
+or build it yourself from `apps/mobile` (Expo, `pnpm --filter @whalex/mobile …`).
 
 ## 🌐 Languages
 
