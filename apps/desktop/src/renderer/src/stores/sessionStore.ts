@@ -11,9 +11,30 @@ import type {
   UsageInfo,
   WorkflowState,
 } from "@whalex/shared";
+import {
+  foldEnvelope,
+  hydrateSession,
+  type ClientSessionState,
+  type FoldContext,
+  type SessionStatus,
+} from "@whalex/client-core";
 import { whalex } from "../lib/ipc";
 
-export type SessionStatus = "idle" | "thinking" | "streaming" | "tool";
+export type { SessionStatus };
+
+/** Event-folding lives in @whalex/client-core (shared with the mobile app);
+ *  only i18n and the clock are injected from here. */
+const foldCtx: FoldContext = {
+  now: () => Date.now(),
+  formatGoal: (ev) =>
+    ev.done
+      ? i18n.t("transcript.goalDone", { i: ev.iteration, max: ev.maxIterations })
+      : i18n.t("transcript.goalContinue", {
+          i: ev.iteration,
+          max: ev.maxIterations,
+          remaining: ev.remaining,
+        }),
+};
 
 interface SessionState {
   cwd: string | null;
@@ -263,73 +284,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const seq = ++startSeq;
     const res = await whalex.invoke("session:start", { cwd, resumeSessionId });
     if (seq !== startSeq) return; // a newer click superseded this response
-    // Re-derive planPending from the resumed transcript: a plan artifact with
-    // no later user message is still awaiting the user's decision.
-    const lastPlanIdx = res.transcript.reduce(
-      (acc, t, i) => (t.kind === "artifact" && t.artifactKind === "plan" ? i : acc),
-      -1,
-    );
-    const laterUserMsg =
-      lastPlanIdx >= 0 && res.transcript.slice(lastPlanIdx + 1).some((t) => t.kind === "user");
-    // Workflow panels: the persisted trees first, then the live ones on top —
-    // a run still in flight has fresher state in the snapshot than on disk.
-    const workflows: Record<string, WorkflowState> = {};
-    for (const item of res.transcript) {
-      if (item.kind === "workflow" && item.state) workflows[item.workflowId] = item.state;
-    }
-    for (const wf of res.live?.workflows ?? []) workflows[wf.workflowId] = wf;
-    // Todos are written to the session file as they change, so the pill comes
-    // back from the last record even for a session reloaded from disk.
-    const lastTodos = res.transcript.reduce<Todo[]>(
-      (acc, t) => (t.kind === "todos" ? t.todos : acc),
-      [],
-    );
-    // The bubble still streaming in main isn't in the transcript yet; re-hang
-    // it under the same id so later deltas continue it.
-    // Still-unread messages are not on disk yet; re-hang them after the
-    // persisted transcript, in the order they were typed.
-    const pending: TranscriptItem[] = (res.live?.pendingSteer ?? []).map((p) => ({
-      kind: "user" as const,
-      id: p.id,
-      text: p.text,
-      ts: p.ts,
-      delivery: "pending" as const,
-    }));
-    const transcript = res.live?.streaming
-      ? [
-          ...res.transcript,
-          {
-            kind: "assistant" as const,
-            id: res.live.streaming.messageId,
-            text: res.live.streaming.text,
-            reasoning: res.live.streaming.reasoning,
-            streaming: true,
-            interrupted: false,
-            ts: Date.now(),
-          },
-          ...pending,
-        ]
-      : [...res.transcript, ...pending];
     set({
+      // Shared reattach logic (plan-pending re-derivation, workflow merge,
+      // streaming-bubble re-hang) lives in @whalex/client-core.
+      ...hydrateSession(res, foldCtx),
       cwd,
       activeSessionId: res.sessionId,
-      transcript,
-      status: res.live?.status ?? (res.running ? "thinking" : "idle"),
-      usage: res.live?.usage ?? null,
-      todos: res.live?.todos ?? lastTodos,
-      pendingPermissions: res.live?.permissionRequests ?? [],
-      pendingQuestion: res.live?.questionRequest ?? null,
-      planPending: lastPlanIdx >= 0 && !laterUserMsg,
-      lastError: null,
-      artifacts: [],
       activeArtifactId: null,
-      subagents: {},
-      workflows,
       browser: { tabs: [], activeTabId: null },
       sideTab: null,
       // Restore what the host engine is actually using — a reattached session
       // must not silently fall back to default mode/model in the UI.
-      superCode: res.superCode ?? false,
       goalMode: res.goalMode ?? false,
       permissionMode: res.permissionMode ?? "default",
       model: res.model ?? get().model,
@@ -436,296 +401,65 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
       return;
     }
-    const ev = env.event;
-    switch (ev.type) {
-      case "message-start":
-        set((s) => ({
-          transcript: [
-            ...s.transcript,
-            {
-              kind: "assistant",
-              id: ev.messageId,
-              text: "",
-              reasoning: "",
-              streaming: true,
-              interrupted: false,
-              ts: Date.now(),
-            },
-          ],
-        }));
-        break;
-      case "text-delta":
-      case "reasoning-delta":
-        set((s) => {
-          const transcript = [...s.transcript];
-          for (let i = transcript.length - 1; i >= 0; i--) {
-            const item = transcript[i];
-            if (item && item.kind === "assistant" && item.id === ev.messageId) {
-              transcript[i] =
-                ev.type === "text-delta"
-                  ? { ...item, text: item.text + ev.delta }
-                  : { ...item, reasoning: item.reasoning + ev.delta };
-              break;
-            }
+    // SuperCode's toggle-restore needs the pre-event flag and mode.
+    const wasSuper = get().superCode;
+    const prevMode = get().permissionMode;
+    // The event→state mapping is shared with the mobile app via client-core;
+    // only the UI side-effects (signals) are handled here.
+    const { state, signals } = foldEnvelope(clientState(get()), env.event, foldCtx);
+    set(state);
+    for (const sig of signals) {
+      switch (sig.type) {
+        case "artifact-added":
+          set({ activeArtifactId: sig.artifactId, sideTab: `a:${sig.artifactId}` });
+          break;
+        case "supercode": {
+          // Fired on keyword activation AND on reattach replay. Mirror the
+          // flag and model, but only enter plan mode when the plan stage
+          // hasn't happened yet — replaying this on a mid-execution session
+          // used to drag it back into read-only plan mode.
+          if (sig.on && !wasSuper) set({ preSuperCodeMode: prevMode });
+          if (sig.on) {
+            get().setModel("deepseek-v4-pro");
+            const planDone = get().transcript.some(
+              (t) => t.kind === "artifact" && t.artifactKind === "plan",
+            );
+            if (!planDone) get().setPermissionMode("plan");
           }
-          return { transcript };
-        });
-        break;
-      case "tool-start":
-        set((s) => ({
-          transcript: [
-            ...s.transcript,
-            {
-              kind: "tool",
-              id: ev.toolCallId,
-              toolName: ev.toolName,
-              args: ev.args,
-              state: "running",
-              output: "",
-              durationMs: 0,
-              ts: Date.now(),
-            },
-          ],
-        }));
-        break;
-      case "tool-result":
-        set((s) => ({
-          transcript: s.transcript.map((item) =>
-            item.kind === "tool" && item.id === ev.toolCallId
-              ? {
-                  ...item,
-                  state: ev.ok ? "ok" : item.state === "running" ? "error" : item.state,
-                  output: ev.output,
-                  durationMs: ev.durationMs,
-                }
-              : item,
-          ),
-        }));
-        break;
-      case "file-edit":
-        set((s) => ({
-          transcript: s.transcript.map((item) =>
-            item.kind === "tool" && item.id === ev.toolCallId
-              ? { ...item, diff: { path: ev.path, oldText: ev.oldText, newText: ev.newText } }
-              : item,
-          ),
-        }));
-        break;
-      case "todo-update":
-        set({ todos: ev.todos });
-        break;
-      case "artifact":
-        if (ev.kind === "plan") set({ planPending: true });
-        set((s) => ({
-          artifacts: [
-            ...s.artifacts.filter((a) => a.artifactId !== ev.artifactId),
-            {
-              artifactId: ev.artifactId,
-              title: ev.title,
-              kind: ev.kind,
-              path: ev.path,
-              url: ev.url,
-              content: ev.content,
-              language: ev.language,
-            },
-          ],
-          activeArtifactId: ev.artifactId,
-          sideTab: `a:${ev.artifactId}`,
-          transcript: [
-            ...s.transcript,
-            {
-              kind: "artifact",
-              id: ev.artifactId,
-              artifactId: ev.artifactId,
-              title: ev.title,
-              artifactKind: ev.kind,
-              ts: Date.now(),
-            },
-          ],
-        }));
-        break;
-      case "subagent-start":
-        set((s) => ({
-          subagents: {
-            ...s.subagents,
-            [ev.agentRunId]: {
-              agentType: ev.agentType,
-              label: ev.label,
-              state: "running",
-              toolCount: 0,
-              tokens: 0,
-              lastActivity: "",
-            },
-          },
-        }));
-        break;
-      case "subagent-update":
-        set((s) => {
-          const prev = s.subagents[ev.agentRunId] ?? {
-            agentType: "general",
-            label: "",
-            state: "running",
-            toolCount: 0,
-            tokens: 0,
-            lastActivity: "",
-          };
-          return {
-            subagents: {
-              ...s.subagents,
-              [ev.agentRunId]: {
-                ...prev,
-                state: ev.state,
-                toolCount: ev.toolCount,
-                tokens: ev.tokens,
-                lastActivity: ev.lastActivity,
-              },
-            },
-          };
-        });
-        break;
-      case "workflow-update":
-        set((s) => ({
-          workflows: { ...s.workflows, [ev.workflow.workflowId]: ev.workflow },
-          transcript:
-            s.transcript.some((t) => t.kind === "workflow" && t.workflowId === ev.workflow.workflowId)
-              ? s.transcript
-              : [
-                  ...s.transcript,
-                  {
-                    kind: "workflow",
-                    id: ev.workflow.workflowId,
-                    workflowId: ev.workflow.workflowId,
-                    name: ev.workflow.name,
-                    ts: Date.now(),
-                  },
-                ],
-        }));
-        break;
-      case "compaction":
-        set((s) => ({
-          transcript: [
-            ...s.transcript,
-            {
-              kind: "compaction",
-              id: `compaction-${Date.now()}`,
-              beforePct: ev.beforePct,
-              afterPct: ev.afterPct,
-              ts: Date.now(),
-            },
-          ],
-        }));
-        break;
-      case "supercode": {
-        // Fired on keyword activation AND on reattach replay. Mirror the flag
-        // and model, but only enter plan mode when the plan stage hasn't
-        // happened yet — replaying this on a mid-execution session used to
-        // drag it back into read-only plan mode.
-        if (ev.on && !get().superCode) set({ preSuperCodeMode: get().permissionMode });
-        set({ superCode: ev.on });
-        if (ev.on) {
-          get().setModel("deepseek-v4-pro");
-          const planDone = get().transcript.some(
-            (t) => t.kind === "artifact" && t.artifactKind === "plan",
-          );
-          if (!planDone) get().setPermissionMode("plan");
+          break;
         }
-        break;
+        case "browser-navigated":
+          set({
+            browser: { tabs: sig.tabs, activeTabId: sig.activeTabId },
+            ...(sig.activeTabId
+              ? { sideTab: `b:${sig.activeTabId}`, activeArtifactId: null }
+              : {}),
+          });
+          break;
+        case "turn-finished":
+          void get().refreshSessions();
+          break;
       }
-      case "browser-navigated": {
-        const tabs = ev.tabs ?? (ev.url ? [{ id: "tab1", url: ev.url, title: ev.title }] : []);
-        const activeTabId = ev.activeTabId ?? tabs.at(-1)?.id ?? null;
-        set({
-          browser: { tabs, activeTabId },
-          ...(activeTabId ? { sideTab: `b:${activeTabId}`, activeArtifactId: null } : {}),
-        });
-        break;
-      }
-      case "goal-update":
-        set((s) => ({
-          transcript: [
-            ...s.transcript,
-            {
-              kind: "error",
-              id: `goal-${Date.now()}`,
-              code: ev.done ? "goal-done" : "goal-continue",
-              message: ev.done
-                ? i18n.t("transcript.goalDone", { i: ev.iteration, max: ev.maxIterations })
-                : i18n.t("transcript.goalContinue", {
-                    i: ev.iteration,
-                    max: ev.maxIterations,
-                    remaining: ev.remaining,
-                  }),
-              ts: Date.now(),
-            },
-          ],
-        }));
-        break;
-      case "permission-request":
-        // Queue, never replace: an overwritten request is an agent that waits
-        // for an answer no one can give.
-        set((s) => ({
-          pendingPermissions: s.pendingPermissions.some((p) => p.id === ev.request.id)
-            ? s.pendingPermissions
-            : [...s.pendingPermissions, ev.request],
-        }));
-        break;
-      case "question-request":
-        set({ pendingQuestion: ev.request });
-        break;
-      case "permission-resolved":
-        set((s) => ({
-          pendingPermissions: s.pendingPermissions.filter((p) => p.id !== ev.requestId),
-        }));
-        break;
-      case "usage":
-        set({ usage: ev.usage });
-        break;
-      case "steer-delivered": {
-        const ids = new Set(ev.messageIds);
-        set((s) => ({
-          transcript: s.transcript.map((t) =>
-            t.kind === "user" && ids.has(t.id) ? { ...t, delivery: "read" as const } : t,
-          ),
-        }));
-        break;
-      }
-      case "status":
-        set({ status: ev.state });
-        break;
-      case "error":
-        set((s) => ({
-          lastError: { code: ev.code, message: ev.message },
-          transcript: [
-            ...s.transcript,
-            {
-              kind: "error",
-              id: `err-${Date.now()}`,
-              code: ev.code,
-              message: ev.message,
-              ts: Date.now(),
-            },
-          ],
-        }));
-        break;
-      case "done":
-        set((s) => ({
-          status: "idle",
-          pendingPermissions: [],
-          // An open question card is moot once the turn ends (abort/error) —
-          // main clears its copy on done too; leaving ours up strands the card.
-          pendingQuestion: null,
-          turnStartedAt: null,
-          lastTurnMs: s.turnStartedAt ? Date.now() - s.turnStartedAt : s.lastTurnMs,
-          transcript: s.transcript.map((item) =>
-            item.kind === "assistant" && item.streaming
-              ? { ...item, streaming: false, interrupted: ev.stopReason === "aborted" }
-              : item,
-          ),
-        }));
-        void get().refreshSessions();
-        break;
-      default:
-        break;
     }
   },
 }));
+
+/** The slice of the store that client-core's reducer reads and rewrites. */
+function clientState(s: SessionState): ClientSessionState {
+  return {
+    transcript: s.transcript,
+    status: s.status,
+    usage: s.usage,
+    todos: s.todos,
+    pendingPermissions: s.pendingPermissions,
+    pendingQuestion: s.pendingQuestion,
+    planPending: s.planPending,
+    lastError: s.lastError,
+    artifacts: s.artifacts,
+    subagents: s.subagents,
+    workflows: s.workflows,
+    turnStartedAt: s.turnStartedAt,
+    lastTurnMs: s.lastTurnMs,
+    superCode: s.superCode,
+  };
+}

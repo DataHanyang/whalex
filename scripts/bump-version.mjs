@@ -13,6 +13,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FILES = [
   "package.json",
   "packages/shared/package.json",
+  "packages/client-core/package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
   "apps/desktop/package.json",
