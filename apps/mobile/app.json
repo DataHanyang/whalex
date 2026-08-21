@@ -31,7 +31,9 @@
         {
           "cameraPermission": "WhaleX scans the pairing QR code shown by your desktop."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-splash-screen"
     ]
   }
 }

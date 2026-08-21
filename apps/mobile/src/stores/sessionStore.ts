@@ -31,7 +31,7 @@ interface MobileSessionState extends ClientSessionState {
   closeSession(): void;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
-  respondPermission(id: string, allow: boolean): Promise<void>;
+  respondPermission(id: string, allow: boolean, always?: boolean): Promise<void>;
   answerQuestion(id: string, answer: string): Promise<void>;
 }
 
@@ -156,12 +156,16 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       if (id) await client().invoke("session:abort", { sessionId: id });
     },
 
-    async respondPermission(id, allow) {
+    async respondPermission(id, allow, always = false) {
+      // "Always" persists the tool's own suggested rule, so the desktop stops
+      // asking for this shape of call rather than for this one call.
+      const rule = get().pendingPermissions.find((p) => p.id === id)?.suggestedRules[0];
       set((s) => ({ pendingPermissions: s.pendingPermissions.filter((p) => p.id !== id) }));
       await client().invoke("permission:respond", {
         id,
         behavior: allow ? "allow" : "deny",
-        scope: "once",
+        scope: always ? "always" : "once",
+        ...(always && rule ? { rule } : {}),
       });
     },
 
