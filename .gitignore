@@ -15,3 +15,4 @@ Thumbs.db
 apps/desktop/*.png
 apps/desktop/*.gif
 .claude/
+apps/mobile/*.apk
