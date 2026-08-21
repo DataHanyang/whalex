@@ -216,7 +216,7 @@ describe("hydrateSession", () => {
       {
         ...base,
         transcript: [
-          { kind: "todos", id: "td", todos: [{ text: "a", done: false }], ts: 1 },
+          { kind: "todos", id: "td", todos: [{ status: "pending", content: "a" }], ts: 1 },
           { kind: "workflow", id: "w1", workflowId: "w1", name: "wf", state: wfOld, ts: 2 },
         ] as never,
         live: {
@@ -232,7 +232,7 @@ describe("hydrateSession", () => {
       },
       ctx,
     );
-    expect(state.todos).toEqual([{ text: "a", done: false }]);
+    expect(state.todos).toEqual([{ status: "pending", content: "a" }]);
     expect(state.workflows.w1).toMatchObject({ phase: "done" });
   });
 
