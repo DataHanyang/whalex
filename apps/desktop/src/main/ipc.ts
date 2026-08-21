@@ -1,3 +1,4 @@
+import os from "node:os";
 import { app, dialog, ipcMain, shell, type BrowserWindow } from "electron";
 import { OpenAICompatProvider, SessionStore, VisionBridge, searchFiles } from "@whalex/core";
 import { installSkills } from "./SkillInstaller.js";
@@ -16,13 +17,14 @@ import type { PluginManager } from "./PluginManager.js";
 import type { AuthManager } from "./auth.js";
 import type { RoutineManager } from "./RoutineManager.js";
 import type { UsageLedger } from "./UsageLedger.js";
+import type { RemoteBridge } from "./remote/RemoteBridge.js";
 import { EDITION, isCloud, CLOUD_CONFIG } from "./edition.js";
 
-type Handlers = {
+export type Handlers = {
   [C in IpcInvokeChannel]: (req: IpcRequest<C>) => Promise<IpcResponse<C>> | IpcResponse<C>;
 };
 
-export function registerIpc(deps: {
+export interface IpcDeps {
   getWindow: () => BrowserWindow | null;
   host: AgentHost;
   settings: SettingsManager;
@@ -34,8 +36,16 @@ export function registerIpc(deps: {
   auth: AuthManager;
   routines: RoutineManager;
   usage: UsageLedger;
-}): void {
-  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage } = deps;
+  bridge: RemoteBridge;
+}
+
+/**
+ * The single handler table behind both surfaces: ipcMain (renderer) and the
+ * remote bridge (paired phones, whitelisted subset). Same functions, same
+ * zod validation — the two can't drift.
+ */
+export function createHandlers(deps: IpcDeps): Handlers {
+  const { getWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage, bridge } = deps;
 
   const makeProvider = (providerId: string, apiKeyOverride?: string, baseUrlOverride?: string) => {
     // Cloud edition routes through the hosted proxy with the session token.
@@ -70,6 +80,7 @@ export function registerIpc(deps: {
     "settings:update": (req) => {
       const out = settings.update(req);
       host.applyLiveSettings();
+      bridge.applySettings();
       return out;
     },
     "secrets:reveal": (req) => ({ value: vault.get(req.ref) }),
@@ -98,7 +109,7 @@ export function registerIpc(deps: {
     },
     "session:delete": (req) => SessionStore.delete(req.cwd, req.sessionId),
     "session:attached": () => host.attachedSession(),
-    "session:start": (req) => host.start(req.cwd, req.resumeSessionId),
+    "session:start": (req) => host.start(req.cwd, req.resumeSessionId, { observe: req.observe }),
     "session:send": (req) => {
       host.send(req.sessionId, req.text, req.model, req.messageId);
     },
@@ -251,6 +262,25 @@ export function registerIpc(deps: {
         return { ok: false, configured: true, error: err instanceof Error ? err.message : String(err) };
       }
     },
+    "remote:appInfo": () => {
+      const s = settings.get();
+      return {
+        version: app.getVersion(),
+        name: os.hostname(),
+        computerId: bridge.computerId(),
+        defaultModel: s.defaultModel,
+        defaultCwd: s.defaultCwd,
+        recentCwds: s.recentCwds,
+      };
+    },
+    "remote:status": () => bridge.status(),
+    "remote:pairingStart": () => bridge.startPairing(),
+    "remote:pairingCancel": () => {
+      bridge.cancelPairing();
+    },
+    "remote:revokeDevice": (req) => {
+      bridge.revokeDevice(req.id);
+    },
     "dialog:pickFolder": async () => {
       const win = getWindow();
       if (!win) return { path: null };
@@ -268,10 +298,16 @@ export function registerIpc(deps: {
     },
   };
 
+  return handlers;
+}
+
+export function registerIpc(deps: IpcDeps): Handlers {
+  const handlers = createHandlers(deps);
   for (const channel of Object.keys(IPC_INVOKE) as IpcInvokeChannel[]) {
     ipcMain.handle(channel, async (_event, raw: unknown) => {
       const req = IPC_INVOKE[channel].req.parse(raw);
       return handlers[channel](req as never);
     });
   }
+  return handlers;
 }

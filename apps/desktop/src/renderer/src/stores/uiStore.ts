@@ -11,6 +11,7 @@ export type SettingsTab =
   | "routines"
   | "usage"
   | "plugins"
+  | "remote"
   | "appearance"
   | "updates";
 

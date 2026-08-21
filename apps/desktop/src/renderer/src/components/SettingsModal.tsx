@@ -16,15 +16,18 @@ import {
   EyeOff,
   Plus,
   Settings2,
+  Smartphone,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import QRCode from "qrcode";
 import {
   DEEPSEEK_BASE_URL,
   MCP_PRESETS,
   type IpcResponse,
   type McpServerConfig,
+  type RemoteStatus,
   type Routine,
   type SkillInfo,
 } from "@whalex/shared";
@@ -43,6 +46,7 @@ const TABS: Array<{ id: SettingsTab; labelKey: string; icon: typeof Settings2 }>
   { id: "routines", labelKey: "settings.tab.routines", icon: CalendarClock },
   { id: "usage", labelKey: "settings.tab.usage", icon: Activity },
   { id: "plugins", labelKey: "settings.tab.plugins", icon: Blocks },
+  { id: "remote", labelKey: "settings.tab.remote", icon: Smartphone },
   { id: "appearance", labelKey: "settings.tab.appearance", icon: Palette },
   { id: "updates", labelKey: "settings.tab.updates", icon: RefreshCw },
 ];
@@ -1268,6 +1272,145 @@ function RoutinesTab() {
   );
 }
 
+function RemoteTab() {
+  const { t } = useTranslation();
+  const settings = useAppStore((s) => s.settings)!;
+  const update = useAppStore((s) => s.updateSettings);
+  const [status, setStatus] = useState<RemoteStatus | null>(null);
+  const [qr, setQr] = useState<{ dataUrl: string; expiresAt: number } | null>(null);
+  const [now, setNow] = useState(Date.now());
+  const bridge = settings.remoteBridge;
+
+  const refresh = () => void whalex.invoke("remote:status", undefined).then(setStatus);
+  useEffect(() => {
+    refresh();
+    return whalex.on("remote:status", setStatus);
+  }, []);
+
+  // The QR countdown; the payload dies with the pairing window.
+  useEffect(() => {
+    if (!qr) return;
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, [qr]);
+  const remaining = qr ? Math.max(0, Math.ceil((qr.expiresAt - now) / 1000)) : 0;
+  useEffect(() => {
+    if (qr && remaining <= 0) setQr(null);
+  }, [qr, remaining]);
+  useEffect(() => {
+    // Leaving the tab mid-pairing closes the window — no orphaned secrets.
+    return () => {
+      void whalex.invoke("remote:pairingCancel", undefined);
+    };
+  }, []);
+
+  const pair = async () => {
+    const res = await whalex.invoke("remote:pairingStart", undefined);
+    const dataUrl = await QRCode.toDataURL(res.qrPayload, { width: 240, margin: 1 });
+    setQr({ dataUrl, expiresAt: res.expiresAt });
+  };
+
+  const setEnabled = async (v: boolean) => {
+    if (!v) setQr(null);
+    await update({ remoteBridge: { ...bridge, enabled: v } });
+    refresh();
+  };
+
+  const devices = status?.devices ?? bridge.devices;
+  const connectedIds = new Set((status?.connected ?? []).map((c) => c.deviceId));
+
+  return (
+    <div>
+      <Row label={t("settings.remote.enable")}>
+        <label className="flex items-center gap-2 text-[11.5px] text-faint">
+          <ToggleSwitch
+            checked={bridge.enabled}
+            label={t("settings.remote.enable")}
+            onChange={(v) => void setEnabled(v)}
+          />
+          {t("settings.remote.enable.hint")}
+        </label>
+      </Row>
+      <Row label={t("settings.remote.port")}>
+        <input
+          type="number"
+          defaultValue={bridge.port}
+          min={1024}
+          max={65535}
+          onBlur={(e) => {
+            const port = Math.min(65535, Math.max(1024, Number(e.target.value) || bridge.port));
+            if (port !== bridge.port) {
+              void update({ remoteBridge: { ...bridge, port } }).then(refresh);
+            }
+          }}
+          className="w-24 rounded-md border border-border bg-surface px-2 py-1 text-right text-[12.5px]"
+        />
+      </Row>
+      {status?.running && status.addresses.length > 0 && (
+        <Row label={t("settings.remote.addresses")}>
+          <span className="font-mono text-[11.5px] text-faint">
+            {status.addresses.map((ip) => `${ip}:${status.port}`).join("  ")}
+          </span>
+        </Row>
+      )}
+
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">
+        {t("settings.remote.pair")}
+      </div>
+      {!status?.running ? (
+        <div className="py-2 text-[12px] text-faint">{t("settings.remote.off")}</div>
+      ) : qr ? (
+        <div className="flex flex-col items-center gap-2 py-2">
+          <img src={qr.dataUrl} alt="pairing QR" className="rounded-lg border border-border" />
+          <span className="text-[12px] text-muted">{t("settings.remote.pair.hint")}</span>
+          <span className="text-[11.5px] text-faint">
+            {t("settings.remote.pair.expires", { s: remaining })}
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={() => void pair()}
+          className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[12.5px] hover:bg-surface-2"
+        >
+          <Smartphone size={14} />
+          {t("settings.remote.pair")}
+        </button>
+      )}
+
+      <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">
+        {t("settings.remote.devices")}
+      </div>
+      {devices.length === 0 ? (
+        <div className="py-2 text-[12px] text-faint">{t("settings.remote.devices.none")}</div>
+      ) : (
+        devices.map((d) => (
+          <div
+            key={d.id}
+            className="flex items-center justify-between gap-4 border-b border-border py-2.5"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <Smartphone size={14} className="shrink-0 text-faint" />
+              <span className="truncate text-[12.5px]">{d.name}</span>
+              {connectedIds.has(d.id) && (
+                <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] text-accent">
+                  {t("settings.remote.connected")}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => void whalex.invoke("remote:revokeDevice", { id: d.id }).then(refresh)}
+              className="flex items-center gap-1 rounded-md px-2 py-1 text-[11.5px] text-faint hover:text-danger"
+            >
+              <Trash2 size={13} />
+              {t("settings.remote.revoke")}
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export function SettingsModal() {
   const { t } = useTranslation();
   const open = useUiStore((s) => s.settingsOpen);
@@ -1328,6 +1471,7 @@ export function SettingsModal() {
             {tab === "routines" && <RoutinesTab />}
             {tab === "usage" && <UsageTab />}
             {tab === "plugins" && <PluginsTab />}
+            {tab === "remote" && <RemoteTab />}
             {tab === "appearance" && <AppearanceTab />}
             {tab === "updates" && <UpdatesTab />}
           </div>

@@ -117,6 +117,12 @@ export class AgentHost {
   private sessions = new Map<string, HostedSession>();
   private queue: AgentEventEnvelope[] = [];
   private flushTimer: NodeJS.Timeout | null = null;
+  /**
+   * Extra event consumers beside the window — the remote bridge fans batches
+   * out to paired phones. Called even with no window: the app can sit in the
+   * tray while a phone drives a session.
+   */
+  private envelopeSinks = new Set<(batch: AgentEventEnvelope[]) => void>();
   private artifacts = new Map<string, import("@whalex/shared").Artifact>();
   readonly mcp = new McpManager();
   /** Live providers → the vault ref their key came from (null = keyless). */
@@ -173,6 +179,11 @@ export class AgentHost {
     this.watchForSuspend();
   }
 
+  addEnvelopeSink(sink: (batch: AgentEventEnvelope[]) => void): () => void {
+    this.envelopeSinks.add(sink);
+    return () => this.envelopeSinks.delete(sink);
+  }
+
   setBrowser(controller: BrowserController): void {
     this.browser = controller;
   }
@@ -205,6 +216,7 @@ export class AgentHost {
   async start(
     cwd: string,
     resumeSessionId?: string,
+    opts?: { observe?: boolean },
   ): Promise<import("@whalex/shared").IpcResponse<"session:start">> {
     // Reattach: switching back to a session this process is already hosting
     // must NOT create a second loop over the same file — the original keeps
@@ -212,12 +224,15 @@ export class AgentHost {
     if (resumeSessionId) {
       const live = this.sessions.get(resumeSessionId);
       if (live) {
-        this.activeSessionForBrowser = resumeSessionId;
+        // observe: a remote client attaching must not steal the window's
+        // active-session slot (browser routing, session:attached).
+        if (!opts?.observe) this.activeSessionForBrowser = resumeSessionId;
         return {
           sessionId: resumeSessionId,
           cwd: live.store.cwd,
           transcript: live.store.transcript(),
           running: live.loop.isRunning,
+          seq: live.seq,
           model: live.loop.modelId,
           permissionMode: live.modeOverride ?? this.settings.get().permissions.mode,
           goalMode: live.goalMode,
@@ -242,7 +257,7 @@ export class AgentHost {
     const registry = createBuiltinRegistry({ includeWebFetch: features.webFetch });
     registry.register(this.skills.tool() as ToolDef<never>);
     const sessionId = store.sessionId;
-    this.activeSessionForBrowser = sessionId;
+    if (!opts?.observe) this.activeSessionForBrowser = sessionId;
 
     // Browser-use tools (DOM-based, shared WebContentsView) — gated by feature.
     if (this.browser && features.browserUse) {
@@ -351,6 +366,7 @@ export class AgentHost {
       sessionId,
       cwd,
       transcript: store.transcript(),
+      seq: hosted.seq,
       model: modelInfo.id,
       permissionMode: s.permissions.mode,
       goalMode: false,
@@ -1096,6 +1112,13 @@ User: ${userText.slice(0, 400)}`,
     this.queue = [];
     if (win && !win.isDestroyed()) {
       for (const envelope of batch) win.webContents.send("agent:event", envelope);
+    }
+    for (const sink of this.envelopeSinks) {
+      try {
+        sink(batch);
+      } catch {
+        // a broken sink must not stall the pump for the window or other sinks
+      }
     }
   }
 

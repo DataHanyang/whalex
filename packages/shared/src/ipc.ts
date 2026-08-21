@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { AgentEventEnvelopeSchema, ArtifactSchema, LiveSnapshotSchema } from "./events.js";
 import { PermissionResponseSchema } from "./permissions.js";
-import { SettingsSchema, RoutineSchema } from "./settings.js";
+import { SettingsSchema, RoutineSchema, RemoteDeviceSchema } from "./settings.js";
 import { ModelInfoSchema } from "./models.js";
 import { SessionMetaSchema, TranscriptItemSchema } from "./session.js";
 
@@ -45,6 +45,20 @@ export const UpdateStatusSchema = z.object({
   error: z.string().optional(),
 });
 export type UpdateStatus = z.infer<typeof UpdateStatusSchema>;
+
+/** Live state of the mobile remote bridge, for the Settings → Remote tab. */
+export const RemoteStatusSchema = z.object({
+  enabled: z.boolean(),
+  running: z.boolean(),
+  port: z.number(),
+  /** LAN IPv4 addresses the bridge is reachable on. */
+  addresses: z.array(z.string()),
+  devices: z.array(RemoteDeviceSchema),
+  connected: z.array(
+    z.object({ deviceId: z.string(), name: z.string(), ip: z.string(), since: z.number() }),
+  ),
+});
+export type RemoteStatus = z.infer<typeof RemoteStatusSchema>;
 
 /**
  * The renderer↔main contract. Every channel's request and response schema
@@ -128,12 +142,26 @@ export const IPC_INVOKE = {
     }),
   },
   "session:start": {
-    req: z.object({ cwd: z.string(), resumeSessionId: z.string().optional() }),
+    req: z.object({
+      cwd: z.string(),
+      resumeSessionId: z.string().optional(),
+      /**
+       * Attach without claiming the window's active-session slot (browser
+       * routing, session:attached). The remote bridge forces this on so a
+       * phone opening a session never steals it from the desktop window.
+       */
+      observe: z.boolean().optional(),
+    }),
     res: z.object({
       sessionId: z.string(),
       cwd: z.string(),
       transcript: z.array(TranscriptItemSchema),
       running: z.boolean().optional(),
+      /**
+       * Envelope high-water mark at snapshot time. A reconnecting client
+       * applies only envelopes with seq > this, dropping the buffered rest.
+       */
+      seq: z.number().optional(),
       // Actual host-side session state, so a reattaching UI restores what the
       // engine is really using instead of resetting to defaults.
       model: z.string().optional(),
@@ -379,6 +407,36 @@ export const IPC_INVOKE = {
       configured: z.boolean(),
     }),
   },
+  /**
+   * What a paired phone needs to start working: identity plus the recent
+   * workdirs to open sessions in. The remote-safe replacement for
+   * app:getState, which leaks masked secret tails and full provider config.
+   */
+  "remote:appInfo": {
+    req: z.void(),
+    res: z.object({
+      version: z.string(),
+      name: z.string(),
+      computerId: z.string(),
+      defaultModel: z.string(),
+      defaultCwd: z.string().optional(),
+      recentCwds: z.array(z.string()),
+    }),
+  },
+  "remote:status": {
+    req: z.void(),
+    res: RemoteStatusSchema,
+  },
+  /** Open a 2-minute pairing window and hand back the QR payload to render. */
+  "remote:pairingStart": {
+    req: z.void(),
+    res: z.object({ qrPayload: z.string(), expiresAt: z.number() }),
+  },
+  "remote:pairingCancel": { req: z.void(), res: z.void() },
+  "remote:revokeDevice": {
+    req: z.object({ id: z.string() }),
+    res: z.void(),
+  },
   "dialog:pickFolder": {
     req: z.void(),
     res: z.object({ path: z.string().nullable() }),
@@ -403,6 +461,7 @@ export const IPC_EVENTS = {
   "mcp:status": z.array(McpStatusSchema),
   "update:status": UpdateStatusSchema,
   "usage:warning": UsageWarningSchema,
+  "remote:status": RemoteStatusSchema,
 } as const;
 
 export type IpcInvokeChannel = keyof typeof IPC_INVOKE;

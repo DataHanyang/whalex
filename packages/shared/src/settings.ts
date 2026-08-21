@@ -90,6 +90,18 @@ export const RoutineSchema = z.object({
 });
 export type Routine = z.infer<typeof RoutineSchema>;
 
+/** A phone (or other client) paired with this computer's remote bridge. */
+export const RemoteDeviceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** SHA-256 hex of the device token — the plaintext lives only on the phone. */
+  tokenHash: z.string(),
+  createdAt: z.number(),
+  lastSeenAt: z.number().optional(),
+  lastIp: z.string().optional(),
+});
+export type RemoteDevice = z.infer<typeof RemoteDeviceSchema>;
+
 export const SettingsSchema = z.object({
   onboardingComplete: z.boolean().default(false),
   language: z
@@ -194,6 +206,18 @@ export const SettingsSchema = z.object({
   customInstructions: z.string().default(""),
   /** Scheduled prompts that run unattended while the app sits in the tray. */
   routines: z.array(RoutineSchema).default([]),
+  /** Mobile remote-control bridge (WSS server hosted by the main process). */
+  remoteBridge: z
+    .object({
+      enabled: z.boolean().default(false),
+      port: z.number().int().min(1024).max(65535).default(48632),
+      /** Answer UDP discovery probes so a paired phone can find a changed LAN IP. */
+      discovery: z.boolean().default(true),
+      /** Stable machine identity baked into QR payloads; minted on first bridge start. */
+      computerId: z.string().default(""),
+      devices: z.array(RemoteDeviceSchema).default([]),
+    })
+    .default({}),
   /** Spend guardrails, enforced against the local usage ledger. 0 = off. */
   usageLimits: z
     .object({

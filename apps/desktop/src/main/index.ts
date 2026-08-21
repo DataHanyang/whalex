@@ -26,6 +26,7 @@ import { ComputerManager } from "./ComputerManager.js";
 import { AuthManager } from "./auth.js";
 import { RoutineManager } from "./RoutineManager.js";
 import { UsageLedger } from "./UsageLedger.js";
+import { RemoteBridge } from "./remote/RemoteBridge.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -281,6 +282,16 @@ void app.whenReady().then(() => {
   const routines = new RoutineManager(settings, host);
   routines.start();
 
+  // Mobile remote-control bridge — inert until settings.remoteBridge.enabled.
+  const bridge = new RemoteBridge({
+    settings,
+    vault,
+    getWindow: () => mainWindow,
+    version: app.getVersion(),
+    log: logLine,
+  });
+  host.addEnvelopeSink((batch) => bridge.broadcast(batch));
+
   const usage = new UsageLedger(settings);
   host.usageLedger = usage;
   usage.onWarning = (w) => {
@@ -296,9 +307,12 @@ void app.whenReady().then(() => {
           : `${w.kind === "daily" ? "Daily" : "Monthly"} spend $${w.usd.toFixed(2)} — ${w.pct}% of your $${w.limit.toFixed(2)} limit`;
       new Notification({ title: "WhaleX usage", body }).show();
     }
+    bridge.broadcastUsageWarning(w);
   };
 
-  registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage });
+  const handlers = registerIpc({ getWindow: () => mainWindow, host, settings, vault, updater, preview, plugins, browser, auth, routines, usage, bridge });
+  bridge.setHandlers(handlers);
+  bridge.applySettings();
   createWindow();
   createTray();
   // Relaunching the app (e.g. from the Start menu) while it sits in the tray
@@ -318,6 +332,7 @@ void app.whenReady().then(() => {
   // otherwise they end up orphaned on Windows and squat the ports.
   let cleanupDone = false;
   const shutdownCleanup = async () => {
+    bridge.stop();
     routines.stop();
     usage.flush();
     host.disposeAll();
