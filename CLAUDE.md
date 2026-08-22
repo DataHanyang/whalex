@@ -79,10 +79,12 @@ in `app.json` under `expo-build-properties`, never hand-edited into the
 manifest — except `allowBackup`, which build-properties silently ignores; that
 one is a top-level field under `expo.android`.
 
-**Before `expo prebuild --clean`, stop the Gradle daemon** (`cd android &&
-./gradlew --stop`, or kill `java.exe`). The daemon from the previous build
-holds `classes.dex`, `--clean` then fails on EBUSY and leaves `android/`
-half-deleted, and the next fixup step dies on a missing `gradle.properties`.
+**Before `expo prebuild --clean`, kill every leftover JVM** — `taskkill /F /IM
+java.exe` is not paranoia. The **Kotlin compile daemon survives `gradlew
+--stop`** and keeps a `classes*.dex` open; `--clean` then fails on EBUSY,
+leaves `android/` half-deleted, and the fixup step dies on a missing
+`gradle.properties`. When EBUSY persists anyway, find the holder with the
+Restart Manager (a PS script asking who locks the file) instead of guessing.
 
 ## Seeing the UI
 
