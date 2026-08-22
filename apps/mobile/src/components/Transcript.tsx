@@ -1,10 +1,10 @@
 import { memo, useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
-import type { TranscriptItem } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
 import { Markdown } from "./Markdown";
-import { ToolCard } from "./ToolCard";
+import { ToolGroup } from "./ToolGroup";
+import type { Row } from "./transcriptRows";
 
 /**
  * An agent transcript is a work log, not a conversation: most of its height is
@@ -14,8 +14,11 @@ import { ToolCard } from "./ToolCard";
  * contained bubble.
  */
 
-export const TranscriptRow = memo(function TranscriptRow({ item }: { item: TranscriptItem }) {
+export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }) {
   switch (item.kind) {
+    case "tool-group":
+      return <ToolGroup items={item.items} />;
+
     case "user":
       return (
         <View style={styles.userWrap}>
@@ -34,18 +37,11 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
           {item.streaming && !item.text && <Caret />}
           {item.interrupted && (
             <View style={styles.interrupted}>
-              <Feather name="slash" size={11} color={colors.deep} />
+              <Feather name="slash" size={11} color={colors.faint} />
               <Text style={styles.interruptedText}>Stopped</Text>
             </View>
           )}
         </View>
-      );
-
-    case "tool":
-      return (
-        <>
-          <ToolCard item={item} />
-        </>
       );
 
     case "todos": {
@@ -54,7 +50,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
         <>
           <View style={styles.card}>
             <View style={styles.cardHead}>
-              <Feather name="check-square" size={13} color={colors.deep} />
+              <Feather name="check-square" size={13} color={colors.faint} />
               <Text style={styles.cardTitle}>Plan</Text>
               <Text style={styles.cardMeta}>
                 {done}/{item.todos.length}
@@ -73,10 +69,10 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
                   size={12}
                   color={
                     t.status === "completed"
-                      ? colors.kelp
+                      ? colors.ok
                       : t.status === "in_progress"
-                        ? colors.sonar
-                        : colors.deep
+                        ? colors.accent
+                        : colors.faint
                   }
                 />
                 <Text
@@ -97,8 +93,8 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
         <>
           <View style={[styles.card, styles.errorCard]}>
             <View style={styles.cardHead}>
-              <Feather name="alert-triangle" size={13} color={colors.coral} />
-              <Text style={[styles.cardTitle, { color: colors.coral }]}>{item.code}</Text>
+              <Feather name="alert-triangle" size={13} color={colors.danger} />
+              <Text style={[styles.cardTitle, { color: colors.danger }]}>{item.code}</Text>
             </View>
             <Text style={styles.errorText}>{item.message}</Text>
           </View>
@@ -110,7 +106,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
         <>
           <View style={styles.card}>
             <View style={styles.cardHead}>
-              <Feather name="layout" size={13} color={colors.sonar} />
+              <Feather name="layout" size={13} color={colors.accent} />
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardMeta}>{item.artifactKind}</Text>
             </View>
@@ -123,7 +119,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
       return (
         <>
           <View style={styles.thin}>
-            <Feather name="users" size={12} color={colors.deep} />
+            <Feather name="users" size={12} color={colors.faint} />
             <Text style={styles.thinText} numberOfLines={1}>
               {item.label || item.agentType}
             </Text>
@@ -136,7 +132,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Trans
       return (
         <>
           <View style={styles.thin}>
-            <Feather name="git-branch" size={12} color={colors.deep} />
+            <Feather name="git-branch" size={12} color={colors.faint} />
             <Text style={styles.thinText} numberOfLines={1}>
               {item.name}
             </Text>
@@ -189,47 +185,46 @@ function Caret() {
 const styles = StyleSheet.create({
   userWrap: { alignItems: "flex-end", marginVertical: space.md },
   userBubble: {
-    backgroundColor: colors.sonarSoft,
-    borderRadius: radius.md,
-    borderTopRightRadius: radius.xs,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
-    maxWidth: "86%",
+    maxWidth: "88%",
   },
-  userText: { ...type.body, color: colors.foam },
-  queued: { ...type.caption, marginTop: space.xs, color: colors.deep },
+  userText: { ...type.body, color: colors.text },
+  queued: { ...type.caption, marginTop: space.xs, color: colors.faint },
 
   assistant: { marginVertical: space.sm },
   interrupted: { flexDirection: "row", alignItems: "center", gap: space.xs },
   interruptedText: { ...type.caption },
-  caret: { width: 8, height: 17, backgroundColor: colors.sonar, borderRadius: 1 },
+  caret: { width: 8, height: 17, backgroundColor: colors.accent, borderRadius: 1 },
   reasoning: {
     borderLeftWidth: 2,
-    borderLeftColor: colors.line,
+    borderLeftColor: colors.border,
     paddingLeft: space.md,
     marginBottom: space.sm,
   },
-  reasoningText: { ...type.caption, color: colors.deep, fontStyle: "italic" },
+  reasoningText: { ...type.caption, color: colors.faint, fontStyle: "italic" },
 
   card: {
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     borderRadius: radius.sm,
     padding: space.md,
     gap: space.sm,
     marginVertical: 2,
   },
-  errorCard: { borderColor: colors.coralSoft, backgroundColor: colors.coralSoft },
+  errorCard: { borderColor: colors.dangerSoft, backgroundColor: colors.dangerSoft },
   cardHead: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  cardTitle: { ...type.label, color: colors.mist, flex: 1 },
-  cardMeta: { ...type.monoSmall, color: colors.deep },
-  errorText: { ...type.body, fontSize: 13.5, lineHeight: 20, color: colors.foam },
+  cardTitle: { ...type.label, color: colors.muted, flex: 1 },
+  cardMeta: { ...type.monoSmall, color: colors.faint },
+  errorText: { ...type.body, fontSize: 13.5, lineHeight: 20, color: colors.text },
   hint: { ...type.caption },
 
   todo: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  todoText: { ...type.body, fontSize: 13.5, lineHeight: 19, flex: 1, color: colors.mist },
-  todoDone: { color: colors.deep, textDecorationLine: "line-through" },
+  todoText: { ...type.body, fontSize: 13.5, lineHeight: 19, flex: 1, color: colors.muted },
+  todoDone: { color: colors.faint, textDecorationLine: "line-through" },
 
   thin: {
     flexDirection: "row",
@@ -238,7 +233,7 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
     paddingHorizontal: space.md,
   },
-  thinText: { ...type.monoSmall, color: colors.mist, flex: 1 },
+  thinText: { ...type.monoSmall, color: colors.muted, flex: 1 },
 
   divider: {
     flexDirection: "row",
@@ -246,6 +241,6 @@ const styles = StyleSheet.create({
     gap: space.md,
     marginVertical: space.lg,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { ...type.caption, fontSize: 11 },
 });

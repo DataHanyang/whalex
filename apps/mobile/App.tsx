@@ -38,7 +38,7 @@ export default function App() {
   if (!loaded) return null;
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Shell />
     </SafeAreaProvider>
   );
@@ -161,17 +161,17 @@ function ConnectionBanner() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.abyss },
+  root: { flex: 1, backgroundColor: colors.bg },
   banner: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     paddingBottom: space.sm,
-    backgroundColor: colors.beaconSoft,
+    backgroundColor: colors.attentionSoft,
     borderBottomWidth: 1,
-    borderBottomColor: colors.beacon,
+    borderBottomColor: colors.attention,
     alignItems: "center",
   },
-  bannerText: { ...type.caption, color: colors.beacon, fontSize: 11.5 },
+  bannerText: { ...type.caption, color: colors.attention, fontSize: 11.5 },
 });

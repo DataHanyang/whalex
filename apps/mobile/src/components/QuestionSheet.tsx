@@ -32,12 +32,12 @@ export function QuestionSheet() {
   const q = question?.questions[0];
 
   return (
-    <Sheet visible={Boolean(question)} accent={colors.sonar}>
+    <Sheet visible={Boolean(question)} accent={colors.accent}>
       {question && (
         <>
           <View style={styles.head}>
             <View style={styles.badge}>
-              <Feather name="help-circle" size={14} color={colors.sonar} />
+              <Feather name="help-circle" size={14} color={colors.accent} />
             </View>
             <View style={styles.headText}>
               <Text style={styles.label}>Your call</Text>
@@ -64,7 +64,7 @@ export function QuestionSheet() {
               <TextInput
                 style={styles.input}
                 placeholder="Something else…"
-                placeholderTextColor={colors.deep}
+                placeholderTextColor={colors.faint}
                 value={other}
                 onChangeText={setOther}
                 onSubmitEditing={() => void send(other)}
@@ -75,7 +75,7 @@ export function QuestionSheet() {
                 onPress={() => void send(other)}
                 disabled={busy || !other.trim()}
               >
-                <Feather name="arrow-up" size={17} color={colors.abyss} />
+                <Feather name="arrow-up" size={17} color={colors.bg} />
               </Pressable>
             </View>
           )}
@@ -97,25 +97,25 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    backgroundColor: colors.sonarSoft,
+    backgroundColor: colors.accentSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   headText: { flex: 1, gap: 3 },
-  label: { ...type.label, color: colors.sonar, textTransform: "uppercase", letterSpacing: 0.7 },
+  label: { ...type.label, color: colors.accent, textTransform: "uppercase", letterSpacing: 0.7 },
   question: { ...type.heading, lineHeight: 22 },
   scroll: { maxHeight: 380 },
   options: { paddingHorizontal: space.xl, gap: space.sm },
   option: {
-    backgroundColor: colors.hull2,
+    backgroundColor: colors.surface2,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     borderRadius: radius.md,
     padding: space.lg,
     gap: 3,
   },
   optionLabel: { ...type.ui },
-  optionDesc: { ...type.caption, color: colors.mist },
+  optionDesc: { ...type.caption, color: colors.muted },
   otherRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -126,9 +126,9 @@ const styles = StyleSheet.create({
   input: {
     ...type.body,
     flex: 1,
-    backgroundColor: colors.hull2,
+    backgroundColor: colors.surface2,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: space.md,
     paddingVertical: space.md,
@@ -137,9 +137,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radius.md,
-    backgroundColor: colors.sonar,
+    backgroundColor: colors.accent,
     alignItems: "center",
     justifyContent: "center",
   },
-  sendOff: { backgroundColor: colors.line },
+  sendOff: { backgroundColor: colors.border },
 });

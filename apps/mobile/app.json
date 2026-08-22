@@ -6,12 +6,12 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#080D16",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#FFFFFF",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#080D16"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,

@@ -19,7 +19,7 @@ function tokenize(line: string): Tok[] {
   let rest = line;
   // Whole-line comments dominate: bail early so nothing inside gets recoloured.
   const comment = /^(\s*)(\/\/|#|--).*$/.exec(rest);
-  if (comment) return [{ text: rest, color: colors.deep }];
+  if (comment) return [{ text: rest, color: colors.synComment }];
 
   const pattern =
     /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\/\/.*$|#.*$)|(\b\d+(?:\.\d+)?\b)/;
@@ -33,7 +33,13 @@ function tokenize(line: string): Tok[] {
     const [full, str, cmt, num] = m;
     out.push({
       text: full,
-      color: str ? colors.addFg : cmt ? colors.deep : num ? colors.beacon : undefined,
+      color: str
+        ? colors.synString
+        : cmt
+          ? colors.synComment
+          : num
+            ? colors.synNumber
+            : undefined,
     });
     rest = rest.slice(m.index + full.length);
   }
@@ -51,7 +57,7 @@ function plain(text: string): Tok[] {
       return out;
     }
     if (m.index > 0) out.push({ text: rest.slice(0, m.index) });
-    out.push({ text: m[0], color: colors.sonar });
+    out.push({ text: m[0], color: colors.synKeyword });
     rest = rest.slice(m.index + m[0].length);
   }
 }
@@ -97,7 +103,7 @@ export const CodeBlock = memo(function CodeBlock({
       <View style={styles.bar}>
         <Text style={styles.lang}>{(language || "text").toUpperCase()}</Text>
         <Pressable onPress={() => void copy()} hitSlop={10}>
-          <Text style={[styles.copy, copied && { color: colors.kelp }]}>
+          <Text style={[styles.copy, copied && { color: colors.ok }]}>
             {copied ? "Copied" : "Copy"}
           </Text>
         </Pressable>
@@ -135,10 +141,10 @@ export const CodeBlock = memo(function CodeBlock({
 
 const styles = StyleSheet.create({
   wrap: {
-    backgroundColor: colors.hull2,
+    backgroundColor: colors.surface2,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     overflow: "hidden",
     marginVertical: space.sm,
   },
@@ -149,10 +155,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: space.xs + 2,
     borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    borderBottomColor: colors.border,
   },
-  lang: { ...type.label, fontSize: 10.5, letterSpacing: 0.8, color: colors.deep },
-  copy: { ...type.label, fontSize: 11, color: colors.mist },
+  lang: { ...type.label, fontSize: 10.5, letterSpacing: 0.8, color: colors.faint },
+  copy: { ...type.label, fontSize: 11, color: colors.muted },
   pad: { padding: space.md },
   line: { ...type.mono },
   more: {

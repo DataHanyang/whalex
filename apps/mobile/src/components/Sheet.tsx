@@ -20,7 +20,7 @@ export function Sheet({
   visible,
   onDismiss,
   children,
-  accent = colors.line,
+  accent = colors.border,
 }: {
   visible: boolean;
   /** Omit to make the sheet non-dismissable — a pending approval must be answered. */
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(3,7,11,0.72)" },
   anchor: { position: "absolute", left: 0, right: 0, bottom: 0, justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     borderTopWidth: 2,
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: radius.pill,
-    backgroundColor: colors.line,
+    backgroundColor: colors.border,
     marginTop: space.md,
     marginBottom: space.xs,
   },

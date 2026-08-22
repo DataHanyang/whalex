@@ -3,52 +3,57 @@ import { Platform, type TextStyle } from "react-native";
 /**
  * Design tokens for WhaleX Mobile.
  *
- * The app is a readout for a machine working somewhere else, so the surface
- * reads as a deep-water instrument panel rather than a messaging app: a
- * blue-black ground, surfaces that lift with tinted elevation, and colour used
- * almost entirely to carry state (live / needs you / failed) instead of
- * decoration. `sonar` is the one true accent; everything else is semantic.
+ * Light, quiet, and text-first: the transcript is the product, so the surface
+ * gets out of its way. Colour is almost entirely functional — DeepSeek's blue
+ * marks what is yours to act on, and the state colours only appear when
+ * something is running, waiting, or broken.
  */
 
 export const colors = {
-  /** App ground. Carries the logo's navy, never a neutral black. */
-  abyss: "#080D16",
-  /** Raised surface: tool rows, list rows, cards. */
-  hull: "#101827",
-  /** Higher surface: sheets, inputs, code blocks. */
-  hull2: "#17202F",
-  /** Hairlines and card edges. */
-  line: "#232E40",
-  /** Stronger edge for focus and active states. */
-  lineStrong: "#33415788",
+  /** Page ground. */
+  bg: "#FFFFFF",
+  /** Your own messages, collapsed rows, quiet fills. */
+  surface: "#F3F4F6",
+  /** Code, inputs, and anything that should read as inset. */
+  surface2: "#F7F8FA",
+  /** Hairlines. */
+  border: "#E6E8EB",
+  /** Stronger edge for focus. */
+  borderStrong: "#CDD3DA",
 
   /** Primary text. */
-  foam: "#E8EEF7",
-  /** Secondary text: descriptions, meta. */
-  mist: "#94A3B8",
+  text: "#16191D",
+  /** Secondary: descriptions, collapsed summaries. */
+  muted: "#616A75",
   /** Tertiary: timestamps, hints, disabled. */
-  deep: "#5E6B7E",
+  faint: "#98A1AC",
 
-  /** The accent, lifted straight off the mark's X. Used sparingly. */
-  sonar: "#2F80FF",
-  sonarSoft: "#0F2244",
-  /** The tail's cyan — reserved for live activity. */
-  cyan: "#22D3EE",
-  /** Attention — something is waiting on you. */
-  beacon: "#F5A524",
-  beaconSoft: "#3A2A0C",
+  /** DeepSeek blue — the single accent. */
+  accent: "#4D6BFE",
+  accentSoft: "#EEF1FF",
+  /** Live activity. */
+  live: "#0EA5E9",
+  /** Something is waiting on you. */
+  attention: "#C2740B",
+  attentionSoft: "#FDF4E3",
   /** Failure and destructive actions. */
-  coral: "#F2555A",
-  coralSoft: "#3A1418",
+  danger: "#D93A45",
+  dangerSoft: "#FDF0F1",
   /** Completion. */
-  kelp: "#34D399",
-  kelpSoft: "#0C2E23",
+  ok: "#12874B",
+  okSoft: "#EAF7EF",
 
-  /** Diff shading — tuned to stay legible on `hull2`. */
-  addBg: "#0F2E20",
-  addFg: "#7EE2B8",
-  delBg: "#331519",
-  delFg: "#FF9DA2",
+  /** Diff shading. */
+  addBg: "#E7F6EC",
+  addFg: "#12683C",
+  delBg: "#FDECEE",
+  delFg: "#B3242F",
+
+  /** Syntax, tuned for a light code panel. */
+  synKeyword: "#7C3AED",
+  synString: "#0B7A5B",
+  synNumber: "#B45309",
+  synComment: "#8A929B",
 } as const;
 
 export const space = {
@@ -65,14 +70,14 @@ export const radius = {
   xs: 4,
   sm: 8,
   md: 12,
-  lg: 16,
+  lg: 18,
+  xl: 26,
   pill: 999,
 } as const;
 
 /**
- * IBM Plex — a family drawn for engineering documentation, which is what an
- * agent transcript actually is. Loaded at boot; `fallback` keeps the app
- * legible for the frame before the fonts resolve.
+ * IBM Plex — drawn for engineering documentation, which is what an agent
+ * transcript is. Loaded at boot; see `fontFallback` for the first frame.
  */
 export const font = {
   sans: "PlexSans",
@@ -82,70 +87,68 @@ export const font = {
   monoMedium: "PlexMonoMedium",
 } as const;
 
-const monoFallback = Platform.select({ ios: "Menlo", default: "monospace" });
-
 export const type = {
   display: {
     fontFamily: font.sansSemi,
-    fontSize: 27,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 33,
     letterSpacing: -0.5,
-    color: colors.foam,
+    color: colors.text,
   },
   title: {
     fontFamily: font.sansSemi,
-    fontSize: 19,
+    fontSize: 18.5,
     lineHeight: 25,
     letterSpacing: -0.2,
-    color: colors.foam,
+    color: colors.text,
   },
   heading: {
     fontFamily: font.sansSemi,
     fontSize: 15.5,
     lineHeight: 21,
-    color: colors.foam,
+    color: colors.text,
   },
   body: {
     fontFamily: font.sans,
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.foam,
+    fontSize: 15.5,
+    lineHeight: 24,
+    color: colors.text,
   },
   ui: {
     fontFamily: font.sansMedium,
     fontSize: 14,
     lineHeight: 19,
-    color: colors.foam,
+    color: colors.text,
   },
   label: {
     fontFamily: font.sansMedium,
     fontSize: 12,
     lineHeight: 16,
-    letterSpacing: 0.3,
-    color: colors.mist,
+    letterSpacing: 0.2,
+    color: colors.muted,
   },
   caption: {
     fontFamily: font.sans,
     fontSize: 12.5,
     lineHeight: 17,
-    color: colors.deep,
+    color: colors.faint,
   },
   mono: {
     fontFamily: font.mono,
     fontSize: 12.8,
     lineHeight: 19,
-    color: colors.foam,
+    color: colors.text,
   },
   monoSmall: {
     fontFamily: font.mono,
     fontSize: 11.5,
     lineHeight: 16,
-    color: colors.mist,
+    color: colors.muted,
   },
 } satisfies Record<string, TextStyle>;
 
 /** Applied before the bundled fonts finish loading. */
 export const fontFallback = {
   sans: Platform.select({ ios: "System", default: "sans-serif" }),
-  mono: monoFallback,
+  mono: Platform.select({ ios: "Menlo", default: "monospace" }),
 };

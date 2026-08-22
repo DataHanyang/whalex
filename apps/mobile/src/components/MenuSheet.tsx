@@ -55,10 +55,10 @@ export function MenuSheet({
                 onPress={() => pick(m.id)}
               >
                 <View style={styles.modeText}>
-                  <Text style={[styles.modeLabel, on && { color: colors.sonar }]}>{m.label}</Text>
+                  <Text style={[styles.modeLabel, on && { color: colors.accent }]}>{m.label}</Text>
                   <Text style={styles.modeHint}>{m.hint}</Text>
                 </View>
-                {on && <Feather name="check" size={15} color={colors.sonar} />}
+                {on && <Feather name="check" size={15} color={colors.accent} />}
               </Pressable>
             );
           })}
@@ -120,14 +120,14 @@ function Row({
       onPress={onPress}
       disabled={!onPress}
     >
-      <Feather name={icon} size={15} color={colors.mist} />
+      <Feather name={icon} size={15} color={colors.muted} />
       <Text style={styles.rowLabel}>{label}</Text>
       {!!value && (
         <Text style={styles.rowValue} numberOfLines={1}>
           {value}
         </Text>
       )}
-      {onPress && <Feather name="chevron-right" size={15} color={colors.deep} />}
+      {onPress && <Feather name="chevron-right" size={15} color={colors.faint} />}
     </Pressable>
   );
 }
@@ -138,15 +138,15 @@ const styles = StyleSheet.create({
     ...type.label,
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    color: colors.deep,
+    color: colors.faint,
     marginTop: space.md,
     marginLeft: space.xs,
   },
   group: {
-    backgroundColor: colors.hull2,
+    backgroundColor: colors.surface2,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     overflow: "hidden",
   },
   mode: {
@@ -156,9 +156,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.line,
+    borderBottomColor: colors.border,
   },
-  modeOn: { backgroundColor: colors.sonarSoft },
+  modeOn: { backgroundColor: colors.accentSoft },
   modeText: { flex: 1, gap: 2 },
   modeLabel: { ...type.ui },
   modeHint: { ...type.caption, fontSize: 11.5 },
@@ -169,9 +169,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.md + 1,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.line,
+    borderBottomColor: colors.border,
   },
-  rowPressed: { backgroundColor: colors.hull },
+  rowPressed: { backgroundColor: colors.surface },
   rowLabel: { ...type.ui, flex: 1 },
   rowValue: { ...type.caption, maxWidth: 140, textAlign: "right" },
 });

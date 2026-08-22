@@ -76,14 +76,14 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
               <View style={styles.reticle} pointerEvents="none" />
               {busy && (
                 <View style={styles.scanBusy}>
-                  <ActivityIndicator color={colors.sonar} />
+                  <ActivityIndicator color={colors.accent} />
                   <Text style={styles.scanBusyText}>Pairing…</Text>
                 </View>
               )}
             </>
           ) : (
             <View style={styles.permission}>
-              <Feather name="camera-off" size={20} color={colors.deep} />
+              <Feather name="camera-off" size={20} color={colors.faint} />
               <Text style={styles.permissionText}>
                 WhaleX needs the camera to read the pairing code.
               </Text>
@@ -104,7 +104,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
             autoCapitalize="none"
             autoCorrect={false}
             placeholder="Paste the payload shown under the QR code"
-            placeholderTextColor={colors.deep}
+            placeholderTextColor={colors.faint}
             value={manualText}
             onChangeText={setManualText}
           />
@@ -114,7 +114,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
             disabled={busy || !manualText.trim()}
           >
             {busy ? (
-              <ActivityIndicator color={colors.abyss} />
+              <ActivityIndicator color={colors.bg} />
             ) : (
               <Text style={styles.primaryText}>Pair</Text>
             )}
@@ -124,7 +124,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
 
       {error && (
         <View style={styles.error}>
-          <Feather name="alert-triangle" size={13} color={colors.coral} />
+          <Feather name="alert-triangle" size={13} color={colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
@@ -206,41 +206,41 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.abyss },
+  root: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: space.xl, paddingBottom: space.xxxl },
   kicker: {
     ...type.label,
-    color: colors.sonar,
+    color: colors.accent,
     textTransform: "uppercase",
     letterSpacing: 1.6,
     marginBottom: space.sm,
   },
   title: { ...type.display },
-  lead: { ...type.body, color: colors.mist, marginTop: space.md },
+  lead: { ...type.body, color: colors.muted, marginTop: space.md },
 
   steps: { marginTop: space.xxl, gap: space.md },
   step: { flexDirection: "row", alignItems: "center", gap: space.md },
   stepN: {
     ...type.monoSmall,
-    color: colors.sonar,
+    color: colors.accent,
     width: 22,
     height: 22,
     lineHeight: 21,
     textAlign: "center",
     borderRadius: radius.pill,
-    backgroundColor: colors.sonarSoft,
+    backgroundColor: colors.accentSoft,
     overflow: "hidden",
   },
-  stepText: { ...type.body, fontSize: 14, color: colors.mist, flex: 1 },
+  stepText: { ...type.body, fontSize: 14, color: colors.muted, flex: 1 },
 
   scanner: {
     marginTop: space.xxl,
     aspectRatio: 1,
     borderRadius: radius.lg,
     overflow: "hidden",
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   reticle: {
     position: "absolute",
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     right: "16%",
     bottom: "16%",
     borderWidth: 2,
-    borderColor: colors.sonar,
+    borderColor: colors.accent,
     borderRadius: radius.md,
   },
   scanBusy: {
@@ -259,43 +259,43 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: space.md,
   },
-  scanBusyText: { ...type.ui, color: colors.mist },
+  scanBusyText: { ...type.ui, color: colors.muted },
   permission: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl },
-  permissionText: { ...type.caption, textAlign: "center", color: colors.mist },
+  permissionText: { ...type.caption, textAlign: "center", color: colors.muted },
 
   manual: { marginTop: space.xxl, gap: space.sm },
   manualLabel: { ...type.label, textTransform: "uppercase", letterSpacing: 0.8 },
   input: {
     ...type.mono,
     minHeight: 120,
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     borderRadius: radius.md,
     padding: space.md,
     textAlignVertical: "top",
   },
 
   primary: {
-    backgroundColor: colors.sonar,
+    backgroundColor: colors.accent,
     borderRadius: radius.md,
     paddingVertical: space.md + 2,
     paddingHorizontal: space.xl,
     alignItems: "center",
   },
-  primaryOff: { backgroundColor: colors.line },
-  primaryText: { ...type.ui, color: colors.abyss, fontFamily: "PlexSansSemi" },
+  primaryOff: { backgroundColor: colors.border },
+  primaryText: { ...type.ui, color: colors.bg, fontFamily: "PlexSansSemi" },
 
   error: {
     flexDirection: "row",
     gap: space.sm,
     marginTop: space.lg,
     padding: space.md,
-    backgroundColor: colors.coralSoft,
+    backgroundColor: colors.dangerSoft,
     borderRadius: radius.sm,
   },
-  errorText: { ...type.caption, color: colors.foam, flex: 1, lineHeight: 18 },
+  errorText: { ...type.caption, color: colors.text, flex: 1, lineHeight: 18 },
 
   switcher: { marginTop: space.xl, alignItems: "center" },
-  switcherText: { ...type.caption, color: colors.sonar },
+  switcherText: { ...type.caption, color: colors.accent },
 });

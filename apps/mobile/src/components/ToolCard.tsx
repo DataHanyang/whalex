@@ -51,7 +51,7 @@ export const ToolCard = memo(function ToolCard({ item }: { item: ToolItem }) {
   const { icon, verb, target } = describe(item.toolName, item.args as Record<string, unknown>);
   const running = item.state === "running";
   const failed = item.state === "error";
-  const tint = failed ? colors.coral : running ? colors.sonar : colors.deep;
+  const tint = failed ? colors.danger : running ? colors.accent : colors.faint;
   const hasBody = Boolean(item.output) || Boolean(item.diff);
 
   return (
@@ -70,14 +70,14 @@ export const ToolCard = memo(function ToolCard({ item }: { item: ToolItem }) {
         )}
         <View style={styles.tail}>
           {running ? (
-            <Text style={[styles.state, { color: colors.sonar }]}>running</Text>
+            <Text style={[styles.state, { color: colors.accent }]}>running</Text>
           ) : failed ? (
-            <Text style={[styles.state, { color: colors.coral }]}>failed</Text>
+            <Text style={[styles.state, { color: colors.danger }]}>failed</Text>
           ) : item.durationMs > 900 ? (
             <Text style={styles.state}>{(item.durationMs / 1000).toFixed(1)}s</Text>
           ) : null}
           {hasBody && (
-            <Feather name={open ? "chevron-up" : "chevron-down"} size={13} color={colors.deep} />
+            <Feather name={open ? "chevron-up" : "chevron-down"} size={13} color={colors.faint} />
           )}
         </View>
       </Pressable>
@@ -106,15 +106,15 @@ const styles = StyleSheet.create({
     gap: space.sm,
     paddingVertical: space.sm,
     paddingHorizontal: space.md,
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   icon: { width: 14 },
-  verb: { ...type.label, color: colors.mist, textTransform: "capitalize" },
-  target: { ...type.monoSmall, color: colors.foam, flex: 1 },
+  verb: { ...type.label, color: colors.muted, textTransform: "capitalize" },
+  target: { ...type.monoSmall, color: colors.text, flex: 1 },
   tail: { flexDirection: "row", alignItems: "center", gap: space.sm, marginLeft: "auto" },
-  state: { ...type.monoSmall, color: colors.deep },
+  state: { ...type.monoSmall, color: colors.faint },
   body: { paddingLeft: space.sm },
 });

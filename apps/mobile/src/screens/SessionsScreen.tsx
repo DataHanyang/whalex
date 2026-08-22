@@ -77,7 +77,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
             <View
               style={[
                 styles.dot,
-                { backgroundColor: phase === "connected" ? colors.kelp : colors.beacon },
+                { backgroundColor: phase === "connected" ? colors.ok : colors.attention },
               ]}
             />
             <Text style={styles.connText}>
@@ -89,7 +89,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
 
       {error && (
         <View style={styles.error}>
-          <Feather name="alert-triangle" size={13} color={colors.coral} />
+          <Feather name="alert-triangle" size={13} color={colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       )}
@@ -99,9 +99,9 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            tintColor={colors.mist}
-            colors={[colors.sonar]}
-            progressBackgroundColor={colors.hull}
+            tintColor={colors.muted}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.surface}
             onRefresh={() => {
               setRefreshing(true);
               void load().finally(() => setRefreshing(false));
@@ -119,7 +119,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
         )}
         {projects.length === 0 && phase !== "connected" && (
           <View style={styles.empty}>
-            <ActivityIndicator color={colors.sonar} />
+            <ActivityIndicator color={colors.accent} />
           </View>
         )}
 
@@ -165,18 +165,18 @@ function ProjectBlock({
           <Feather
             name={collapsed ? "chevron-right" : "chevron-down"}
             size={14}
-            color={colors.deep}
+            color={colors.faint}
           />
           <Text style={styles.projectTitle} numberOfLines={1}>
             {project.name}
           </Text>
-          {live && <View style={[styles.dot, { backgroundColor: colors.kelp }]} />}
+          {live && <View style={[styles.dot, { backgroundColor: colors.ok }]} />}
         </Pressable>
         <Pressable style={styles.newBtn} onPress={onNew} hitSlop={8}>
           {busy === `new:${project.cwd}` ? (
-            <ActivityIndicator size="small" color={colors.sonar} />
+            <ActivityIndicator size="small" color={colors.accent} />
           ) : (
-            <Feather name="plus" size={15} color={colors.mist} />
+            <Feather name="plus" size={15} color={colors.muted} />
           )}
         </Pressable>
       </View>
@@ -204,10 +204,10 @@ function ProjectBlock({
                 </Text>
               </View>
               {busy === s.sessionId ? (
-                <ActivityIndicator size="small" color={colors.sonar} />
+                <ActivityIndicator size="small" color={colors.accent} />
               ) : s.running ? (
                 <View style={styles.pill}>
-                  <View style={[styles.dot, { backgroundColor: colors.kelp }]} />
+                  <View style={[styles.dot, { backgroundColor: colors.ok }]} />
                   <Text style={styles.pillText}>Running</Text>
                 </View>
               ) : null}
@@ -219,7 +219,7 @@ function ProjectBlock({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.abyss },
+  root: { flex: 1, backgroundColor: colors.bg },
   head: {
     flexDirection: "row",
     alignItems: "center",
@@ -239,10 +239,10 @@ const styles = StyleSheet.create({
     marginHorizontal: space.xl,
     marginBottom: space.md,
     padding: space.md,
-    backgroundColor: colors.coralSoft,
+    backgroundColor: colors.dangerSoft,
     borderRadius: radius.sm,
   },
-  errorText: { ...type.caption, color: colors.foam, flex: 1 },
+  errorText: { ...type.caption, color: colors.text, flex: 1 },
   list: { paddingHorizontal: space.lg, paddingBottom: space.xxxl },
 
   project: { marginBottom: space.lg },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     ...type.label,
     textTransform: "uppercase",
     letterSpacing: 0.8,
-    color: colors.mist,
+    color: colors.muted,
     flexShrink: 1,
   },
   newBtn: {
@@ -267,23 +267,23 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: space.md,
-    backgroundColor: colors.hull,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: space.lg,
     paddingVertical: space.md + 2,
     marginBottom: space.sm,
   },
-  rowPressed: { backgroundColor: colors.hull2, borderColor: colors.lineStrong },
+  rowPressed: { backgroundColor: colors.surface2, borderColor: colors.borderStrong },
   rowBody: { flex: 1, gap: 3 },
   rowTitle: { ...type.ui },
   rowMeta: { ...type.caption, fontSize: 11.5 },
@@ -291,15 +291,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space.xs + 1,
-    backgroundColor: colors.kelpSoft,
+    backgroundColor: colors.okSoft,
     paddingHorizontal: space.sm,
     paddingVertical: 3,
     borderRadius: radius.pill,
   },
-  pillText: { ...type.label, fontSize: 10.5, color: colors.kelp },
+  pillText: { ...type.label, fontSize: 10.5, color: colors.ok },
   blank: {
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.border,
     borderStyle: "dashed",
     borderRadius: radius.md,
     paddingVertical: space.lg,
@@ -308,6 +308,6 @@ const styles = StyleSheet.create({
   },
   blankText: { ...type.caption },
   empty: { alignItems: "center", paddingTop: space.xxxl, gap: space.sm },
-  emptyTitle: { ...type.heading, color: colors.mist },
+  emptyTitle: { ...type.heading, color: colors.muted },
   emptyBody: { ...type.caption, textAlign: "center" },
 });

@@ -46,7 +46,7 @@ export function PermissionSheet() {
   };
 
   return (
-    <Sheet visible={Boolean(request)} accent={colors.beacon}>
+    <Sheet visible={Boolean(request)} accent={colors.attention}>
       {request && (
         <Body
           request={request}
@@ -78,7 +78,7 @@ function Body({
     <>
       <View style={styles.head}>
         <View style={styles.badge}>
-          <Feather name={kind.icon} size={14} color={colors.beacon} />
+          <Feather name={kind.icon} size={14} color={colors.attention} />
         </View>
         <View style={styles.headText}>
           <Text style={styles.label}>{kind.label}</Text>
@@ -147,12 +147,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radius.sm,
-    backgroundColor: colors.beaconSoft,
+    backgroundColor: colors.attentionSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   headText: { flex: 1, gap: 3 },
-  label: { ...type.label, color: colors.beacon, textTransform: "uppercase", letterSpacing: 0.7 },
+  label: { ...type.label, color: colors.attention, textTransform: "uppercase", letterSpacing: 0.7 },
   summary: { ...type.heading, lineHeight: 22 },
   scroll: { maxHeight: 340 },
   scrollBody: { paddingHorizontal: space.xl },
@@ -168,12 +168,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
   },
-  deny: { backgroundColor: colors.hull2, borderWidth: 1, borderColor: colors.line },
-  denyText: { ...type.ui, color: colors.mist },
-  allow: { backgroundColor: colors.sonar },
-  allowText: { ...type.ui, color: colors.abyss, fontFamily: "PlexSansSemi" },
+  deny: { backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.border },
+  denyText: { ...type.ui, color: colors.muted },
+  allow: { backgroundColor: colors.accent },
+  allowText: { ...type.ui, color: colors.bg, fontFamily: "PlexSansSemi" },
   always: { paddingVertical: space.md, alignItems: "center" },
-  alwaysText: { ...type.caption, color: colors.mist },
-  rule: { ...type.monoSmall, color: colors.sonar },
+  alwaysText: { ...type.caption, color: colors.muted },
+  rule: { ...type.monoSmall, color: colors.accent },
   queued: { ...type.caption, textAlign: "center", paddingBottom: space.sm },
 });
