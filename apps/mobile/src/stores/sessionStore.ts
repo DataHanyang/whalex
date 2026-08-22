@@ -55,6 +55,20 @@ interface MobileSessionState extends ClientSessionState {
   attachments: PendingAttachment[];
   addAttachment(a: PendingAttachment): void;
   removeAttachment(id: string): void;
+  /** sessionId → count of approvals/questions waiting in OTHER sessions. */
+  pendingBySession: Record<string, number>;
+  /** Text waiting to be placed into the composer (steer-edit, plan revise). */
+  draftSeed: string | null;
+  setDraftSeed(text: string | null): void;
+  /** Rewrite a still-queued steer message; false = the model already read it. */
+  editPending(messageId: string, text: string): Promise<void>;
+  /** Drop a still-queued steer message. */
+  cancelPending(messageId: string): Promise<void>;
+  clearPlanPending(): void;
+  listCheckpoints(): Promise<
+    Array<{ boundary: number; ts: number; label: string; fileChanges: number }>
+  >;
+  rewind(boundary: number): Promise<void>;
   /**
    * messageId → local uris of images that rode out with that message, so the
    * sent bubble shows the pictures and not just the vision text they became.
@@ -91,9 +105,39 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
   useConnectionStore.setState({
     onEvent: (env) => handleEnvelope(env),
     onAlert: (env) => {
-      // Alerts from other sessions: refresh the list on completion so the
-      // sidebar-equivalent stays truthful; approvals surface via badge later.
-      if (env.event.type === "done" || env.event.type === "error") void get().refreshSessions();
+      const ev = env.event;
+      // A session you are NOT looking at wants an answer — count it so the
+      // session list can wear a badge instead of staying silent.
+      if (ev.type === "permission-request" || ev.type === "question-request") {
+        set((s) => ({
+          pendingBySession: {
+            ...s.pendingBySession,
+            [env.sessionId]: (s.pendingBySession[env.sessionId] ?? 0) + 1,
+          },
+        }));
+        return;
+      }
+      if (ev.type === "permission-resolved") {
+        set((s) => ({
+          pendingBySession: {
+            ...s.pendingBySession,
+            [env.sessionId]: Math.max(0, (s.pendingBySession[env.sessionId] ?? 0) - 1),
+          },
+        }));
+        return;
+      }
+      // Titles apply to whichever session they name, active or not.
+      if (ev.type === "session-title") {
+        const title = ev.title;
+        set((s) => ({
+          sessions: s.sessions.map((m) => (m.sessionId === env.sessionId ? { ...m, title } : m)),
+        }));
+        return;
+      }
+      if (ev.type === "done" || ev.type === "error") {
+        set((s) => ({ pendingBySession: { ...s.pendingBySession, [env.sessionId]: 0 } }));
+        void get().refreshSessions();
+      }
     },
   });
 
@@ -105,6 +149,15 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
 
   function handleEnvelope(env: AgentEventEnvelope): void {
     const s = get();
+    // Titles apply to whichever session they name, active or not — and never
+    // touch the transcript, so they skip the seq bookkeeping entirely.
+    if (env.event.type === "session-title") {
+      const title = env.event.title;
+      set((st) => ({
+        sessions: st.sessions.map((m) => (m.sessionId === env.sessionId ? { ...m, title } : m)),
+      }));
+      return;
+    }
     if (env.sessionId !== s.activeSessionId) return;
     if (buffer) {
       buffer.push(env);
@@ -118,8 +171,22 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       if (cwd && activeSessionId) void get().open(cwd, activeSessionId);
       return;
     }
-    const { state } = foldEnvelope(clientSlice(s), env.event, foldCtx);
+    const { state, signals } = foldEnvelope(clientSlice(s), env.event, foldCtx);
     set({ ...state, lastSeq: env.seq });
+    for (const sig of signals) {
+      switch (sig.type) {
+        case "turn-finished":
+          // Keeps titles, timestamps and message counts honest on the list.
+          void get().refreshSessions();
+          break;
+        case "supercode":
+          // Mirror the desktop: SuperCode owns the model while it runs.
+          if (sig.on) set({ model: "deepseek-v4-pro" });
+          break;
+        default:
+          break;
+      }
+    }
   }
 
   return {
@@ -135,6 +202,8 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
     effort: "medium",
     attachments: [],
     sentImages: {},
+    pendingBySession: {},
+    draftSeed: null,
     lastSeq: 0,
     opening: false,
 
@@ -228,6 +297,56 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
 
     addAttachment(a) {
       set({ attachments: [...get().attachments, a] });
+    },
+
+    setDraftSeed(text) {
+      set({ draftSeed: text });
+    },
+
+    async editPending(messageId, text) {
+      const id = get().activeSessionId;
+      if (!id) return;
+      const res = await client().invoke("session:steerEdit", { sessionId: id, messageId, text });
+      set((s) => ({
+        transcript: s.transcript.map((t) =>
+          t.kind === "user" && t.id === messageId
+            ? res.ok
+              ? { ...t, text }
+              : // Lost the race — the model already has the original text.
+                { ...t, delivery: "read" as const }
+            : t,
+        ),
+      }));
+    },
+
+    async cancelPending(messageId) {
+      const id = get().activeSessionId;
+      if (!id) return;
+      const res = await client().invoke("session:steerCancel", { sessionId: id, messageId });
+      set((s) => ({
+        transcript: res.ok
+          ? s.transcript.filter((t) => !(t.kind === "user" && t.id === messageId))
+          : s.transcript.map((t) =>
+              t.kind === "user" && t.id === messageId ? { ...t, delivery: "read" as const } : t,
+            ),
+      }));
+    },
+
+    clearPlanPending() {
+      set({ planPending: false });
+    },
+
+    async listCheckpoints() {
+      const id = get().activeSessionId;
+      if (!id) return [];
+      return client().invoke("checkpoint:list", { sessionId: id });
+    },
+
+    async rewind(boundary) {
+      const id = get().activeSessionId;
+      if (!id) return;
+      const res = await client().invoke("checkpoint:rewind", { sessionId: id, boundary });
+      set({ transcript: res.transcript, planPending: false });
     },
 
     removeAttachment(id) {

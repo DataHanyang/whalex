@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { memo, useEffect, useRef, useState } from "react";
+import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
+import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
 import { ImageCards, InlineImage } from "./InlineImage";
@@ -24,28 +25,91 @@ function SentImages({ messageId }: { messageId: string }) {
   return <ImageCards uris={uris} align="right" />;
 }
 
+/**
+ * A sent message. While it waits in the steer queue it wears the same
+ * Unread badge the desktop shows, and a long-press offers edit or cancel —
+ * the queue is not a black hole.
+ */
+function UserRow({ item }: { item: Extract<Row, { kind: "user" }> }) {
+  const cancelPending = useMobileSession((s) => s.cancelPending);
+  const setDraftSeed = useMobileSession((s) => s.setDraftSeed);
+
+  const pending = item.delivery === "pending";
+  const onLongPress = (): void => {
+    if (!pending) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(item.text.slice(0, 80), undefined, [
+      {
+        text: t("transcript.editMessage"),
+        onPress: () => {
+          // The old text moves into the composer; sending it back goes
+          // through editPending so the queued copy is what changes.
+          setDraftSeed(item.text);
+          void cancelPending(item.id);
+        },
+      },
+      {
+        text: t("transcript.deleteMessage"),
+        style: "destructive",
+        onPress: () => void cancelPending(item.id),
+      },
+      { text: t("plan.cancel"), style: "cancel" },
+    ]);
+  };
+
+  return (
+    <View style={styles.userWrap}>
+      <SentImages messageId={item.id} />
+      {item.text.length > 0 && (
+        <Pressable onLongPress={onLongPress} delayLongPress={350}>
+          <View style={styles.userBubble}>
+            <Text style={styles.userText}>{item.text}</Text>
+          </View>
+        </Pressable>
+      )}
+      {item.delivery && (
+        <View style={styles.deliveryRow}>
+          <Feather
+            name={pending ? "clock" : "check"}
+            size={10}
+            color={pending ? colors.attention : colors.ok}
+          />
+          <Text style={[styles.queued, !pending && { color: colors.ok }]}>
+            {t(pending ? "transcript.delivery.pending" : "transcript.delivery.read")}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** Known error codes get their translated label; unknown ones show as-is. */
+const ERROR_CODES = new Set([
+  "rate_limit",
+  "invalid_key",
+  "insufficient_balance",
+  "usage_limit",
+  "network",
+  "context_overflow",
+  "aborted",
+  "unknown",
+]);
+function ErrorTitle({ code }: { code: string }) {
+  return <>{ERROR_CODES.has(code) ? t(`error.${code}` as Parameters<typeof t>[0]) : code}</>;
+}
+
 export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }) {
   switch (item.kind) {
     case "tool-group":
       return <ToolGroup items={item.items} />;
 
     case "user":
-      return (
-        <View style={styles.userWrap}>
-          <SentImages messageId={item.id} />
-          {item.text.length > 0 && (
-            <View style={styles.userBubble}>
-              <Text style={styles.userText}>{item.text}</Text>
-            </View>
-          )}
-          {item.delivery === "pending" && <Text style={styles.queued}>{t("chat.queued")}</Text>}
-        </View>
-      );
+      return <UserRow item={item} />;
 
     case "assistant":
       return (
         <View style={styles.assistant}>
-          {!!item.reasoning && !item.text && <Reasoning text={item.reasoning} />}
+          {!!item.reasoning && <Reasoning text={item.reasoning} expandable={!!item.text} />}
           {!!item.text && <Markdown text={item.text} />}
           {item.streaming && !item.text && <Caret />}
           {item.interrupted && (
@@ -57,57 +121,31 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
         </View>
       );
 
-    case "todos": {
-      const done = item.todos.filter((t) => t.status === "completed").length;
-      return (
-        <>
-          <View style={styles.card}>
-            <View style={styles.cardHead}>
-              <Feather name="check-square" size={13} color={colors.faint} />
-              <Text style={styles.cardTitle}>{t("chat.plan")}</Text>
-              <Text style={styles.cardMeta}>
-                {done}/{item.todos.length}
-              </Text>
-            </View>
-            {item.todos.map((t, i) => (
-              <View key={i} style={styles.todo}>
-                <Feather
-                  name={
-                    t.status === "completed"
-                      ? "check"
-                      : t.status === "in_progress"
-                        ? "loader"
-                        : "circle"
-                  }
-                  size={12}
-                  color={
-                    t.status === "completed"
-                      ? colors.ok
-                      : t.status === "in_progress"
-                        ? colors.accent
-                        : colors.faint
-                  }
-                />
-                <Text
-                  style={[styles.todoText, t.status === "completed" && styles.todoDone]}
-                  numberOfLines={2}
-                >
-                  {t.content}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </>
-      );
-    }
+    case "todos":
+      // Live plan progress rides with the composer; replaying every saved
+      // snapshot here buried long sessions under near-identical cards.
+      return null;
 
     case "error":
+      // Goal-loop progress folds in as an "error" item; it is news, not an
+      // alarm, so it renders as the desktop's calm accent divider.
+      if (item.code.startsWith("goal-")) {
+        return (
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.accentSoft }]} />
+            <Text style={[styles.dividerText, { color: colors.accent }]}>{item.message}</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.accentSoft }]} />
+          </View>
+        );
+      }
       return (
         <>
           <View style={[styles.card, styles.errorCard]}>
             <View style={styles.cardHead}>
               <Feather name="alert-triangle" size={13} color={colors.danger} />
-              <Text style={[styles.cardTitle, { color: colors.danger }]}>{item.code}</Text>
+              <Text style={[styles.cardTitle, { color: colors.danger }]}>
+                <ErrorTitle code={item.code} />
+              </Text>
             </View>
             <Text style={styles.errorText}>{item.message}</Text>
           </View>
@@ -178,13 +216,29 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
   }
 });
 
-/** Shown while the model is thinking but hasn't emitted prose yet. */
-function Reasoning({ text }: { text: string }) {
+/**
+ * Thinking text. While it is the only output it previews inline; once prose
+ * arrives it folds into a disclosure, still readable — the desktop keeps
+ * reasoning reachable forever and so does this.
+ */
+function Reasoning({ text, expandable }: { text: string; expandable: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (!expandable) {
+    return (
+      <View style={styles.reasoning}>
+        <Text style={styles.reasoningText} numberOfLines={3}>
+          {text}
+        </Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.reasoning}>
-      <Text style={styles.reasoningText} numberOfLines={3}>
-        {text}
-      </Text>
+      <Pressable style={styles.reasoningHead} onPress={() => setOpen((v) => !v)} hitSlop={6}>
+        <Feather name={open ? "chevron-down" : "chevron-right"} size={12} color={colors.faint} />
+        <Text style={styles.reasoningLabel}>{t("transcript.reasoning")}</Text>
+      </Pressable>
+      {open && <Text style={styles.reasoningText}>{text}</Text>}
     </View>
   );
 }
@@ -214,7 +268,16 @@ const styles = StyleSheet.create({
     maxWidth: "88%",
   },
   userText: { ...type.body, color: colors.text },
-  queued: { ...type.caption, marginTop: space.xs, color: colors.faint },
+  queued: { ...type.caption, color: colors.faint },
+  deliveryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: space.xs,
+    alignSelf: "flex-end",
+  },
+  reasoningHead: { flexDirection: "row", alignItems: "center", gap: 4 },
+  reasoningLabel: { ...type.caption, color: colors.faint },
 
   assistant: { marginVertical: space.sm },
   interrupted: { flexDirection: "row", alignItems: "center", gap: space.xs },

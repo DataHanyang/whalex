@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { RemoteClient, type HelloOk } from "@whalex/client-core";
 import type { AgentEventEnvelope } from "@whalex/shared";
+import { t } from "../i18n";
 import { getToken, saveComputer, type PairedComputer } from "../lib/computers";
 import { makeSocketFactory, probePublicUrl } from "../lib/socketFactory";
 
@@ -32,6 +33,9 @@ interface ConnectionState {
   /** Session event fan-in; the session store registers itself here. */
   onEvent: ((env: AgentEventEnvelope) => void) | null;
   onAlert: ((env: AgentEventEnvelope) => void) | null;
+  /** Spend-limit / low-balance alert from the desktop; sticky until dismissed. */
+  usageWarning: string | null;
+  dismissUsageWarning(): void;
 
   connect(computer: PairedComputer): Promise<void>;
   disconnect(): void;
@@ -53,6 +57,11 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
   attempt: 0,
   onEvent: null,
   onAlert: null,
+  usageWarning: null,
+
+  dismissUsageWarning() {
+    set({ usageWarning: null });
+  },
 
   async connect(computer) {
     const gen = ++generation;
@@ -73,6 +82,11 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       client: { name: "WhaleX Android", platform: "android", appVersion: "0.1.0" },
       onEvent: (env) => get().onEvent?.(env),
       onAlert: (env) => get().onAlert?.(env),
+      onUsageWarning: (w) => {
+        // Rendered through the same i18n keys the desktop status bar uses.
+        const params = { pct: Math.round(w.pct ?? 0), usd: w.usd.toFixed(2), limit: w.limit };
+        set({ usageWarning: t(`usage.warn.${w.kind}`, params) });
+      },
       onClose: () => {
         if (gen !== generation) return;
         scheduleRetry(set, get, gen);

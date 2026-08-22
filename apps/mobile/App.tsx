@@ -16,6 +16,7 @@ import type { AppLanguage } from "@whalex/shared";
 import { setLanguage, t } from "./src/i18n";
 import { listComputers, type PairedComputer } from "./src/lib/computers";
 import { useConnectionStore } from "./src/stores/connectionStore";
+import { useMobileSession } from "./src/stores/sessionStore";
 import { PairScreen } from "./src/screens/PairScreen";
 import { SessionsScreen } from "./src/screens/SessionsScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
@@ -112,11 +113,28 @@ function Shell() {
   }, [kick]);
 
   useEffect(() => {
-    if (phase === "connected") {
+    if (phase !== "connected") return;
+    // The preview seeds its own screens; the attached-landing would call a
+    // socket that isn't there.
+    if (DEMO) {
       setEverConnected(true);
-      setScreen((s) => (s === "connecting" ? "sessions" : s));
+      return;
     }
-  }, [phase]);
+    const first = !everConnected;
+    setEverConnected(true);
+    // First landing: if the desktop is mid-turn, open that session — the
+    // reason the phone came out of the pocket is almost always that turn.
+    const attached = useConnectionStore.getState().hello?.attached;
+    if (first && attached?.running && attached.sessionId && attached.cwd) {
+      void useMobileSession
+        .getState()
+        .open(attached.cwd, attached.sessionId)
+        .then(() => setScreen("chat"))
+        .catch(() => setScreen("sessions"));
+      return;
+    }
+    setScreen((s) => (s === "connecting" ? "sessions" : s));
+  }, [phase, everConnected]);
 
   useEffect(() => {
     if (phase === "pairingRequired") setScreen("pair");

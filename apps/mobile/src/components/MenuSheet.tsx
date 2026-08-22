@@ -18,10 +18,12 @@ export function MenuSheet({
   visible,
   onDismiss,
   onSwitchSession,
+  onRewind,
 }: {
   visible: boolean;
   onDismiss: () => void;
   onSwitchSession: () => void;
+  onRewind?: () => void;
 }) {
   const cwd = useMobileSession((s) => s.cwd);
   const usage = useMobileSession((s) => s.usage);
@@ -76,6 +78,7 @@ export function MenuSheet({
               }}
             />
           )}
+          {onRewind && <Row icon="rotate-ccw" label={t("rewind.title")} onPress={onRewind} />}
         </View>
 
         <Text style={styles.section}>{t("menu.computer")}</Text>

@@ -202,6 +202,17 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
   );
 }
 
+/** A session waiting on an approval or a question wears a red count. */
+function PendingBadge({ sessionId }: { sessionId: string }) {
+  const count = useMobileSession((s) => s.pendingBySession[sessionId] ?? 0);
+  if (count === 0) return null;
+  return (
+    <View style={styles.badge}>
+      <Text style={styles.badgeText}>{count}</Text>
+    </View>
+  );
+}
+
 function ProjectBlock({
   project,
   collapsed,
@@ -265,12 +276,15 @@ function ProjectBlock({
               </View>
               {busy === s.sessionId ? (
                 <ActivityIndicator size="small" color={colors.accent} />
-              ) : s.running ? (
+              ) : (
+                <PendingBadge sessionId={s.sessionId} />
+              )}
+              {busy !== s.sessionId && s.running && (
                 <View style={styles.pill}>
                   <View style={[styles.dot, { backgroundColor: colors.ok }]} />
                   <Text style={styles.pillText}>{t("sessions.running")}</Text>
                 </View>
-              ) : null}
+              )}
             </Pressable>
           ))
         ))}
@@ -372,6 +386,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   pillText: { ...type.label, fontSize: 10.5, color: colors.ok },
+  badge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: radius.pill,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: { ...type.label, fontSize: 10.5, color: "#fff" },
   blank: {
     borderWidth: 1,
     borderColor: colors.border,

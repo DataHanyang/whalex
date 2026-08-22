@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
@@ -45,9 +45,24 @@ export function Composer({
   const abort = useMobileSession((s) => s.abort);
   const attachments = useMobileSession((s) => s.attachments);
   const removeAttachment = useMobileSession((s) => s.removeAttachment);
+  const draftSeed = useMobileSession((s) => s.draftSeed);
+  const setDraftSeed = useMobileSession((s) => s.setDraftSeed);
+  const todos = useMobileSession((s) => s.todos);
   const [draft, setDraft] = useState("");
+  const [todosOpen, setTodosOpen] = useState(false);
   const running = status !== "idle";
   const ready = draft.trim().length > 0 || attachments.length > 0;
+
+  // Steer-edit and plan-revise hand their text in through the store.
+  useEffect(() => {
+    if (draftSeed !== null) {
+      setDraft(draftSeed);
+      setDraftSeed(null);
+    }
+  }, [draftSeed, setDraftSeed]);
+
+  const activeTodo = todos.find((td) => td.status === "in_progress") ?? todos[0];
+  const doneCount = todos.filter((td) => td.status === "completed").length;
 
   const submit = (): void => {
     if (!ready) return;
@@ -59,6 +74,42 @@ export function Composer({
 
   return (
     <View style={styles.wrap}>
+      {/* Live plan progress rides with the composer, like the desktop chip —
+          historical snapshots stay out of the transcript. */}
+      {running && todos.length > 0 && activeTodo && (
+        <Pressable style={styles.todoPill} onPress={() => setTodosOpen((v) => !v)}>
+          <Feather name="check-square" size={12} color={colors.accent} />
+          <Text style={styles.todoText} numberOfLines={1}>
+            {doneCount}/{todos.length} · {activeTodo.content}
+          </Text>
+          <Feather name={todosOpen ? "chevron-down" : "chevron-up"} size={13} color={colors.faint} />
+        </Pressable>
+      )}
+      {todosOpen && running && todos.length > 0 && (
+        <View style={styles.todoList}>
+          {todos.map((td, i) => (
+            <View key={`${i}-${td.content.slice(0, 18)}`} style={styles.todoRow}>
+              <Feather
+                name={td.status === "completed" ? "check-circle" : "circle"}
+                size={12}
+                color={
+                  td.status === "completed"
+                    ? colors.ok
+                    : td.status === "in_progress"
+                      ? colors.accent
+                      : colors.faint
+                }
+              />
+              <Text
+                style={[styles.todoText, td.status === "completed" && styles.todoDone]}
+                numberOfLines={1}
+              >
+                {td.content}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
       {attachments.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachRow}>
           {attachments.map((a) => (
@@ -104,7 +155,10 @@ export function Composer({
 
           <View style={styles.spacer} />
 
-          {running && !ready ? (
+          {/* Stop must survive typing: it used to vanish behind the send
+              button at the first character, leaving no way to abort. While a
+              run is live both buttons stand — stop the run, or steer it. */}
+          {running && (
             <Pressable
               style={[styles.action, styles.stop]}
               onPress={() => {
@@ -115,7 +169,8 @@ export function Composer({
             >
               <Feather name="square" size={13} color={colors.danger} />
             </Pressable>
-          ) : (
+          )}
+          {(!running || ready) && (
             <Pressable
               style={[styles.action, ready ? styles.send : styles.sendOff]}
               onPress={submit}
@@ -138,6 +193,30 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
     backgroundColor: colors.bg,
   },
+  todoPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    alignSelf: "flex-start",
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + 2,
+    marginBottom: space.sm,
+    maxWidth: "94%",
+  },
+  todoList: {
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
+    marginBottom: space.sm,
+  },
+  todoRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  todoText: { ...type.caption, color: colors.text, flexShrink: 1 },
+  todoDone: { color: colors.faint, textDecorationLine: "line-through" },
   attachRow: { marginBottom: space.sm, flexGrow: 0 },
   attachChip: {
     flexDirection: "row",

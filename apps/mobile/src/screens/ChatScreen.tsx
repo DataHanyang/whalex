@@ -19,6 +19,8 @@ import { TranscriptRow } from "../components/Transcript";
 import { toRows, type Row } from "../components/transcriptRows";
 import { Composer } from "../components/Composer";
 import { MenuSheet } from "../components/MenuSheet";
+import { PlanBar } from "../components/PlanBar";
+import { RewindSheet } from "../components/RewindSheet";
 import { ModeSheet, ModelSheet, WorkSheet } from "../components/PickerSheets";
 import { PermissionSheet } from "../components/PermissionSheet";
 import { QuestionSheet } from "../components/QuestionSheet";
@@ -38,7 +40,11 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
   const sessions = useMobileSession((s) => s.sessions);
   const activeSessionId = useMobileSession((s) => s.activeSessionId);
   const closeSession = useMobileSession((s) => s.closeSession);
+  const turnStartedAt = useMobileSession((s) => s.turnStartedAt);
   const phase = useConnectionStore((s) => s.phase);
+  const usageWarning = useConnectionStore((s) => s.usageWarning);
+  const dismissUsageWarning = useConnectionStore((s) => s.dismissUsageWarning);
+  const [rewindOpen, setRewindOpen] = useState(false);
   // Preview builds can land straight on the menu for a design review.
   const [menu, setMenu] = useState(
     typeof window !== "undefined" && window.location?.search?.includes("menu=1"),
@@ -82,12 +88,23 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
                   ? t(state.label)
                   : folder}
             </Text>
+            {status !== "idle" && turnStartedAt && <Elapsed since={turnStartedAt} />}
           </View>
         </View>
         <Pressable style={styles.iconBtn} onPress={() => setMenu(true)} hitSlop={10}>
           <Feather name="more-horizontal" size={20} color={colors.muted} />
         </Pressable>
       </View>
+
+      {usageWarning && (
+        <Pressable style={styles.warnBanner} onPress={dismissUsageWarning}>
+          <Feather name="alert-circle" size={13} color={colors.attention} />
+          <Text style={styles.warnText} numberOfLines={1}>
+            {usageWarning}
+          </Text>
+          <Feather name="x" size={13} color={colors.attention} />
+        </Pressable>
+      )}
 
       {/* Android too: edge-to-edge (mandatory on recent SDKs) stops the OS
           from resizing the window for the keyboard, so relying on
@@ -109,6 +126,7 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
           keyboardDismissMode="interactive"
           ListEmptyComponent={<Empty />}
         />
+        <PlanBar />
         <Composer
           onOpenWork={() => setPicker("work")}
           onOpenModel={() => setPicker("model")}
@@ -116,7 +134,16 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
         />
       </KeyboardAvoidingView>
 
-      <MenuSheet visible={menu} onDismiss={() => setMenu(false)} onSwitchSession={leave} />
+      <MenuSheet
+        visible={menu}
+        onDismiss={() => setMenu(false)}
+        onSwitchSession={leave}
+        onRewind={() => {
+          setMenu(false);
+          setRewindOpen(true);
+        }}
+      />
+      <RewindSheet visible={rewindOpen} onDismiss={() => setRewindOpen(false)} />
       <WorkSheet visible={picker === "work"} onDismiss={() => setPicker(null)} />
       <ModelSheet visible={picker === "model"} onDismiss={() => setPicker(null)} />
       <ModeSheet visible={picker === "mode"} onDismiss={() => setPicker(null)} />
@@ -124,6 +151,19 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
       <QuestionSheet />
     </View>
   );
+}
+
+/** mm:ss since the turn started — the desktop status bar's live clock. */
+function Elapsed({ since }: { since: number }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => force((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
+  const mm = Math.floor(s / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return <Text style={styles.elapsed}>{`${mm}:${ss}`}</Text>;
 }
 
 /** Same six greeting slots as the desktop, so both apps open with one voice. */
@@ -177,6 +217,19 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
   dot: { width: 6, height: 6, borderRadius: radius.pill },
   sub: { ...type.caption, fontSize: 11.5 },
+  elapsed: { ...type.monoSmall, fontSize: 11, color: colors.faint },
+  warnBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    marginHorizontal: space.md,
+    marginBottom: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    backgroundColor: colors.attentionSoft,
+  },
+  warnText: { ...type.caption, color: colors.attention, flex: 1 },
   list: { paddingHorizontal: space.lg, paddingVertical: space.lg },
   empty: {
     // The list is inverted, so its empty state must counter with the exact
