@@ -12,6 +12,23 @@ import { UsageWarningSchema, type IpcInvokeChannel } from "./ipc.js";
 export const REMOTE_PROTOCOL_VERSION = 1;
 
 /**
+ * Subprotocol the client always offers, and the one the server selects.
+ * Never carries the token — see WS_TOKEN_PROTOCOL.
+ */
+export const WS_PROTOCOL = "whalex.v1";
+
+/**
+ * Prefix for the subprotocol entry that carries the device token
+ * (`whalex.token.<token>`).
+ *
+ * The token belongs in an Authorization header, and clients that can set one
+ * still do. React Native's Android WebSocket drops custom headers, though, so
+ * a paired phone would present nothing and be turned away as revoked. The
+ * handshake's own protocol list is the one field every client controls.
+ */
+export const WS_TOKEN_PROTOCOL = "whalex.token";
+
+/**
  * Channels a remote client may invoke — a strict subset of IPC_INVOKE.
  * Everything touching secrets, the OS shell/dialogs, app settings, updates,
  * or destructive session ops stays desktop-only.

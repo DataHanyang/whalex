@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import QRCode from "qrcode";
+import whalexMark from "../assets/logo.png";
 import {
   DEEPSEEK_BASE_URL,
   MCP_PRESETS,
@@ -1306,7 +1307,13 @@ function RemoteTab() {
 
   const pair = async () => {
     const res = await whalex.invoke("remote:pairingStart", undefined);
-    const dataUrl = await QRCode.toDataURL(res.qrPayload, { width: 240, margin: 1 });
+    const dataUrl = await QRCode.toDataURL(res.qrPayload, {
+      width: 432, // 2× for crisp rendering on a HiDPI display
+      margin: 0,
+      // High correction leaves room for the logo patch in the middle.
+      errorCorrectionLevel: "H",
+      color: { dark: "#0B1220", light: "#FFFFFF" },
+    });
     setQr({ dataUrl, expiresAt: res.expiresAt });
   };
 
@@ -1358,6 +1365,13 @@ function RemoteTab() {
           </span>
         </Row>
       )}
+      {/* Everything below is for people fronting the bridge themselves. The
+          two toggles above are the whole setup for everyone else, so these
+          stay folded rather than reading as required fields. */}
+      <details className="mt-3">
+        <summary className="cursor-pointer list-none py-2 text-[12px] text-faint hover:text-muted">
+          {t("settings.remote.advanced")}
+        </summary>
       <Row label={t("settings.remote.insecure")}>
         <label className="flex max-w-[320px] items-center gap-2 text-[11.5px] text-danger">
           <ToggleSwitch
@@ -1397,6 +1411,7 @@ function RemoteTab() {
           className="w-64 rounded-md border border-border bg-surface px-2 py-1 text-[12.5px]"
         />
       </Row>
+      <div className="pb-2 text-[11.5px] text-faint">{t("settings.remote.publicUrl.hint")}</div>
       {status?.running && status.addresses.length > 0 && (
         <Row label={t("settings.remote.addresses")}>
           <span className="font-mono text-[11.5px] text-faint">
@@ -1404,6 +1419,7 @@ function RemoteTab() {
           </span>
         </Row>
       )}
+      </details>
 
       <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">
         {t("settings.remote.pair")}
@@ -1411,12 +1427,34 @@ function RemoteTab() {
       {!status?.running ? (
         <div className="py-2 text-[12px] text-faint">{t("settings.remote.off")}</div>
       ) : qr ? (
-        <div className="flex flex-col items-center gap-2 py-2">
-          <img src={qr.dataUrl} alt="pairing QR" className="rounded-lg border border-border" />
-          <span className="text-[12px] text-muted">{t("settings.remote.pair.hint")}</span>
-          <span className="text-[11.5px] text-faint">
-            {t("settings.remote.pair.expires", { s: remaining })}
-          </span>
+        <div className="flex flex-col items-center py-3">
+          {/* A quiet card around the code: the phone's camera wants a clean
+              white field, and the frame keeps it from floating on the panel. */}
+          <div className="rounded-2xl border border-border bg-surface-2 p-5 shadow-sm">
+            <div className="relative rounded-xl bg-white p-4">
+              <img src={qr.dataUrl} alt="" width={216} height={216} className="block" />
+              {/* The mark sits in the code's own error-correction margin. */}
+              <div className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl bg-white shadow">
+                <img src={whalexMark} alt="" className="h-8 w-8" />
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+              </span>
+              <span className="text-[12px] text-muted">{t("settings.remote.pair.hint")}</span>
+            </div>
+            <div className="mt-1 text-center text-[11.5px] text-faint">
+              {t("settings.remote.pair.expires", { s: remaining })}
+            </div>
+          </div>
+          <button
+            onClick={() => void pair()}
+            className="mt-3 text-[11.5px] text-faint hover:text-text"
+          >
+            {t("settings.remote.pair.regenerate")}
+          </button>
         </div>
       ) : (
         <button

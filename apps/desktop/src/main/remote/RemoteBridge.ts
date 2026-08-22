@@ -16,6 +16,8 @@ import {
   REMOTE_CLOSE_CODES,
   REMOTE_PROTOCOL_VERSION,
   RemoteClientMessageSchema,
+  WS_PROTOCOL,
+  WS_TOKEN_PROTOCOL,
   isRemoteChannel,
   type AgentEventEnvelope,
   type PairResponse,
@@ -173,7 +175,12 @@ export class RemoteBridge {
         void this.handleHttp(req, res);
       });
     }
-    this.wss = new WebSocketServer({ noServer: true });
+    this.wss = new WebSocketServer({
+      noServer: true,
+      // Select the plain protocol, never the entry carrying the token — the
+      // handshake response is not the place to echo a secret back.
+      handleProtocols: (offered) => (offered.has(WS_PROTOCOL) ? WS_PROTOCOL : false),
+    });
     server.on("upgrade", (req, socket, head) => this.handleUpgrade(req, socket, head));
     server.on("error", (err) => {
       this.log(`remote bridge server error: ${String(err)}`);
@@ -379,16 +386,17 @@ export class RemoteBridge {
       socket.destroy();
       return;
     }
-    const auth = req.headers.authorization ?? "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    const { token, via } = readToken(req);
     const device = token ? this.pairing.verifyToken(token) : null;
     if (!device) {
       // Pre-upgrade 401 — the client reads this as "token revoked, re-pair".
+      this.log(`remote upgrade refused: no valid token (offered via ${via})`);
       socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
       socket.destroy();
       return;
     }
     this.wss?.handleUpgrade(req, socket, head, (ws) => {
+      this.log(`remote device connected: ${device.name} (token via ${via})`);
       const ip = req.socket.remoteAddress ?? "";
       const st: ConnState = {
         deviceId: device.id,
@@ -571,6 +579,28 @@ export class RemoteBridge {
     }
     return out;
   }
+}
+
+/**
+ * Reads the device token from the upgrade request.
+ *
+ * `Authorization` is the obvious place, but React Native's Android WebSocket
+ * does not reliably forward custom headers, which left a paired phone looking
+ * like a revoked one. `Sec-WebSocket-Protocol` is part of the handshake every
+ * client can set, so it is the fallback — the token is a bearer secret either
+ * way, and the channel is TLS in both.
+ */
+function readToken(req: http.IncomingMessage): { token: string; via: string } {
+  const auth = req.headers.authorization ?? "";
+  if (auth.startsWith("Bearer ")) return { token: auth.slice(7), via: "header" };
+
+  const offered = String(req.headers["sec-websocket-protocol"] ?? "")
+    .split(",")
+    .map((s) => s.trim());
+  const carrier = offered.find((p) => p.startsWith(`${WS_TOKEN_PROTOCOL}.`));
+  if (carrier) return { token: carrier.slice(WS_TOKEN_PROTOCOL.length + 1), via: "subprotocol" };
+
+  return { token: "", via: offered.length > 1 || offered[0] ? "subprotocol(none)" : "nothing" };
 }
 
 /** True for connections arriving over the loopback interface. */

@@ -363,6 +363,9 @@ export const en = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "Sign in with your subscription to use it without an API key.",
     "login.button": "Sign in",
+    "settings.remote.advanced": "Advanced — only if you host the connection yourself",
+    "settings.remote.publicUrl.hint": "Leave empty unless you front the bridge with your own domain. The tunnel above does this for you.",
+    "settings.remote.pair.regenerate": "Generate a new code",
     // Mobile app
     // Connection
   "conn.connected": "Connected",

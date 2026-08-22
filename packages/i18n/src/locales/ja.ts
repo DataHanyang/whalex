@@ -361,6 +361,9 @@ export const ja: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "サブスクリプションアカウントでログインすると、API キーなしで利用できます。",
     "login.button": "ログイン",
+    "settings.remote.advanced": "詳細 — 自分で接続をホストする場合のみ",
+    "settings.remote.publicUrl.hint": "自分のドメインで公開する場合以外は空のままにしてください。上のトンネルが自動で処理します。",
+    "settings.remote.pair.regenerate": "新しいコードを生成",
     // Mobile app
     "conn.connected": "接続済み",
     "conn.reconnecting": "再接続中…",

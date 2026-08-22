@@ -11,6 +11,7 @@ import { LOCALES, LANGUAGES, resolveLocale } from "@whalex/i18n";
 
 export { LANGUAGES };
 
+
 // English-first: unless the user explicitly picks a locale, default to English.
 function resolve(language: AppLanguage): string {
   return resolveLocale(language, navigator.language);

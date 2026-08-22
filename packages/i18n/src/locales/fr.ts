@@ -361,6 +361,9 @@ export const fr: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "Connectez-vous avec votre abonnement pour l'utiliser sans clé API.",
     "login.button": "Se connecter",
+    "settings.remote.advanced": "Avancé — uniquement si vous hébergez la connexion",
+    "settings.remote.publicUrl.hint": "Laissez vide sauf si vous exposez le pont via votre propre domaine. Le tunnel ci-dessus s'en charge.",
+    "settings.remote.pair.regenerate": "Générer un nouveau code",
     // Mobile app
     "conn.connected": "Connecté",
     "conn.reconnecting": "Reconnexion…",

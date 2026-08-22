@@ -361,6 +361,9 @@ export const th: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "ลงชื่อเข้าใช้ด้วยแพ็กเกจสมาชิกเพื่อใช้งานโดยไม่ต้องมีคีย์ API",
     "login.button": "ลงชื่อเข้าใช้",
+    "settings.remote.advanced": "ขั้นสูง — เฉพาะเมื่อคุณดูแลการเชื่อมต่อเอง",
+    "settings.remote.publicUrl.hint": "ปล่อยว่างไว้ เว้นแต่คุณเปิดผ่านโดเมนของคุณเอง อุโมงค์ด้านบนจัดการให้แล้ว",
+    "settings.remote.pair.regenerate": "สร้างรหัสใหม่",
     // Mobile app
     "conn.connected": "เชื่อมต่อแล้ว",
     "conn.reconnecting": "กำลังเชื่อมต่อใหม่…",

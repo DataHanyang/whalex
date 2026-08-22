@@ -1,3 +1,4 @@
+import { WS_PROTOCOL, WS_TOKEN_PROTOCOL } from "@whalex/shared";
 import type { WebSocketLike } from "@whalex/client-core";
 import type { PairedComputer } from "./computers";
 
@@ -42,9 +43,14 @@ export async function probePublicUrl(computer: PairedComputer): Promise<string |
 }
 
 /**
- * React Native's WebSocket accepts an options object with headers as the
- * third argument — that's where the bearer token rides, same as the desktop
- * test client.
+ * Opens the socket with the device token presented two ways.
+ *
+ * The Authorization header is the right place for it, but React Native's
+ * Android WebSocket does not reliably forward custom headers — when it drops
+ * them the bridge sees an anonymous client, answers 401, and the app treats a
+ * perfectly good pairing as revoked. The subprotocol list always survives the
+ * handshake, so the token rides there too and the server takes whichever
+ * arrives.
  *
  * TLS NOTE: LAN wss:// endpoints use the bridge's self-signed cert, which
  * stock RN/OkHttp rejects until the fingerprint-pinning native work lands —
@@ -65,5 +71,7 @@ export function makeSocketFactory(
     protocols?: string[] | null,
     options?: { headers: Record<string, string> },
   ) => WebSocketLike;
-  return () => new RNWebSocket(url, null, { headers: { authorization: `Bearer ${token}` } });
+  const protocols = [WS_PROTOCOL, `${WS_TOKEN_PROTOCOL}.${token}`];
+  return () =>
+    new RNWebSocket(url, protocols, { headers: { authorization: `Bearer ${token}` } });
 }

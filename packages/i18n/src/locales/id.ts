@@ -361,6 +361,9 @@ export const id: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "Masuk dengan langganan Anda untuk memakainya tanpa kunci API.",
     "login.button": "Masuk",
+    "settings.remote.advanced": "Lanjutan — hanya jika Anda meng-host koneksinya sendiri",
+    "settings.remote.publicUrl.hint": "Biarkan kosong kecuali Anda memakai domain sendiri. Terowongan di atas sudah menanganinya.",
+    "settings.remote.pair.regenerate": "Buat kode baru",
     // Mobile app
     "conn.connected": "Terhubung",
     "conn.reconnecting": "Menyambung ulang…",

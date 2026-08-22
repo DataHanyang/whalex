@@ -361,6 +361,9 @@ export const ru: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "Войдите с подпиской, чтобы работать без ключа API.",
     "login.button": "Войти",
+    "settings.remote.advanced": "Дополнительно — только если вы размещаете подключение сами",
+    "settings.remote.publicUrl.hint": "Оставьте пустым, если не публикуете мост через свой домен. Туннель выше делает это сам.",
+    "settings.remote.pair.regenerate": "Создать новый код",
     // Mobile app
     "conn.connected": "Подключено",
     "conn.reconnecting": "Переподключение…",

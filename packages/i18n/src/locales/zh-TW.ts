@@ -361,6 +361,9 @@ export const zhTW: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "以訂閱帳號登入，即可免 API 金鑰使用。",
     "login.button": "登入",
+    "settings.remote.advanced": "進階 — 僅當你自行架設連線時",
+    "settings.remote.publicUrl.hint": "除非你用自己的網域代理，否則留空。上方的隧道會自動處理。",
+    "settings.remote.pair.regenerate": "產生新代碼",
     // Mobile app
     "conn.connected": "已連線",
     "conn.reconnecting": "正在重新連線…",

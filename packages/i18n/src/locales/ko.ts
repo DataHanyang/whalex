@@ -361,6 +361,9 @@ export const ko: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "구독 계정으로 로그인하면 API 키 없이 바로 사용할 수 있습니다.",
     "login.button": "로그인",
+    "settings.remote.advanced": "고급 — 직접 연결을 호스팅할 때만",
+    "settings.remote.publicUrl.hint": "자체 도메인으로 직접 연결할 때만 입력하세요. 위의 터널을 켜면 자동으로 처리됩니다.",
+    "settings.remote.pair.regenerate": "새 코드 만들기",
     // Mobile app
     "conn.connected": "연결됨",
     "conn.reconnecting": "다시 연결하는 중…",

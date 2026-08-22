@@ -310,6 +310,36 @@ describe("RemoteBridge", () => {
     expect(await tryWs({ headers: { authorization: `Bearer ${token}` } })).toBe("open");
   });
 
+  it("accepts the token in the subprotocol when headers are unavailable", async () => {
+    const { bridge, port } = makeBridge();
+    const token = await pairDevice(bridge, port);
+
+    // React Native's Android WebSocket can drop custom headers; a phone in
+    // that state must still connect rather than look revoked.
+    const connect = (protocols: string[], headers?: Record<string, string>): Promise<string> =>
+      new Promise((resolve) => {
+        const ws = new WebSocket(`wss://127.0.0.1:${port}/ws`, protocols, {
+          rejectUnauthorized: false,
+          ...(headers ? { headers } : {}),
+        });
+        ws.on("open", () => {
+          // The server must never echo the secret-bearing entry back.
+          const selected = ws.protocol;
+          ws.close();
+          resolve(`open:${selected}`);
+        });
+        ws.on("error", (err) => resolve(err.message));
+      });
+
+    expect(await connect(["whalex.v1", `whalex.token.${token}`])).toBe("open:whalex.v1");
+    // A bad token in the subprotocol is still refused.
+    expect(await connect(["whalex.v1", "whalex.token.nope"])).toContain("401");
+    // And the header path keeps working for clients that can set one.
+    expect(await connect(["whalex.v1"], { authorization: `Bearer ${token}` })).toBe(
+      "open:whalex.v1",
+    );
+  });
+
   it("handshakes hello ⇄ hello-ok and answers ping", async () => {
     const { phone } = await connectedPhone();
     phone.send({ type: "ping" });

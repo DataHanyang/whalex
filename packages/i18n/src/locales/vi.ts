@@ -361,6 +361,9 @@ export const vi: Partial<Dict> = {
     "login.title": "WhaleX Cloud",
     "login.subtitle": "Đăng nhập bằng gói thuê bao để dùng mà không cần khóa API.",
     "login.button": "Đăng nhập",
+    "settings.remote.advanced": "Nâng cao — chỉ khi bạn tự lo kết nối",
+    "settings.remote.publicUrl.hint": "Để trống trừ khi bạn dùng tên miền riêng. Đường hầm ở trên đã lo việc này.",
+    "settings.remote.pair.regenerate": "Tạo mã mới",
     // Mobile app
     "conn.connected": "Đã kết nối",
     "conn.reconnecting": "Đang kết nối lại…",
