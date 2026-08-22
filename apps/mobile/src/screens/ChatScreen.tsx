@@ -19,6 +19,7 @@ import { TranscriptRow } from "../components/Transcript";
 import { toRows, type Row } from "../components/transcriptRows";
 import { Composer } from "../components/Composer";
 import { MenuSheet } from "../components/MenuSheet";
+import { ModeSheet, ModelSheet, WorkSheet } from "../components/PickerSheets";
 import { PermissionSheet } from "../components/PermissionSheet";
 import { QuestionSheet } from "../components/QuestionSheet";
 
@@ -41,6 +42,12 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
   // Preview builds can land straight on the menu for a design review.
   const [menu, setMenu] = useState(
     typeof window !== "undefined" && window.location?.search?.includes("menu=1"),
+  );
+  /** Which composer picker is open — each control gets its own sheet. */
+  const [picker, setPicker] = useState<"work" | "model" | "mode" | null>(
+    typeof window !== "undefined" && window.location?.search?.includes("picker=work")
+      ? "work"
+      : null,
   );
 
   // Inverted list: newest at the bottom without measuring or scrolling.
@@ -99,10 +106,17 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
           keyboardDismissMode="interactive"
           ListEmptyComponent={<Empty />}
         />
-        <Composer onOpenMenu={() => setMenu(true)} />
+        <Composer
+          onOpenWork={() => setPicker("work")}
+          onOpenModel={() => setPicker("model")}
+          onOpenMode={() => setPicker("mode")}
+        />
       </KeyboardAvoidingView>
 
       <MenuSheet visible={menu} onDismiss={() => setMenu(false)} onSwitchSession={leave} />
+      <WorkSheet visible={picker === "work"} onDismiss={() => setPicker(null)} />
+      <ModelSheet visible={picker === "model"} onDismiss={() => setPicker(null)} />
+      <ModeSheet visible={picker === "mode"} onDismiss={() => setPicker(null)} />
       <PermissionSheet />
       <QuestionSheet />
     </View>

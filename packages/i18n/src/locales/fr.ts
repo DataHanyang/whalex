@@ -49,6 +49,7 @@ export const fr: Partial<Dict> = {
     "composer.drop.noPath": "Certains éléments sans chemin de fichier ont été ignorés.",
     "composer.goal": "Objectif",
     "composer.goalTip": "Mode objectif : donnez un objectif et il itère jusqu'à l'achèvement",
+    "composer.options": "Options de travail",
     "composer.superCodeTip": "Mode multi-agent SuperCode",
     "composer.permTip": "Mode d'autorisation (Maj+Tab) : Demander → Édition auto → Plan → Auto → Total",
     "mode.default": "Demander",

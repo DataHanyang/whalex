@@ -51,6 +51,7 @@ export const REMOTE_CHANNELS = [
   "checkpoint:list",
   "checkpoint:rewind",
   "models:list",
+  "app:setEffort",
   "usage:summary",
   "commands:list",
   "files:search",

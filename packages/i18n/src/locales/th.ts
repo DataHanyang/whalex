@@ -49,6 +49,7 @@ export const th: Partial<Dict> = {
     "composer.drop.noPath": "บางรายการไม่มีพาธไฟล์ จึงถูกข้ามไป",
     "composer.goal": "เป้าหมาย",
     "composer.goalTip": "โหมดเป้าหมาย: ตั้งเป้าหมายแล้วเอเจนต์จะทำซ้ำจนสำเร็จ",
+    "composer.options": "ตัวเลือกการทำงาน",
     "composer.superCodeTip": "SuperCode — โหมดหลายเอเจนต์",
     "composer.permTip": "โหมดสิทธิ์ (Shift+Tab): ถาม → แก้อัตโนมัติ → วางแผน → อัตโนมัติ → เต็มรูปแบบ",
     "mode.default": "ถาม",

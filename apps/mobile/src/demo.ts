@@ -206,6 +206,16 @@ export function seedDemo(withPermission = false): void {
     // resolve against the seeded state instead of surfacing a connection error.
     refreshSessions: async () => {},
     setPermissionMode: async (mode) => useMobileSession.setState({ permissionMode: mode }),
+    refreshModels: async () => {},
+    setModel: async (model) => useMobileSession.setState({ model }),
+    setGoalMode: async (on) => useMobileSession.setState({ goalMode: on }),
+    setSuperCode: async (on) => useMobileSession.setState({ superCode: on }),
+    setEffort: async (effort) => useMobileSession.setState({ effort }),
+    models: [
+      { id: "deepseek-v4-flash" },
+      { id: "deepseek-v4-pro" },
+      { id: "deepseek-r2" },
+    ] as never,
     sessions: SESSIONS,
     projects: PROJECTS,
     transcript: TRANSCRIPT,

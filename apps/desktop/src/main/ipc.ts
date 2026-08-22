@@ -102,7 +102,15 @@ export function createHandlers(deps: IpcDeps): Handlers {
         return { ok: false, models: [], error: err instanceof Error ? err.message : String(err) };
       }
     },
-    "models:list": async (req) => makeProvider(req.providerId).listModels(),
+    "models:list": async (req) =>
+      makeProvider(req.providerId ?? settings.get().activeProviderId).listModels(),
+    "app:setEffort": (req) => {
+      // Same effect as changing it in the desktop composer: a settings write
+      // that live-tunes running sessions. Scoped so the phone never gets the
+      // rest of settings:update.
+      settings.update({ reasoningEffort: req.effort });
+      host.applyLiveSettings();
+    },
     "session:list": async (req) => {
       const list = await SessionStore.list(req.cwd);
       return list.map((m) => ({ ...m, running: host.isSessionRunning(m.sessionId) }));
@@ -271,6 +279,7 @@ export function createHandlers(deps: IpcDeps): Handlers {
         defaultModel: s.defaultModel,
         defaultCwd: s.defaultCwd,
         recentCwds: s.recentCwds,
+        reasoningEffort: s.reasoningEffort,
       };
     },
     "remote:status": () => bridge.status(),

@@ -49,6 +49,7 @@ export const ja: Partial<Dict> = {
     "composer.drop.noPath": "ファイルパスがない項目は添付できませんでした。",
     "composer.goal": "ゴール",
     "composer.goalTip": "ゴールモード：目標を与えると完了まで自律的に反復",
+    "composer.options": "作業オプション",
     "composer.superCodeTip": "SuperCode マルチエージェントモード",
     "composer.permTip": "権限モード (Shift+Tab)：確認 → 自動編集 → プラン → 自動 → 完全権限",
     "mode.default": "確認",

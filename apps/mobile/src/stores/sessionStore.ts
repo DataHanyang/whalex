@@ -6,7 +6,7 @@ import {
   type ClientSessionState,
   type FoldContext,
 } from "@whalex/client-core";
-import type { AgentEventEnvelope, SessionMeta } from "@whalex/shared";
+import type { AgentEventEnvelope, ModelInfo, ReasoningEffort, SessionMeta } from "@whalex/shared";
 import { useConnectionStore } from "./connectionStore";
 
 const foldCtx: FoldContext = {
@@ -33,6 +33,11 @@ interface MobileSessionState extends ClientSessionState {
   cwd: string | null;
   model: string;
   permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted";
+  /** Models the desktop's active provider offers; empty until first fetch. */
+  models: ModelInfo[];
+  goalMode: boolean;
+  /** Global tuning knob, mirrored from the desktop; "medium" until known. */
+  effort: ReasoningEffort;
   /** Highest applied envelope seq; gaps force a fresh snapshot. */
   lastSeq: number;
   opening: boolean;
@@ -42,6 +47,11 @@ interface MobileSessionState extends ClientSessionState {
   /** Start a fresh session in a project folder. */
   startNew(cwd: string): Promise<void>;
   setPermissionMode(mode: MobileSessionState["permissionMode"]): Promise<void>;
+  refreshModels(): Promise<void>;
+  setModel(model: string): Promise<void>;
+  setGoalMode(on: boolean): Promise<void>;
+  setSuperCode(on: boolean): Promise<void>;
+  setEffort(effort: ReasoningEffort): Promise<void>;
   closeSession(): void;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
@@ -96,6 +106,9 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
     cwd: null,
     model: "deepseek-v4-flash",
     permissionMode: "default",
+    models: [],
+    goalMode: false,
+    effort: "medium",
     lastSeq: 0,
     opening: false,
 
@@ -107,7 +120,10 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       // still be opened from the phone.
       let recent: string[] = [];
       try {
-        recent = (await c.invoke("remote:appInfo", undefined)).recentCwds;
+        const info = await c.invoke("remote:appInfo", undefined);
+        recent = info.recentCwds;
+        // The work-options sheet mirrors the desktop's global effort knob.
+        if (info.reasoningEffort) set({ effort: info.reasoningEffort });
       } catch {
         // older desktop without the channel — sessions alone still group fine
       }
@@ -148,6 +164,42 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       if (id) await client().invoke("session:setMode", { sessionId: id, mode });
     },
 
+    async refreshModels() {
+      // No providerId: the desktop answers for whatever provider is active.
+      const models = await client().invoke("models:list", {});
+      if (models.length > 0) set({ models });
+    },
+
+    async setModel(model) {
+      const id = get().activeSessionId;
+      set({ model });
+      if (id) await client().invoke("session:setModel", { sessionId: id, model });
+    },
+
+    async setGoalMode(on) {
+      const id = get().activeSessionId;
+      set({ goalMode: on });
+      if (id) await client().invoke("session:setGoalMode", { sessionId: id, on });
+    },
+
+    async setSuperCode(on) {
+      const id = get().activeSessionId;
+      // The authoritative flip comes back through the supercode envelope;
+      // setting it here just keeps the toggle from feeling laggy.
+      set({ superCode: on });
+      if (id) {
+        await client().invoke("session:command", {
+          sessionId: id,
+          command: on ? "supercode-on" : "supercode-off",
+        });
+      }
+    },
+
+    async setEffort(effort) {
+      set({ effort });
+      await client().invoke("app:setEffort", { effort });
+    },
+
     async open(cwd, resumeSessionId) {
       const c = client();
       set({ opening: true, activeSessionId: resumeSessionId ?? null, cwd });
@@ -165,6 +217,7 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
           cwd: res.cwd,
           model: res.model ?? get().model,
           permissionMode: res.permissionMode ?? get().permissionMode,
+          goalMode: res.goalMode ?? false,
           lastSeq: snapshotSeq,
           opening: false,
           turnStartedAt: null,

@@ -49,6 +49,7 @@ export const ru: Partial<Dict> = {
     "composer.drop.noPath": "У некоторых элементов нет пути к файлу — они пропущены.",
     "composer.goal": "Цель",
     "composer.goalTip": "Режим цели: задайте цель, агент будет повторять до её достижения",
+    "composer.options": "Параметры работы",
     "composer.superCodeTip": "SuperCode — мультиагентный режим",
     "composer.permTip": "Режим разрешений (Shift+Tab): Спрашивать → Авто-правки → План → Авто → Полный",
     "mode.default": "Спрашивать",

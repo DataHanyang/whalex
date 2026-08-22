@@ -49,6 +49,7 @@ export const id: Partial<Dict> = {
     "composer.drop.noPath": "Beberapa item tidak punya jalur berkas dan dilewati.",
     "composer.goal": "Tujuan",
     "composer.goalTip": "Mode tujuan: beri tujuan, agen mengulang sampai tercapai",
+    "composer.options": "Opsi kerja",
     "composer.superCodeTip": "SuperCode — mode multi-agen",
     "composer.permTip": "Mode izin (Shift+Tab): Tanya → Auto-edit → Rencana → Otomatis → Penuh",
     "mode.default": "Tanya",

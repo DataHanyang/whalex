@@ -9,20 +9,11 @@ import { useConnectionStore } from "../stores/connectionStore";
 import { checkForUpdate, currentVersion, type UpdateInfo } from "../lib/appUpdate";
 import { Sheet } from "./Sheet";
 
-type Mode = "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted";
-
 /**
- * Everything that isn't sending a message. The phone screen is small enough
- * that a permanent control strip would cost more than it returns, so the
- * settings that change how a turn behaves live one tap away instead.
+ * The housekeeping menu: session switching, the computer, language, updates.
+ * Turn-shaping controls (mode, model, work options) moved to the composer's
+ * own picker sheets — this stopped being the junk drawer for all of them.
  */
-const MODES: Array<{ id: Mode; label: Parameters<typeof t>[0]; hint: Parameters<typeof t>[0] }> = [
-  { id: "default", label: "mode.default", hint: "mode.hint.default" },
-  { id: "acceptEdits", label: "mode.acceptEdits", hint: "mode.hint.acceptEdits" },
-  { id: "bypassPermissions", label: "mode.bypassPermissions", hint: "mode.hint.bypassPermissions" },
-  { id: "plan", label: "mode.plan", hint: "mode.hint.plan" },
-];
-
 export function MenuSheet({
   visible,
   onDismiss,
@@ -32,8 +23,6 @@ export function MenuSheet({
   onDismiss: () => void;
   onSwitchSession: () => void;
 }) {
-  const mode = useMobileSession((s) => s.permissionMode);
-  const setMode = useMobileSession((s) => s.setPermissionMode);
   const cwd = useMobileSession((s) => s.cwd);
   const usage = useMobileSession((s) => s.usage);
   const startNew = useMobileSession((s) => s.startNew);
@@ -58,11 +47,6 @@ export function MenuSheet({
     };
   }, [visible]);
 
-  const pick = (id: Mode): void => {
-    void Haptics.selectionAsync();
-    void setMode(id);
-  };
-
   const languageLabel =
     language === "system"
       ? t("menu.languageSystem")
@@ -71,28 +55,6 @@ export function MenuSheet({
   return (
     <Sheet visible={visible} onDismiss={onDismiss}>
       <ScrollView contentContainerStyle={styles.body}>
-        <Text style={styles.section}>{t("menu.howItWorks")}</Text>
-        <View style={styles.group}>
-          {MODES.map((m) => {
-            const on = mode === m.id;
-            return (
-              <Pressable
-                key={m.id}
-                style={[styles.mode, on && styles.modeOn]}
-                onPress={() => pick(m.id)}
-              >
-                <View style={styles.modeText}>
-                  <Text style={[styles.modeLabel, on && { color: colors.accent }]}>
-                    {t(m.label)}
-                  </Text>
-                  <Text style={styles.modeHint}>{t(m.hint)}</Text>
-                </View>
-                {on && <Feather name="check" size={15} color={colors.accent} />}
-              </Pressable>
-            );
-          })}
-        </View>
-
         <Text style={styles.section}>{t("menu.session")}</Text>
         <View style={styles.group}>
           <Row
@@ -245,19 +207,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: "hidden",
   },
-  mode: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  modeOn: { backgroundColor: colors.accentSoft },
-  modeText: { flex: 1, gap: 2 },
-  modeLabel: { ...type.ui },
-  modeHint: { ...type.caption, fontSize: 11.5 },
   row: {
     flexDirection: "row",
     alignItems: "center",

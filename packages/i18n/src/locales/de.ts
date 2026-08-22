@@ -49,6 +49,7 @@ export const de: Partial<Dict> = {
     "composer.drop.noPath": "Einige Elemente hatten keinen Dateipfad und wurden übersprungen.",
     "composer.goal": "Ziel",
     "composer.goalTip": "Zielmodus: Ziel vorgeben, der Agent iteriert bis es erreicht ist",
+    "composer.options": "Arbeitsoptionen",
     "composer.superCodeTip": "SuperCode — Multi-Agent-Modus",
     "composer.permTip": "Berechtigungsmodus (Shift+Tab): Fragen → Auto-Edit → Plan → Auto → Voll",
     "mode.default": "Fragen",

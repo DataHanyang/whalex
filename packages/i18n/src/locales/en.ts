@@ -51,6 +51,7 @@ export const en = {
     "composer.drop.noPath": "Some items had no file path and were skipped.",
     "composer.goal": "Goal",
     "composer.goalTip": "Goal mode: give a goal and it iterates until done",
+    "composer.options": "Work options",
     "composer.superCodeTip": "SuperCode multi-agent mode",
     "composer.permTip": "Permission mode (Shift+Tab): Ask → Auto-edit → Plan → Auto → Full",
     "mode.default": "Ask",

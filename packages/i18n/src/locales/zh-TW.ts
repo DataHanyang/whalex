@@ -49,6 +49,7 @@ export const zhTW: Partial<Dict> = {
     "composer.drop.noPath": "部分項目沒有檔案路徑，已略過。",
     "composer.goal": "目標",
     "composer.goalTip": "目標模式：給定目標後會反覆執行直到達成",
+    "composer.options": "工作選項",
     "composer.superCodeTip": "SuperCode 多代理模式",
     "composer.permTip": "權限模式（Shift+Tab）：詢問 → 自動編輯 → 計畫 → 全自動 → 完整權限",
     "mode.default": "詢問",

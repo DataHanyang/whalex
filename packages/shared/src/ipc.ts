@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { AgentEventEnvelopeSchema, ArtifactSchema, LiveSnapshotSchema } from "./events.js";
 import { PermissionResponseSchema } from "./permissions.js";
-import { SettingsSchema, RoutineSchema, RemoteDeviceSchema } from "./settings.js";
+import {
+  SettingsSchema,
+  RoutineSchema,
+  RemoteDeviceSchema,
+  ReasoningEffortSchema,
+} from "./settings.js";
 import { ModelInfoSchema } from "./models.js";
 import { SessionMetaSchema, TranscriptItemSchema } from "./session.js";
 
@@ -125,7 +130,9 @@ export const IPC_INVOKE = {
     }),
   },
   "models:list": {
-    req: z.object({ providerId: z.string() }),
+    // providerId omitted = the active provider. The phone can't know provider
+    // ids — its model picker asks for "whatever the desktop is using".
+    req: z.object({ providerId: z.string().optional() }),
     res: z.array(ModelInfoSchema),
   },
   "session:list": {
@@ -222,6 +229,15 @@ export const IPC_INVOKE = {
   },
   "session:setModel": {
     req: z.object({ sessionId: z.string(), model: z.string() }),
+    res: z.void(),
+  },
+  /**
+   * Narrow remote alternative to settings:update (which stays desktop-only):
+   * the phone's work-options sheet adjusts reasoning effort and nothing else.
+   * Effort is a global tuning knob, same as the desktop composer's picker.
+   */
+  "app:setEffort": {
+    req: z.object({ effort: ReasoningEffortSchema }),
     res: z.void(),
   },
   "mcp:enablePreset": {
@@ -429,6 +445,8 @@ export const IPC_INVOKE = {
       defaultModel: z.string(),
       defaultCwd: z.string().optional(),
       recentCwds: z.array(z.string()),
+      /** Seeds the phone's work-options sheet; optional for older desktops. */
+      reasoningEffort: ReasoningEffortSchema.optional(),
     }),
   },
   "remote:status": {

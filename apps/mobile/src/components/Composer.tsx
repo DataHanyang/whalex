@@ -29,7 +29,15 @@ function shortModel(id: string): string {
  * will stop to ask you are both decisions about the message you are typing, so
  * they sit with it rather than behind a settings screen.
  */
-export function Composer({ onOpenMenu }: { onOpenMenu: () => void }) {
+export function Composer({
+  onOpenWork,
+  onOpenModel,
+  onOpenMode,
+}: {
+  onOpenWork: () => void;
+  onOpenModel: () => void;
+  onOpenMode: () => void;
+}) {
   const status = useMobileSession((s) => s.status);
   const mode = useMobileSession((s) => s.permissionMode);
   const model = useMobileSession((s) => s.model);
@@ -59,15 +67,16 @@ export function Composer({ onOpenMenu }: { onOpenMenu: () => void }) {
           multiline
         />
         <View style={styles.controls}>
-          <Pressable style={styles.plus} onPress={onOpenMenu} hitSlop={8}>
+          {/* Three controls, three sheets — each opens exactly what it names. */}
+          <Pressable style={styles.plus} onPress={onOpenWork} hitSlop={8}>
             <Feather name="plus" size={16} color={colors.muted} />
           </Pressable>
 
-          <Pressable style={styles.chip} onPress={onOpenMenu} hitSlop={6}>
+          <Pressable style={styles.chip} onPress={onOpenModel} hitSlop={6}>
             <Text style={styles.chipText}>{shortModel(model)}</Text>
           </Pressable>
 
-          <Pressable style={styles.chip} onPress={onOpenMenu} hitSlop={6}>
+          <Pressable style={styles.chip} onPress={onOpenMode} hitSlop={6}>
             <Feather name="zap" size={11} color={colors.muted} />
             <Text style={styles.chipText}>{modeLabel(mode)}</Text>
           </Pressable>

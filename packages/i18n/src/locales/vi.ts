@@ -49,6 +49,7 @@ export const vi: Partial<Dict> = {
     "composer.drop.noPath": "Một số mục không có đường dẫn tệp nên đã bị bỏ qua.",
     "composer.goal": "Mục tiêu",
     "composer.goalTip": "Chế độ mục tiêu: đặt mục tiêu, tác nhân lặp cho đến khi xong",
+    "composer.options": "Tùy chọn công việc",
     "composer.superCodeTip": "SuperCode — chế độ đa tác nhân",
     "composer.permTip": "Chế độ quyền (Shift+Tab): Hỏi → Tự sửa → Kế hoạch → Tự động → Toàn quyền",
     "mode.default": "Hỏi",

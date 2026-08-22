@@ -49,6 +49,7 @@ export const zh: Partial<Dict> = {
     "composer.drop.noPath": "部分内容没有文件路径，已跳过。",
     "composer.goal": "目标",
     "composer.goalTip": "目标模式：给定目标后自动迭代直至完成",
+    "composer.options": "工作选项",
     "composer.superCodeTip": "SuperCode 多智能体模式",
     "composer.permTip": "权限模式 (Shift+Tab)：询问 → 自动编辑 → 计划 → 自动 → 完全权限",
     "mode.default": "询问",

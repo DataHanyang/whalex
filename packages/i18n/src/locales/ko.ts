@@ -49,6 +49,7 @@ export const ko: Partial<Dict> = {
     "composer.drop.noPath": "파일 경로가 없는 항목은 첨부하지 못했어요.",
     "composer.goal": "목표",
     "composer.goalTip": "목표 모드: 목표를 주면 완료까지 자율 반복",
+    "composer.options": "작업 옵션",
     "composer.superCodeTip": "SuperCode 멀티에이전트 모드",
     "composer.permTip": "권한 모드 (Shift+Tab): 확인 → 편집 자동 → 플랜 → 자동 → 완전 권한",
     "mode.default": "확인",
