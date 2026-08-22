@@ -55,6 +55,12 @@ interface MobileSessionState extends ClientSessionState {
   attachments: PendingAttachment[];
   addAttachment(a: PendingAttachment): void;
   removeAttachment(id: string): void;
+  /**
+   * messageId → local uris of images that rode out with that message, so the
+   * sent bubble shows the pictures and not just the vision text they became.
+   * Session-local: a reload keeps the durable record (the description).
+   */
+  sentImages: Record<string, string[]>;
   /** Uploads a picked document to the desktop; returns its path there. */
   uploadFile(name: string, dataBase64: string): Promise<string>;
   closeSession(): void;
@@ -128,6 +134,7 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
     goalMode: false,
     effort: "medium",
     attachments: [],
+    sentImages: {},
     lastSeq: 0,
     opening: false,
 
@@ -293,6 +300,12 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
           },
         ],
         attachments: [],
+        ...(() => {
+          const uris = attachments.filter((a) => a.kind === "image" && a.uri).map((a) => a.uri!);
+          return uris.length > 0
+            ? { sentImages: { ...s.sentImages, [messageId]: uris } }
+            : {};
+        })(),
         ...(steering ? {} : { status: "thinking" as const, turnStartedAt: Date.now() }),
       }));
 

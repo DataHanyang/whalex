@@ -48,9 +48,13 @@ const run = (cmd, args, cwd) => {
 
 run("pnpm", ["exec", "expo", "prebuild", "--platform", "android", "--no-install"], mobile);
 run("node", ["scripts/android-local-fixups.mjs"], mobile);
-// shell:true routes through cmd.exe, which has no idea what ./gradlew means.
-run(process.platform === "win32" ? "gradlew.bat" : "./gradlew",
-  ["assembleRelease", "-g", "C:/gradle-home"], android);
+// Absolute path: cmd.exe won't resolve ./gradlew, and this shell disables
+// executable lookup from the current directory entirely.
+run(
+  path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew"),
+  ["assembleRelease", "-g", "C:/gradle-home"],
+  android,
+);
 
 const version = JSON.parse(fs.readFileSync(path.join(mobile, "app.json"), "utf8")).expo.version;
 const apk = path.join(android, "app/build/outputs/apk/release/app-release.apk");

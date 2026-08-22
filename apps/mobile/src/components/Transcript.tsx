@@ -3,7 +3,8 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
-import { InlineImage } from "./InlineImage";
+import { ImageCards, InlineImage } from "./InlineImage";
+import { useMobileSession } from "../stores/sessionStore";
 import { Markdown } from "./Markdown";
 import { ToolGroup } from "./ToolGroup";
 import type { Row } from "./transcriptRows";
@@ -16,6 +17,13 @@ import type { Row } from "./transcriptRows";
  * contained bubble.
  */
 
+/** Pictures that rode out with a sent message, as cards above the bubble. */
+function SentImages({ messageId }: { messageId: string }) {
+  const uris = useMobileSession((s) => s.sentImages[messageId]);
+  if (!uris || uris.length === 0) return null;
+  return <ImageCards uris={uris} align="right" />;
+}
+
 export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }) {
   switch (item.kind) {
     case "tool-group":
@@ -24,9 +32,12 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
     case "user":
       return (
         <View style={styles.userWrap}>
-          <View style={styles.userBubble}>
-            <Text style={styles.userText}>{item.text}</Text>
-          </View>
+          <SentImages messageId={item.id} />
+          {item.text.length > 0 && (
+            <View style={styles.userBubble}>
+              <Text style={styles.userText}>{item.text}</Text>
+            </View>
+          )}
           {item.delivery === "pending" && <Text style={styles.queued}>{t("chat.queued")}</Text>}
         </View>
       );
