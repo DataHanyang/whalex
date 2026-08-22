@@ -319,10 +319,18 @@ describe("RemoteBridge", () => {
 
     expect(await tryWs({})).toContain("401");
     expect(await tryWs({ headers: { authorization: "Bearer wrong-token" } })).toContain("401");
-    // Origin means a browser page is trying — always refused, even with a token.
+    // A cross-site Origin is a browser page attacking the port — refused
+    // even with a valid token.
     expect(
       await tryWs({ headers: { authorization: `Bearer ${token}`, origin: "https://evil.example" } }),
     ).toContain("403");
+    // A self-origin is what React Native's Android WebSocket stamps on every
+    // handshake (host of the request URL itself) — that's a phone, let it in.
+    expect(
+      await tryWs({
+        headers: { authorization: `Bearer ${token}`, origin: `https://127.0.0.1:${port}` },
+      }),
+    ).toBe("open");
     expect(await tryWs({ headers: { authorization: `Bearer ${token}` } })).toBe("open");
   });
 

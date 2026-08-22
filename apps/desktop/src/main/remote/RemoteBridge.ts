@@ -404,14 +404,32 @@ export class RemoteBridge {
   // ---- WS lifecycle ----
 
   private handleUpgrade(req: http.IncomingMessage, socket: Duplex, head: Buffer): void {
-    // Browsers always send Origin; native clients don't. Rejecting it kills
-    // any browser-page CSRF against the local port. In tunnel mode the only
-    // legitimate peer is cloudflared on loopback.
+    // CSRF guard, minus a hard-won lesson: React Native's Android WebSocket
+    // stamps every handshake with an Origin derived from the request URL
+    // itself (WebSocketModule.getDefaultOrigin), so "reject any Origin"
+    // rejected every phone that ever dialed. A browser page cannot forge a
+    // self-origin — its Origin is the page's own host — so an Origin whose
+    // host matches the Host header is a native client, and anything else is
+    // a browser page aiming at this port. In tunnel mode the only legitimate
+    // peer is still cloudflared on loopback.
+    const origin = req.headers.origin;
+    let originOk = origin === undefined;
+    if (origin !== undefined) {
+      try {
+        originOk = new URL(origin).host === (req.headers.host ?? "");
+      } catch {
+        originOk = false;
+      }
+    }
     if (
-      req.headers.origin !== undefined ||
+      !originOk ||
       req.url !== "/ws" ||
       (this.tunnelActive && !isLoopback(req.socket.remoteAddress))
     ) {
+      // Silent refusals cost half a day of blind debugging once; never again.
+      this.log(
+        `remote upgrade refused (403): origin=${origin ?? "-"} host=${req.headers.host ?? "-"} url=${req.url ?? "-"} from=${req.socket.remoteAddress ?? "?"}`,
+      );
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
       return;
