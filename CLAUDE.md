@@ -46,11 +46,12 @@ but not to its `package.json` (or vice versa) fails the build in seconds even
 though the local build is fine. After any `pnpm add`, confirm both files
 changed — interrupted installs on this machine have written only one.
 
-The Android APK is not built by CI. Build it locally and attach it to the
-desktop release:
+The Android APK is not built by CI. One script owns the whole local build —
+JVM cleanup, locked-file retries, prebuild, fixups, gradle — because each of
+those steps has failed on this machine when run by hand:
 
 ```bash
-cd apps/mobile/android && ./gradlew assembleRelease -g C:/gradle-home
+node apps/mobile/scripts/build-apk.mjs
 gh release upload v<ver> apps/mobile/whalex-mobile-<mobile-ver>.apk --clobber
 ```
 
