@@ -57,7 +57,7 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <View style={styles.bar}>
         <Pressable style={styles.iconBtn} onPress={leave} hitSlop={10}>
           <Feather name="chevron-left" size={21} color={colors.muted} />

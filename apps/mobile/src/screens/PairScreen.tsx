@@ -8,7 +8,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
@@ -23,7 +22,6 @@ import { getToken, saveComputer, type PairedComputer } from "../lib/computers";
  * first and wondering what to point it at.
  */
 export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) => void }) {
-  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
   return (
     <ScrollView
       style={styles.root}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + space.xxl }]}
+      contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.kicker}>{t("pair.kicker")}</Text>
@@ -208,7 +206,7 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: space.xl, paddingBottom: space.xxxl },
+  content: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.xxxl },
   kicker: {
     ...type.label,
     color: colors.accent,

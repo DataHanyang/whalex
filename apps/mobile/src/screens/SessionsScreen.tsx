@@ -8,7 +8,6 @@ import {
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import type { SessionMeta } from "@whalex/shared";
@@ -32,7 +31,6 @@ function ago(ts: number): string {
  * inside each, and a way to start a new one without walking to the machine.
  */
 export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
-  const insets = useSafeAreaInsets();
   const hello = useConnectionStore((s) => s.hello);
   const phase = useConnectionStore((s) => s.phase);
   const projects = useMobileSession((s) => s.projects);
@@ -74,7 +72,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <View style={styles.head}>
         <View style={styles.headText}>
           <Text style={styles.title}>{hello?.name ?? "Your computer"}</Text>

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Animated, AppState, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -22,7 +22,7 @@ import { ChatScreen } from "./src/screens/ChatScreen";
 
 void SplashScreen.preventAutoHideAsync();
 
-type Screen = "boot" | "pair" | "sessions" | "chat";
+type Screen = "boot" | "pair" | "connecting" | "sessions" | "chat";
 
 export default function App() {
   const [loaded] = useFonts({
@@ -69,10 +69,13 @@ function demoParams(): {
 }
 
 function Shell() {
+  const insets = useSafeAreaInsets();
   const [screen, setScreen] = useState<Screen>(DEMO ? "sessions" : "boot");
   const phase = useConnectionStore((s) => s.phase);
   const connect = useConnectionStore((s) => s.connect);
   const kick = useConnectionStore((s) => s.kick);
+  /** Once a session list has been seen, a drop is a hiccup, not a dead end. */
+  const [everConnected, setEverConnected] = useState(false);
 
   // Boot: reconnect to the most recently used computer, else go pair.
   useEffect(() => {
@@ -92,7 +95,10 @@ function Shell() {
         setScreen("pair");
         return;
       }
-      setScreen("sessions");
+      // Stay on the splash until the computer answers. Dropping straight into
+      // an empty session list makes a failed connection look like an account
+      // with no work in it.
+      setScreen("connecting");
       void connect(last);
     })();
   }, [connect]);
@@ -106,76 +112,72 @@ function Shell() {
   }, [kick]);
 
   useEffect(() => {
-    if (phase === "pairingRequired") setScreen("pair");
+    if (phase === "connected") {
+      setEverConnected(true);
+      setScreen((s) => (s === "connecting" ? "sessions" : s));
+    }
   }, [phase]);
 
+  useEffect(() => {
+    if (phase === "pairingRequired") setScreen("pair");
+    // Never reached the computer this run — send them somewhere they can act,
+    // rather than leaving a spinner on an empty screen.
+    if (phase === "unreachable" && !everConnected) setScreen("pair");
+  }, [phase, everConnected]);
+
   const onPaired = (computer: PairedComputer): void => {
-    setScreen("sessions");
+    setScreen("connecting");
     void connect(computer);
   };
 
+  // The banner sits in the layout rather than over it; as an overlay it
+  // covered the screen title underneath.
+  const banner = screen !== "pair" && phase !== "connected" && phase !== "pairingRequired";
+
   return (
     <View style={styles.root}>
-      {screen === "pair" && <PairScreen onPaired={onPaired} />}
-      {screen === "sessions" && <SessionsScreen onOpen={() => setScreen("chat")} />}
-      {screen === "chat" && <ChatScreen onBack={() => setScreen("sessions")} />}
-      {screen !== "pair" && <ConnectionBanner />}
+      {banner && <ConnectionBanner />}
+      <View style={[styles.body, { paddingTop: banner ? 0 : insets.top }]}>
+        {screen === "pair" && <PairScreen onPaired={onPaired} />}
+        {screen === "connecting" && <Connecting />}
+        {screen === "sessions" && <SessionsScreen onOpen={() => setScreen("chat")} />}
+        {screen === "chat" && <ChatScreen onBack={() => setScreen("sessions")} />}
+      </View>
+    </View>
+  );
+}
+
+/** Waiting on the first handshake — the app has nothing to show until then. */
+function Connecting() {
+  const computer = useConnectionStore((s) => s.computer);
+  return (
+    <View style={styles.connecting}>
+      <ActivityIndicator color={colors.accent} />
+      <Text style={styles.connectingText}>{computer?.name ?? ""}</Text>
     </View>
   );
 }
 
 /**
  * Reconnection is routine on a phone — screen off, wifi handover, a walk out
- * of range — so it announces itself quietly and only once it has lasted long
- * enough to be worth knowing about.
+ * of range — so it says so quietly, in the layout rather than over it.
  */
 function ConnectionBanner() {
   const insets = useSafeAreaInsets();
   const phase = useConnectionStore((s) => s.phase);
-  const [shown, setShown] = useState(false);
-  const slide = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (phase === "connected" || phase === "pairingRequired") {
-      setShown(false);
-      return;
-    }
-    const t = setTimeout(() => setShown(true), 1200);
-    return () => clearTimeout(t);
-  }, [phase]);
-
-  useEffect(() => {
-    Animated.timing(slide, {
-      toValue: shown ? 1 : 0,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [shown, slide]);
-
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.banner,
-        {
-          paddingTop: insets.top + space.sm,
-          opacity: slide,
-          transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [-40, 0] }) }],
-        },
-      ]}
-    >
-      <Text style={styles.bannerText}>{t("conn.banner")}</Text>
-    </Animated.View>
+    <View style={[styles.banner, { paddingTop: insets.top + space.sm }]}>
+      <Text style={styles.bannerText}>
+        {phase === "unreachable" ? t("conn.unreachable") : t("conn.banner")}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  body: { flex: 1 },
   banner: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
     paddingBottom: space.sm,
     backgroundColor: colors.attentionSoft,
     borderBottomWidth: 1,
@@ -183,4 +185,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bannerText: { ...type.caption, color: colors.attention, fontSize: 11.5 },
+  connecting: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md },
+  connectingText: { ...type.caption, color: colors.muted },
 });
