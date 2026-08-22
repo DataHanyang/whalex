@@ -40,12 +40,17 @@ if (!removed) {
 
 const run = (cmd, args, cwd) => {
   const r = spawnSync(cmd, args, { cwd, stdio: "inherit", shell: true });
-  if (r.status !== 0) process.exit(r.status ?? 1);
+  if (r.status !== 0) {
+    console.error(`${cmd} exited ${r.status}`);
+    process.exit(r.status ?? 1);
+  }
 };
 
 run("pnpm", ["exec", "expo", "prebuild", "--platform", "android", "--no-install"], mobile);
 run("node", ["scripts/android-local-fixups.mjs"], mobile);
-run("./gradlew", ["assembleRelease", "-g", "C:/gradle-home"], android);
+// shell:true routes through cmd.exe, which has no idea what ./gradlew means.
+run(process.platform === "win32" ? "gradlew.bat" : "./gradlew",
+  ["assembleRelease", "-g", "C:/gradle-home"], android);
 
 const version = JSON.parse(fs.readFileSync(path.join(mobile, "app.json"), "utf8")).expo.version;
 const apk = path.join(android, "app/build/outputs/apk/release/app-release.apk");
