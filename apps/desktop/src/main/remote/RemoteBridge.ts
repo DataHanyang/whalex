@@ -91,6 +91,12 @@ export class RemoteBridge {
       certDir?: string;
       /** Path to the cloudflared shipped in the installer, when present. */
       bundledCloudflared?: () => string | null;
+      /**
+       * Whether the built-in quick tunnel may run at all. The app leaves this
+       * on; tests turn it off so they exercise the LAN listener without
+       * reaching for the network.
+       */
+      tunnel?: boolean;
     },
   ) {
     this.pairing = new PairingManager(deps.settings);
@@ -119,6 +125,17 @@ export class RemoteBridge {
     return os.hostname();
   }
 
+  /**
+   * Whether to run the built-in quick tunnel. Not a user toggle: the phone
+   * cannot use a LAN address at all yet (self-signed cert, no pinning on
+   * device), so mobile access without a public route is mobile access that
+   * never connects. It steps aside only for the two Advanced escape hatches —
+   * a self-hosted URL, or plaintext dev mode.
+   */
+  private wantsTunnel(cfg: { publicUrl: string; insecure: boolean }): boolean {
+    return this.deps.tunnel !== false && !cfg.publicUrl && !cfg.insecure;
+  }
+
   /** Reconcile the server with settings; called at boot and on settings:update. */
   applySettings(): void {
     const cfg = this.deps.settings.get().remoteBridge;
@@ -128,11 +145,16 @@ export class RemoteBridge {
       if (wasRunning) this.emitStatus();
       return;
     }
+    const tunnel = this.wantsTunnel(cfg);
+    // Compare against the *derived* transport, not cfg.insecure: tunnel mode
+    // also runs the local hop in the clear, so comparing the raw flag never
+    // matched and every unrelated settings write tore the bridge down —
+    // dropping whatever phone was connected at the time.
     if (
       this.server &&
       this.port === cfg.port &&
-      this.insecureActive === cfg.insecure &&
-      this.tunnelActive === cfg.tunnel
+      this.insecureActive === (cfg.insecure || tunnel) &&
+      this.tunnelActive === tunnel
     ) {
       // Port/transport unchanged — only the discovery toggle may need reconciling.
       if (cfg.discovery && !this.discovery) this.startDiscovery();
@@ -145,7 +167,7 @@ export class RemoteBridge {
     // Only tear down something that is actually up. At boot nothing is, and a
     // blind stop() here would kill the tunnel start() is about to adopt.
     if (this.server) this.stop();
-    this.start(cfg.port, cfg.discovery, cfg.insecure, cfg.tunnel);
+    this.start(cfg.port, cfg.discovery, cfg.insecure, tunnel);
   }
 
   isRunning(): boolean {

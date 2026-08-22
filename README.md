@@ -401,9 +401,10 @@ machine. The desktop stays the brain; the phone is a remote.
 **Setup is a QR scan.** No account, no domain, no port forwarding:
 
 1. Install and run the desktop app.
-2. Settings → **Remote** → turn on *Allow mobile access*. To use it away from
-   home, also turn on *Reach this computer from anywhere* — WhaleX runs a
-   Cloudflare quick tunnel for you (`cloudflared` ships inside the installer).
+2. Settings → **Remote** → turn on *Enable mobile access*. That is the whole
+   configuration: WhaleX brings up a Cloudflare quick tunnel for you
+   (`cloudflared` ships inside the installer), so the phone reaches the machine
+   on mobile data as readily as at home.
 3. Click **Pair a device** and scan the QR with the phone app.
 
 That's it. The phone reconnects on its own afterwards, and keeps working across
@@ -418,8 +419,8 @@ can reach on your home network — whichever it finds first, it adopts silently.
 - Only paired devices get in: pairing mints a device token (stored hashed on the
   desktop, in the Android Keystore on the phone), the pairing window is
   single-use and expires in two minutes, and any device can be revoked later.
-- With the tunnel on, the bridge answers only `GET /info` on your local network
-  — sessions, pairing and upgrades all travel the encrypted tunnel.
+- On your local network the bridge answers only `GET /info` — sessions, pairing
+  and upgrades all travel the encrypted tunnel.
 - API keys never leave the desktop; the remote channel can't read them.
 - Remote clients reach a whitelisted subset of the IPC contract, and a phone
   attaching to a session never steals it from the desktop window.

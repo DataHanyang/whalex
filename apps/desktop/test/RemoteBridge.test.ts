@@ -20,11 +20,11 @@ import type { Handlers } from "../src/main/ipc.js";
 
 // ---- stubs: everything in-memory, no Electron, no ~/.whalex ----
 
-function makeSettings(port: number, insecure = false, tunnel = false): SettingsManager {
+function makeSettings(port: number, insecure = false): SettingsManager {
   let s: Settings = structuredClone(DEFAULT_SETTINGS);
   s = {
     ...s,
-    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false, insecure, tunnel },
+    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false, insecure },
   };
   return {
     get: () => s,
@@ -68,17 +68,33 @@ const bridges: RemoteBridge[] = [];
 function makeBridge(
   insecure = false,
   tunnel = false,
-): { bridge: RemoteBridge; port: number; calls: Array<{ channel: string; req: unknown }> } {
+): {
+  bridge: RemoteBridge;
+  port: number;
+  calls: Array<{ channel: string; req: unknown }>;
+  settings: SettingsManager;
+  /** Times the bridge went looking for cloudflared — one per tunnel start. */
+  tunnelStarts: () => number;
+} {
   const port = nextPort++;
   const certDir = fs.mkdtempSync(path.join(os.tmpdir(), "whalex-bridge-"));
   tmpDirs.push(certDir);
   const calls: Array<{ channel: string; req: unknown }> = [];
+  // A file that exists but will not execute: enough for the tunnel branch to
+  // skip the download and fail at spawn instead, so tunnel-mode tests keep
+  // their transport rules without any of this touching the network.
+  const fakeBin = path.join(certDir, "cloudflared");
+  fs.writeFileSync(fakeBin, "");
+  let binLookups = 0;
+  const settings = makeSettings(port, insecure);
   const bridge = new RemoteBridge({
-    settings: makeSettings(port, insecure, tunnel),
+    settings,
     vault: makeVault(),
-    // No cloudflared in tests: the tunnel never comes up, which is exactly the
-    // state the LAN-restriction rules have to hold in.
-    bundledCloudflared: () => path.join(certDir, "nonexistent-cloudflared"),
+    tunnel,
+    bundledCloudflared: () => {
+      binLookups++;
+      return fakeBin;
+    },
     getWindow: () => null,
     version: "0.0.0-test",
     certDir,
@@ -86,7 +102,7 @@ function makeBridge(
   bridge.setHandlers(makeHandlers(calls));
   bridge.applySettings();
   bridges.push(bridge);
-  return { bridge, port, calls };
+  return { bridge, port, calls, settings, tunnelStarts: () => binLookups };
 }
 
 afterEach(() => {
@@ -456,6 +472,40 @@ describe("RemoteBridge", () => {
     });
     expect(opened).toBe(false);
     expect(bridge.status().tunnel.state).not.toBe("up");
+  });
+
+  it("enabling mobile access is the whole setup — the tunnel is not a second switch", async () => {
+    // Nothing in settings asks for a tunnel; enabling the bridge is enough.
+    const { port, tunnelStarts } = makeBridge(false, true);
+    expect(tunnelStarts()).toBeGreaterThan(0);
+    // Tunnel mode terminates TLS at Cloudflare, so the local hop is plaintext.
+    const info = await httpJson(port, "GET", "/info");
+    expect(info.status).toBe(200);
+  });
+
+  it("a self-hosted public URL stands the built-in tunnel down", async () => {
+    const { bridge, port, settings, tunnelStarts } = makeBridge(false, true);
+    const before = settings.get();
+    settings.update({
+      remoteBridge: { ...before.remoteBridge, publicUrl: "https://example.com/whalex" },
+    });
+    const startsBefore = tunnelStarts();
+    bridge.applySettings();
+    expect(tunnelStarts()).toBe(startsBefore);
+    // …and the listener goes back to serving its own TLS.
+    const info = await httpsJson(port, "GET", "/info");
+    expect(info.status).toBe(200);
+  });
+
+  it("an unrelated settings write leaves the running bridge alone", async () => {
+    // The reconcile compared cfg.insecure against the derived transport, so in
+    // tunnel mode it never matched and every settings write — theme, model,
+    // anything — tore the bridge down under whatever phone was connected.
+    const { bridge, settings, tunnelStarts } = makeBridge(false, true);
+    const startsBefore = tunnelStarts();
+    settings.update({ defaultModel: "something-else" });
+    bridge.applySettings();
+    expect(tunnelStarts()).toBe(startsBefore);
   });
 
   it("revoking a device closes its live connection with the revoked code", async () => {

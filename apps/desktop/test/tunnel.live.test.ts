@@ -21,7 +21,8 @@ function makeSettings(port: number): SettingsManager {
   let s: Settings = structuredClone(DEFAULT_SETTINGS);
   s = {
     ...s,
-    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false, tunnel: true },
+    // Enabling mobile access is the whole configuration — the tunnel follows.
+    remoteBridge: { ...s.remoteBridge, enabled: true, port, discovery: false },
   };
   return {
     get: () => s,

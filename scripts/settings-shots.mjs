@@ -27,9 +27,10 @@ fs.writeFileSync(
     onboardingComplete: true,
     language: lang,
     theme: "dark",
-    // Bridge on so the Remote tab renders its real controls; tunnel off so
-    // this never spawns cloudflared or reaches the network.
-    remoteBridge: { enabled: true, tunnel: false, port: 48699 },
+    // Bridge on so the Remote tab renders its real controls. A publicUrl
+    // stands the built-in tunnel down, which is what keeps this from spawning
+    // cloudflared or reaching the network.
+    remoteBridge: { enabled: true, publicUrl: "https://example.com/whalex", port: 48699 },
   }),
 );
 

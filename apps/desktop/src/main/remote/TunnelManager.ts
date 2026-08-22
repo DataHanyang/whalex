@@ -104,10 +104,19 @@ export class TunnelManager {
     const tmp = `${target}.part`;
     const out = fs.createWriteStream(tmp);
     const reader = res.body as unknown as AsyncIterable<Uint8Array>;
+    // Report in 5% steps: this is tens of megabytes on a first run, and a bar
+    // stuck at 0 reads as a hang.
+    let reported = 0;
+    const onProgress = (pct: number): void => {
+      if (pct < reported + 5) return;
+      reported = pct;
+      this.setState({ state: "downloading", percent: pct });
+    };
     await pipeline(
       (async function* () {
         for await (const chunk of reader) {
           seen += chunk.byteLength;
+          if (total) onProgress(Math.floor((seen / total) * 100));
           yield chunk;
         }
       })(),
@@ -148,7 +157,18 @@ export class TunnelManager {
    */
   async start(port: number): Promise<void> {
     this.stopping = false;
-    await this.ensureBinary();
+    try {
+      await this.ensureBinary();
+    } catch (err) {
+      // A blocked or offline download leaves no tunnel and therefore no way
+      // for a phone to connect. Say so: this used to leave "Preparing…" on
+      // screen forever while the reason sat in a log file.
+      this.setState({
+        state: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
     if (await this.adopt(port)) return;
     this.spawnTunnel(port);
   }
@@ -304,7 +324,12 @@ export class TunnelManager {
   }
 
   private kill(): void {
-    this.proc?.kill();
+    try {
+      this.proc?.kill();
+    } catch {
+      // A child that failed to spawn has no pid to signal, and Windows raises
+      // EINVAL instead of ignoring it. Shutdown must not care.
+    }
     this.proc = null;
     // A tunnel left by an earlier run has no handle here, only a recorded pid.
     let pid = this.adoptedPid;

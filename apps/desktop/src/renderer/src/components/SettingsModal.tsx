@@ -1293,6 +1293,7 @@ function RemoteTab() {
   const update = useAppStore((s) => s.updateSettings);
   const [status, setStatus] = useState<RemoteStatus | null>(null);
   const [qr, setQr] = useState<{ dataUrl: string; expiresAt: number } | null>(null);
+  const [pairError, setPairError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const bridge = settings.remoteBridge;
 
@@ -1320,15 +1321,22 @@ function RemoteTab() {
   }, []);
 
   const pair = async () => {
-    const res = await whalex.invoke("remote:pairingStart", undefined);
-    const dataUrl = await QRCode.toDataURL(res.qrPayload, {
-      width: 432, // 2× for crisp rendering on a HiDPI display
-      margin: 0,
-      // High correction leaves room for the logo patch in the middle.
-      errorCorrectionLevel: "H",
-      color: { dark: "#0B1220", light: "#FFFFFF" },
-    });
-    setQr({ dataUrl, expiresAt: res.expiresAt });
+    // The bridge refuses to open a window while the tunnel is still coming up.
+    // Unhandled, that rejection made the button look dead.
+    setPairError(null);
+    try {
+      const res = await whalex.invoke("remote:pairingStart", undefined);
+      const dataUrl = await QRCode.toDataURL(res.qrPayload, {
+        width: 432, // 2× for crisp rendering on a HiDPI display
+        margin: 0,
+        // High correction leaves room for the logo patch in the middle.
+        errorCorrectionLevel: "H",
+        color: { dark: "#0B1220", light: "#FFFFFF" },
+      });
+      setQr({ dataUrl, expiresAt: res.expiresAt });
+    } catch (err) {
+      setPairError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const setEnabled = async (v: boolean) => {
@@ -1349,20 +1357,21 @@ function RemoteTab() {
             onChange={(v) => void setEnabled(v)}
           />
       </Row>
-      <Row label={t("settings.remote.tunnel")} hint={t("settings.remote.tunnel.hint")}>
-        <ToggleSwitch
-            checked={bridge.tunnel}
-            label={t("settings.remote.tunnel")}
-            onChange={(v) => void update({ remoteBridge: { ...bridge, tunnel: v } }).then(refresh)}
-          />
-      </Row>
-      {bridge.tunnel && status && (
+      {/* No tunnel toggle: it isn't an option the user meaningfully has. A
+          phone can't use a LAN address yet, so the tunnel is simply how
+          mobile access works — the bridge brings it up with the switch above
+          and stands it down for the Advanced escape hatches below. */}
+      {status?.running && !bridge.insecure && (
         <Row label={t("settings.remote.tunnel.status")}>
           <span className="text-[11.5px] text-faint">
-            {status.tunnel.state === "up" ? (
+            {/* Wherever the phone actually dials: a self-hosted URL when the
+                user set one, otherwise the quick tunnel's current address. */}
+            {bridge.publicUrl ? (
+              <span className="font-mono text-accent">{bridge.publicUrl}</span>
+            ) : status.tunnel.state === "up" ? (
               <span className="font-mono text-accent">{status.tunnel.url}</span>
             ) : status.tunnel.state === "downloading" ? (
-              t("settings.remote.tunnel.downloading")
+              t("settings.remote.tunnel.downloading", { pct: status.tunnel.percent })
             ) : status.tunnel.state === "starting" ? (
               t("settings.remote.tunnel.starting")
             ) : status.tunnel.state === "error" ? (
@@ -1374,7 +1383,7 @@ function RemoteTab() {
         </Row>
       )}
       {/* Everything below is for people fronting the bridge themselves. The
-          two toggles above are the whole setup for everyone else, so these
+          single toggle above is the whole setup for everyone else, so these
           stay folded rather than reading as required fields. */}
       <details className="mt-3">
         <summary className="cursor-pointer list-none py-2 text-[12px] text-faint hover:text-muted">
@@ -1429,6 +1438,11 @@ function RemoteTab() {
       <div className="mt-5 mb-2 text-[12px] font-semibold text-muted">
         {t("settings.remote.pair")}
       </div>
+      {pairError && (
+        <div className="mb-2 rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[11.5px] text-danger">
+          {t("settings.remote.pair.failed")} — {pairError}
+        </div>
+      )}
       {!status?.running ? (
         <div className="py-2 text-[12px] text-faint">{t("settings.remote.off")}</div>
       ) : qr ? (

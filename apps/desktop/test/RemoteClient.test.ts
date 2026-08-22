@@ -46,6 +46,8 @@ async function bridgeAndToken(): Promise<{ bridge: RemoteBridge; port: number; t
   const bridge = new RemoteBridge({
     settings: makeSettings(port),
     vault: { get: (r) => vaultStore.get(r) ?? null, set: (r, v) => void vaultStore.set(r, v) },
+    // Client↔bridge over the real TLS listener; no tunnel, no network.
+    tunnel: false,
     getWindow: () => null,
     version: "0.0.0-test",
     certDir,
