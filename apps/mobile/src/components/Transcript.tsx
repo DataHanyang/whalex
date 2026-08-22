@@ -3,6 +3,7 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
+import { InlineImage } from "./InlineImage";
 import { Markdown } from "./Markdown";
 import { ToolGroup } from "./ToolGroup";
 import type { Row } from "./transcriptRows";
@@ -103,6 +104,15 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
       );
 
     case "artifact":
+      // Images render right here, small, tap for full screen. Everything
+      // else (html, plans, spreadsheets) still lives on the desktop.
+      if (item.artifactKind === "image") {
+        return (
+          <View style={styles.imageWrap}>
+            <InlineImage artifactId={item.artifactId} title={item.title} />
+          </View>
+        );
+      }
       return (
         <>
           <View style={styles.card}>
@@ -217,6 +227,7 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   errorCard: { borderColor: colors.dangerSoft, backgroundColor: colors.dangerSoft },
+  imageWrap: { marginVertical: space.xs },
   cardHead: { flexDirection: "row", alignItems: "center", gap: space.sm },
   cardTitle: { ...type.label, color: colors.muted, flex: 1 },
   cardMeta: { ...type.monoSmall, color: colors.faint },

@@ -95,7 +95,10 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior="padding"
-        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+        // Android: the keyboard height it reports is measured from the true
+        // screen bottom, but our layout already ends inset.bottom higher —
+        // without the offset the composer sat exactly that much under it.
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : insets.bottom}
       >
         <FlatList
           inverted
@@ -123,13 +126,22 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+/** Same six greeting slots as the desktop, so both apps open with one voice. */
+function timeOfDay(hour: number): "dawn" | "morning" | "lunch" | "afternoon" | "evening" | "night" {
+  if (hour < 5) return "dawn";
+  if (hour < 11) return "morning";
+  if (hour < 14) return "lunch";
+  if (hour < 17) return "afternoon";
+  if (hour < 21) return "evening";
+  return "night";
+}
+
 function Empty() {
+  const slot = timeOfDay(new Date().getHours());
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>{t("chat.emptyTitle")}</Text>
-      <Text style={styles.emptyBody}>
-        {t("chat.emptyBody")}
-      </Text>
+      <Text style={styles.emptyTitle}>{t(`transcript.greet.${slot}`)}</Text>
+      <Text style={styles.emptyBody}>{t(`transcript.greet.${slot}.sub`)}</Text>
     </View>
   );
 }
@@ -177,6 +189,15 @@ const styles = StyleSheet.create({
     paddingTop: space.xxxl,
     gap: space.sm,
   },
-  emptyTitle: { ...type.heading, color: colors.muted },
-  emptyBody: { ...type.caption, textAlign: "center" },
+  // The greeting is the whole screen at that moment — let it speak up.
+  emptyTitle: { ...type.display, fontSize: 24, lineHeight: 31, textAlign: "center" },
+  emptyBody: {
+    ...type.body,
+    fontSize: 14.5,
+    color: colors.muted,
+    textAlign: "center",
+    lineHeight: 21,
+    paddingHorizontal: space.xl,
+    marginTop: space.xs,
+  },
 });

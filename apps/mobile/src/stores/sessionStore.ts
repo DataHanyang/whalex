@@ -52,11 +52,29 @@ interface MobileSessionState extends ClientSessionState {
   setGoalMode(on: boolean): Promise<void>;
   setSuperCode(on: boolean): Promise<void>;
   setEffort(effort: ReasoningEffort): Promise<void>;
+  attachments: PendingAttachment[];
+  addAttachment(a: PendingAttachment): void;
+  removeAttachment(id: string): void;
+  /** Uploads a picked document to the desktop; returns its path there. */
+  uploadFile(name: string, dataBase64: string): Promise<string>;
   closeSession(): void;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
   respondPermission(id: string, allow: boolean, always?: boolean): Promise<void>;
   answerQuestion(id: string, answer: string): Promise<void>;
+}
+
+/** Something picked on the phone, waiting to ride out with the next send. */
+export interface PendingAttachment {
+  id: string;
+  kind: "image" | "file";
+  name: string;
+  /** Images: JPEG base64 (no data: prefix), described by vision at send. */
+  dataBase64?: string;
+  /** Files: already uploaded to the desktop; the agent reads this path. */
+  path?: string;
+  /** Local uri for the chip thumbnail. */
+  uri?: string;
 }
 
 /** Envelopes arriving while session:start is in flight; applied after hydrate. */
@@ -109,6 +127,7 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
     models: [],
     goalMode: false,
     effort: "medium",
+    attachments: [],
     lastSeq: 0,
     opening: false,
 
@@ -200,6 +219,19 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       await client().invoke("app:setEffort", { effort });
     },
 
+    addAttachment(a) {
+      set({ attachments: [...get().attachments, a] });
+    },
+
+    removeAttachment(id) {
+      set({ attachments: get().attachments.filter((a) => a.id !== id) });
+    },
+
+    async uploadFile(name, dataBase64) {
+      const res = await client().invoke("files:upload", { name, dataBase64 });
+      return res.path;
+    },
+
     async open(cwd, resumeSessionId) {
       const c = client();
       set({ opening: true, activeSessionId: resumeSessionId ?? null, cwd });
@@ -245,7 +277,7 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
     },
 
     async send(text) {
-      const { activeSessionId, model, status } = get();
+      const { activeSessionId, model, status, attachments } = get();
       if (!activeSessionId) return;
       const steering = status !== "idle";
       const messageId = `mob-${Date.now()}`;
@@ -260,9 +292,41 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
             ...(steering ? { delivery: "pending" as const } : {}),
           },
         ],
+        attachments: [],
         ...(steering ? {} : { status: "thinking" as const, turnStartedAt: Date.now() }),
       }));
-      await client().invoke("session:send", { sessionId: activeSessionId, text, model, messageId });
+
+      // Same pipeline as the desktop composer: documents ride as @path
+      // mentions (they already live on the desktop via files:upload), and
+      // images pass through the vision sidecar to become text the model can
+      // actually read.
+      let finalText = text;
+      const files = attachments.filter((a) => a.kind === "file" && a.path);
+      if (files.length > 0) {
+        const mentions = files.map((f) => `@${f.path}`).join(" ");
+        finalText = finalText ? `${finalText}\n\n${mentions}` : mentions;
+      }
+      const images = attachments.filter((a) => a.kind === "image" && a.dataBase64);
+      for (const img of images) {
+        try {
+          const res = await client().invoke("vision:describe", {
+            imageDataUrl: `data:image/jpeg;base64,${img.dataBase64}`,
+            question: text || undefined,
+          });
+          finalText += res.configured
+            ? `\n\n[Attached image: ${img.name}]\n${res.ok ? (res.description ?? "") : `(analysis failed: ${res.error ?? "unknown"})`}`
+            : "\n\n[An image was attached but no vision model is configured on the desktop.]";
+        } catch (err) {
+          finalText += `\n\n[Image analysis failed: ${err instanceof Error ? err.message : String(err)}]`;
+        }
+      }
+
+      await client().invoke("session:send", {
+        sessionId: activeSessionId,
+        text: finalText,
+        model,
+        messageId,
+      });
     },
 
     async abort() {

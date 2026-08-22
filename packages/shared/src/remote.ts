@@ -52,6 +52,11 @@ export const REMOTE_CHANNELS = [
   "checkpoint:rewind",
   "models:list",
   "app:setEffort",
+  // Attachments from the phone: documents land as real files (files:upload →
+  // @path mention), images go through the vision sidecar exactly like a
+  // desktop drag-and-drop. Both carry user-chosen content only.
+  "files:upload",
+  "vision:describe",
   "usage:summary",
   "commands:list",
   "files:search",

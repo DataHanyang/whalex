@@ -1,6 +1,8 @@
+import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import { app, dialog, ipcMain, shell, type BrowserWindow } from "electron";
-import { OpenAICompatProvider, SessionStore, VisionBridge, searchFiles } from "@whalex/core";
+import { OpenAICompatProvider, SessionStore, VisionBridge, searchFiles, whalexHome } from "@whalex/core";
 import { installSkills } from "./SkillInstaller.js";
 import {
   IPC_INVOKE,
@@ -110,6 +112,23 @@ export function createHandlers(deps: IpcDeps): Handlers {
       // rest of settings:update.
       settings.update({ reasoningEffort: req.effort });
       host.applyLiveSettings();
+    },
+    "files:upload": (req) => {
+      const bytes = Buffer.from(req.dataBase64, "base64");
+      // 25MB covers documents and photos; anything larger is better moved by
+      // hand than through a JSON websocket frame.
+      if (bytes.byteLength > 25 * 1024 * 1024) {
+        throw new Error("File is too large to send from the phone (25MB limit).");
+      }
+      // The name is the phone's word for it — keep it readable, drop anything
+      // path-like, and timestamp for uniqueness so two "photo.jpg" coexist.
+      const safe = req.name.replace(/[\\/:*?"<>|]/g, "_").replace(/^\.+/, "_");
+      const dir = path.join(whalexHome(), "uploads");
+      fs.mkdirSync(dir, { recursive: true });
+      const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
+      const dest = path.join(dir, `${stamp}-${safe}`);
+      fs.writeFileSync(dest, bytes);
+      return { path: dest };
     },
     "session:list": async (req) => {
       const list = await SessionStore.list(req.cwd);

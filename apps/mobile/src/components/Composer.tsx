@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
@@ -43,9 +43,11 @@ export function Composer({
   const model = useMobileSession((s) => s.model);
   const send = useMobileSession((s) => s.send);
   const abort = useMobileSession((s) => s.abort);
+  const attachments = useMobileSession((s) => s.attachments);
+  const removeAttachment = useMobileSession((s) => s.removeAttachment);
   const [draft, setDraft] = useState("");
   const running = status !== "idle";
-  const ready = draft.trim().length > 0;
+  const ready = draft.trim().length > 0 || attachments.length > 0;
 
   const submit = (): void => {
     if (!ready) return;
@@ -57,6 +59,25 @@ export function Composer({
 
   return (
     <View style={styles.wrap}>
+      {attachments.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachRow}>
+          {attachments.map((a) => (
+            <View key={a.id} style={styles.attachChip}>
+              {a.kind === "image" && a.uri ? (
+                <Image source={{ uri: a.uri }} style={styles.attachThumb} />
+              ) : (
+                <Feather name="file-text" size={13} color={colors.muted} />
+              )}
+              <Text style={styles.attachName} numberOfLines={1}>
+                {a.name}
+              </Text>
+              <Pressable onPress={() => removeAttachment(a.id)} hitSlop={8}>
+                <Feather name="x" size={13} color={colors.faint} />
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
+      )}
       <View style={styles.field}>
         <TextInput
           style={styles.input}
@@ -117,6 +138,23 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
     backgroundColor: colors.bg,
   },
+  attachRow: { marginBottom: space.sm, flexGrow: 0 },
+  attachChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingLeft: space.sm,
+    paddingRight: space.md,
+    paddingVertical: space.xs + 1,
+    marginRight: space.sm,
+    maxWidth: 220,
+  },
+  attachThumb: { width: 24, height: 24, borderRadius: radius.sm },
+  attachName: { ...type.caption, color: colors.text, flexShrink: 1 },
   field: {
     backgroundColor: colors.bg,
     borderWidth: 1,

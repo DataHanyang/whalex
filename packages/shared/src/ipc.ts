@@ -240,6 +240,18 @@ export const IPC_INVOKE = {
     req: z.object({ effort: ReasoningEffortSchema }),
     res: z.void(),
   },
+  /**
+   * A phone attachment becomes a real file on the desktop, which the agent
+   * then reads through its own tools via an @path mention — the same shape a
+   * desktop drag-and-drop produces, except the bytes have to travel first.
+   * Base64 keeps it inside the existing JSON protocol; size is capped by the
+   * handler, not the schema, so the error can be a sentence instead of a
+   * parse failure.
+   */
+  "files:upload": {
+    req: z.object({ name: z.string().min(1).max(200), dataBase64: z.string() }),
+    res: z.object({ path: z.string() }),
+  },
   "mcp:enablePreset": {
     req: z.object({ name: z.string(), cwd: z.string() }),
     res: z.void(),

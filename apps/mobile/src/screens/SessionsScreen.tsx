@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import type { SessionMeta } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
 import { plural, t } from "../i18n";
+import { listComputers, type PairedComputer } from "../lib/computers";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useMobileSession, type Project } from "../stores/sessionStore";
 
@@ -38,10 +39,29 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
   const open = useMobileSession((s) => s.open);
   const startNew = useMobileSession((s) => s.startNew);
   const requestRepair = useConnectionStore((s) => s.requestRepair);
+  const connect = useConnectionStore((s) => s.connect);
+  const activeComputer = useConnectionStore((s) => s.computer);
+  const closeSession = useMobileSession((s) => s.closeSession);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Every desktop this phone has ever paired with — one phone, many machines.
+  const [computers, setComputers] = useState<PairedComputer[]>([]);
+
+  useEffect(() => {
+    void listComputers().then((list) =>
+      setComputers(list.sort((a, b) => (b.lastConnectedAt ?? 0) - (a.lastConnectedAt ?? 0))),
+    );
+  }, [phase]);
+
+  const switchComputer = (c: PairedComputer): void => {
+    if (c.computerId === activeComputer?.computerId) return;
+    void Haptics.selectionAsync();
+    closeSession();
+    useMobileSession.setState({ sessions: [], projects: [] });
+    void connect(c);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -75,7 +95,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
     <View style={styles.root}>
       <View style={styles.head}>
         <View style={styles.headText}>
-          <Text style={styles.title}>{hello?.name ?? "Your computer"}</Text>
+          <Text style={styles.title}>{hello?.name ?? activeComputer?.name ?? "WhaleX"}</Text>
           <View style={styles.conn}>
             <View
               style={[
@@ -89,6 +109,31 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
           </View>
         </View>
       </View>
+
+      {computers.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.computers}
+          contentContainerStyle={styles.computersInner}
+        >
+          {computers.map((c) => {
+            const active = c.computerId === activeComputer?.computerId;
+            return (
+              <Pressable
+                key={c.computerId}
+                style={[styles.computerChip, active && styles.computerChipOn]}
+                onPress={() => switchComputer(c)}
+              >
+                <Feather name="monitor" size={12} color={active ? colors.accent : colors.muted} />
+                <Text style={[styles.computerName, active && { color: colors.accent }]}>
+                  {c.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
 
       {error && (
         <View style={styles.error}>
@@ -247,6 +292,21 @@ const styles = StyleSheet.create({
   conn: { flexDirection: "row", alignItems: "center", gap: space.sm },
   dot: { width: 6, height: 6, borderRadius: radius.pill },
   connText: { ...type.caption },
+  computers: { flexGrow: 0, marginBottom: space.md },
+  computersInner: { paddingHorizontal: space.lg, gap: space.sm },
+  computerChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm - 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + 2,
+  },
+  computerChipOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  computerName: { ...type.caption, color: colors.muted },
   error: {
     flexDirection: "row",
     alignItems: "center",

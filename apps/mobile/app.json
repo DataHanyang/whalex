@@ -3,7 +3,7 @@
     "name": "WhaleX",
     "slug": "whalex-mobile",
     "scheme": "whalex",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -26,7 +26,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "allowBackup": false,
-      "versionCode": 11
+      "versionCode": 12
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,6 +37,13 @@
         "expo-camera",
         {
           "cameraPermission": "WhaleX scans the pairing QR code shown by your desktop."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "WhaleX attaches photos you take to the conversation.",
+          "photosPermission": "WhaleX attaches photos you pick to the conversation."
         }
       ],
       "expo-font",

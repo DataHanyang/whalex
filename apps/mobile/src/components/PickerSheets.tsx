@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import { File } from "expo-file-system";
 import type { ReasoningEffort } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
@@ -17,11 +20,20 @@ import { Sheet } from "./Sheet";
 
 type Mode = "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted";
 
-const MODES: Array<{ id: Mode; label: Parameters<typeof t>[0]; hint: Parameters<typeof t>[0] }> = [
+const MODES: Array<{
+  id: Mode;
+  label: Parameters<typeof t>[0];
+  hint: Parameters<typeof t>[0];
+  danger?: boolean;
+}> = [
   { id: "default", label: "mode.default", hint: "mode.hint.default" },
   { id: "acceptEdits", label: "mode.acceptEdits", hint: "mode.hint.acceptEdits" },
   { id: "bypassPermissions", label: "mode.bypassPermissions", hint: "mode.hint.bypassPermissions" },
   { id: "plan", label: "mode.plan", hint: "mode.hint.plan" },
+  // The everything-goes mode: same option the desktop offers, same warning
+  // colour, because approving destructive commands from a phone screen
+  // deserves at least a red label.
+  { id: "unrestricted", label: "mode.unrestricted", hint: "mode.hint.unrestricted", danger: true },
 ];
 
 const EFFORTS: Array<{
@@ -51,6 +63,7 @@ export function ModeSheet({ visible, onDismiss }: { visible: boolean; onDismiss:
             label={t(m.label)}
             hint={t(m.hint)}
             on={mode === m.id}
+            danger={m.danger}
             onPress={() => {
               void Haptics.selectionAsync();
               void setMode(m.id);
@@ -118,7 +131,59 @@ export function WorkSheet({ visible, onDismiss }: { visible: boolean; onDismiss:
   const setSuperCode = useMobileSession((s) => s.setSuperCode);
   const setGoalMode = useMobileSession((s) => s.setGoalMode);
   const setEffort = useMobileSession((s) => s.setEffort);
+  const addAttachment = useMobileSession((s) => s.addAttachment);
+  const uploadFile = useMobileSession((s) => s.uploadFile);
   const [showEffort, setShowEffort] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const pickImage = async (camera: boolean): Promise<void> => {
+    setAttachError(null);
+    // Downscaled JPEG straight from the picker: the vision sidecar reads a
+    // description out of it, so phone-camera resolution is wasted bytes.
+    const opts: ImagePicker.ImagePickerOptions = {
+      mediaTypes: "images",
+      quality: 0.6,
+      base64: true,
+    };
+    const res = camera
+      ? await ImagePicker.launchCameraAsync(opts)
+      : await ImagePicker.launchImageLibraryAsync(opts);
+    const asset = res.assets?.[0];
+    if (res.canceled || !asset?.base64) return;
+    addAttachment({
+      id: `att-${Date.now()}`,
+      kind: "image",
+      name: asset.fileName ?? "photo.jpg",
+      dataBase64: asset.base64,
+      uri: asset.uri,
+    });
+    onDismiss();
+  };
+
+  const pickDocument = async (): Promise<void> => {
+    setAttachError(null);
+    const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+    const asset = res.assets?.[0];
+    if (res.canceled || !asset) return;
+    if ((asset.size ?? 0) > 25 * 1024 * 1024) {
+      setAttachError(t("attach.tooLarge"));
+      return;
+    }
+    setUploading(true);
+    try {
+      // The bytes move now, not at send: the chip only appears once the
+      // desktop actually holds the file the mention will point at.
+      const dataBase64 = await new File(asset.uri).base64();
+      const path = await uploadFile(asset.name, dataBase64);
+      addAttachment({ id: `att-${Date.now()}`, kind: "file", name: asset.name, path });
+      onDismiss();
+    } catch (err) {
+      setAttachError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // SuperCode owns the tuning while it is on, same as the desktop composer.
   const effortShown = superCode ? "max" : effort;
@@ -129,6 +194,22 @@ export function WorkSheet({ visible, onDismiss }: { visible: boolean; onDismiss:
       <Text style={styles.title}>{t("composer.options")}</Text>
       <ScrollView style={styles.scroll}>
         <View style={styles.group}>
+          <Pressable style={styles.toggleRow} onPress={() => void pickImage(true)}>
+            <Feather name="camera" size={16} color={colors.muted} />
+            <Text style={[styles.rowLabel, styles.attachLabel]}>{t("attach.camera")}</Text>
+          </Pressable>
+          <Pressable style={styles.toggleRow} onPress={() => void pickImage(false)}>
+            <Feather name="image" size={16} color={colors.muted} />
+            <Text style={[styles.rowLabel, styles.attachLabel]}>{t("attach.gallery")}</Text>
+          </Pressable>
+          <Pressable style={styles.toggleRow} onPress={() => void pickDocument()} disabled={uploading}>
+            <Feather name="paperclip" size={16} color={colors.muted} />
+            <Text style={[styles.rowLabel, styles.attachLabel]}>{t("attach.document")}</Text>
+            {uploading && <ActivityIndicator size="small" color={colors.accent} />}
+          </Pressable>
+          {attachError && <Text style={styles.attachError}>{attachError}</Text>}
+        </View>
+        <View style={[styles.group, styles.groupGap]}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleText}>
               <Text style={styles.rowLabel}>SuperCode</Text>
@@ -203,24 +284,29 @@ function OptionRow({
   hint,
   on,
   inset,
+  danger,
   onPress,
 }: {
   label: string;
   hint?: string;
   on: boolean;
   inset?: boolean;
+  danger?: boolean;
   onPress: () => void;
 }) {
+  const tone = danger ? colors.danger : colors.accent;
   return (
     <Pressable
       style={[styles.option, inset && styles.optionInset, on && styles.optionOn]}
       onPress={onPress}
     >
       <View style={styles.toggleText}>
-        <Text style={[styles.rowLabel, on && { color: colors.accent }]}>{label}</Text>
+        <Text style={[styles.rowLabel, danger && { color: colors.danger }, on && { color: tone }]}>
+          {label}
+        </Text>
         {!!hint && <Text style={styles.rowHint}>{hint}</Text>}
       </View>
-      {on && <Feather name="check" size={15} color={colors.accent} />}
+      {on && <Feather name="check" size={15} color={tone} />}
     </Pressable>
   );
 }
@@ -269,4 +355,12 @@ const styles = StyleSheet.create({
   toggleText: { flex: 1, gap: 2 },
   rowLabel: { ...type.ui },
   rowHint: { ...type.caption, fontSize: 11.5 },
+  attachLabel: { flex: 1 },
+  attachError: {
+    ...type.caption,
+    color: colors.danger,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  groupGap: { marginTop: space.md },
 });
