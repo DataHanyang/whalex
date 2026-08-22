@@ -44,6 +44,8 @@ export type TunnelState =
 
 export class TunnelManager {
   private proc: ChildProcess | null = null;
+  /** PID of a tunnel inherited from a previous run; we have no handle on it. */
+  private adoptedPid: number | null = null;
   private current: TunnelState = { state: "off" };
   private stopping = false;
   private restartTimer: NodeJS.Timeout | null = null;
@@ -134,11 +136,72 @@ export class TunnelManager {
     this.opts.log?.(`cloudflared downloaded to ${target}`);
   }
 
-  /** Bring up a quick tunnel in front of the loopback bridge. */
+  /**
+   * Bring up a quick tunnel in front of the loopback bridge, reusing the one
+   * from the previous run when it is still alive.
+   *
+   * Quick tunnels get a fresh random hostname every time cloudflared starts,
+   * and a paired phone only re-learns the address from the local network — so
+   * a desktop restart used to strand anyone who was out of the house. Letting
+   * the tunnel outlive the app keeps the address fixed across restarts and
+   * updates, which is when this bites.
+   */
   async start(port: number): Promise<void> {
     this.stopping = false;
     await this.ensureBinary();
+    if (await this.adopt(port)) return;
     this.spawnTunnel(port);
+  }
+
+  /** Where the surviving tunnel's identity is recorded between runs. */
+  private statePath(): string {
+    return path.join(whalexHome(), "tunnel.json");
+  }
+
+  /**
+   * Takes over the tunnel left by the previous run, if it still answers.
+   * Probing the public URL is the whole check: it proves cloudflared is up
+   * *and* still pointed at this machine's bridge, which a stale PID would not.
+   */
+  private async adopt(port: number): Promise<boolean> {
+    let saved: { pid?: number; url?: string; port?: number };
+    try {
+      saved = JSON.parse(fs.readFileSync(this.statePath(), "utf8")) as typeof saved;
+    } catch {
+      return false;
+    }
+    if (!saved.url || saved.port !== port) return false;
+
+    try {
+      const res = await fetch(`${saved.url}/info`, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return false;
+      const body = (await res.json()) as { app?: string };
+      if (body.app !== "whalex") return false;
+    } catch {
+      return false;
+    }
+
+    this.adoptedPid = saved.pid ?? null;
+    this.setState({ state: "up", url: saved.url });
+    this.opts.log?.(`reusing the tunnel from the last run: ${saved.url}`);
+    return true;
+  }
+
+  private remember(url: string, port: number, pid: number | undefined): void {
+    try {
+      fs.mkdirSync(path.dirname(this.statePath()), { recursive: true });
+      fs.writeFileSync(this.statePath(), JSON.stringify({ pid, url, port }), "utf8");
+    } catch {
+      // A tunnel we cannot remember still works for this run.
+    }
+  }
+
+  private forget(): void {
+    try {
+      fs.rmSync(this.statePath(), { force: true });
+    } catch {
+      // best effort
+    }
   }
 
   /**
@@ -163,6 +226,9 @@ export class TunnelManager {
 
   private spawnTunnel(port: number): void {
     this.setState({ state: "starting" });
+    // Detached, so an app restart or an update does not take the address with
+    // it. stdout is piped for the URL and then unref'd — the child keeps
+    // running with no parent handle holding it.
     const proc = spawn(
       this.bin(),
       [
@@ -176,9 +242,10 @@ export class TunnelManager {
         "--url",
         `http://127.0.0.1:${port}`,
       ],
-      { stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
+      { stdio: ["ignore", "pipe", "pipe"], windowsHide: true, detached: true },
     );
     this.proc = proc;
+    proc.unref();
 
     const onChunk = (buf: Buffer): void => {
       const text = buf.toString("utf8");
@@ -186,6 +253,7 @@ export class TunnelManager {
       if (match && this.current.state !== "up") {
         this.attempt = 0;
         this.setState({ state: "up", url: match[0] });
+        this.remember(match[0], port, proc.pid);
         this.opts.log?.(`quick tunnel up: ${match[0]}`);
       }
     };
@@ -207,15 +275,54 @@ export class TunnelManager {
     });
   }
 
-  stop(): void {
+  /**
+   * Lets go of the tunnel.
+   *
+   * `keepAlive` leaves cloudflared running so the next launch adopts the same
+   * address — that is the point of the whole arrangement, and it covers app
+   * restarts and updates. A deliberate shutdown (the user quitting, or turning
+   * the feature off) takes the tunnel down with it, since nothing is coming
+   * back to adopt it.
+   */
+  stop(opts?: { keepAlive?: boolean }): void {
     this.stopping = true;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
-    this.proc?.kill();
-    this.proc = null;
+    if (opts?.keepAlive) {
+      // Drop our listeners but leave the process — the URL stays valid.
+      this.proc?.stdout?.removeAllListeners();
+      this.proc?.stderr?.removeAllListeners();
+      this.proc?.removeAllListeners();
+      this.proc = null;
+      return;
+    }
+    this.kill();
     this.attempt = 0;
     this.setState({ state: "off" });
+  }
+
+  private kill(): void {
+    this.proc?.kill();
+    this.proc = null;
+    // A tunnel left by an earlier run has no handle here, only a recorded pid.
+    let pid = this.adoptedPid;
+    if (pid == null) {
+      try {
+        pid = (JSON.parse(fs.readFileSync(this.statePath(), "utf8")) as { pid?: number }).pid ?? null;
+      } catch {
+        pid = null;
+      }
+    }
+    if (pid != null) {
+      try {
+        process.kill(pid);
+      } catch {
+        // already gone
+      }
+    }
+    this.adoptedPid = null;
+    this.forget();
   }
 }

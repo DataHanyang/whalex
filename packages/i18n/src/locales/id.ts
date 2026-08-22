@@ -458,4 +458,7 @@ export const id: Partial<Dict> = {
     "update.section": "Aplikasi",
     "update.current": "Versi {{v}}",
     "update.upToDate": "Sudah terbaru",
+    "conn.unreachable": "Komputer tidak ditemukan",
+    "conn.unreachable.body": "Mungkin sedang tidur, atau alamatnya berubah saat Anda pergi. Buka aplikasi di jaringan rumah, atau pindai kodenya lagi.",
+    "conn.rescan": "Pindai ulang kode",
 };

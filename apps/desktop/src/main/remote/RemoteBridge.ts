@@ -142,7 +142,9 @@ export class RemoteBridge {
       }
       return;
     }
-    this.stop();
+    // Only tear down something that is actually up. At boot nothing is, and a
+    // blind stop() here would kill the tunnel start() is about to adopt.
+    if (this.server) this.stop();
     this.start(cfg.port, cfg.discovery, cfg.insecure, cfg.tunnel);
   }
 
@@ -202,12 +204,18 @@ export class RemoteBridge {
     }
   }
 
-  stop(): void {
+  /**
+   * `keepTunnel` is for shutdowns the app comes back from — quitting to apply
+   * an update, or relaunching. Leaving cloudflared running there means the
+   * next launch adopts the same public address, so a phone that is out of the
+   * house does not lose its way home over a routine restart.
+   */
+  stop(opts?: { keepTunnel?: boolean }): void {
     if (this.keepalive) {
       clearInterval(this.keepalive);
       this.keepalive = null;
     }
-    this.tunnel.stop();
+    this.tunnel.stop({ keepAlive: opts?.keepTunnel });
     this.tunnelActive = false;
     this.discovery?.stop();
     this.discovery = null;

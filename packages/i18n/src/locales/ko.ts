@@ -458,4 +458,7 @@ export const ko: Partial<Dict> = {
     "update.section": "앱",
     "update.current": "버전 {{v}}",
     "update.upToDate": "최신 버전",
+    "conn.unreachable": "컴퓨터를 찾을 수 없습니다",
+    "conn.unreachable.body": "컴퓨터가 꺼져 있거나, 자리를 비운 사이 주소가 바뀌었을 수 있습니다. 집 네트워크에서 앱을 열거나 QR을 다시 스캔하세요.",
+    "conn.rescan": "QR 다시 스캔",
 };

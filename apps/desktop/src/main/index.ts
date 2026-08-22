@@ -339,8 +339,8 @@ void app.whenReady().then(() => {
   // One-shot: hold the quit until dev-server trees are killed (bounded at 3s),
   // otherwise they end up orphaned on Windows and squat the ports.
   let cleanupDone = false;
-  const shutdownCleanup = async () => {
-    bridge.stop();
+  const shutdownCleanup = async (opts?: { keepTunnel?: boolean }) => {
+    bridge.stop({ keepTunnel: opts?.keepTunnel });
     routines.stop();
     usage.flush();
     host.disposeAll();
@@ -360,7 +360,9 @@ void app.whenReady().then(() => {
     quitting = true;
     if (cleanupDone) return;
     cleanupDone = true;
-    await shutdownCleanup();
+    // The app is coming straight back: keep the tunnel so its public address
+    // survives the update and paired phones stay pointed at the right place.
+    await shutdownCleanup({ keepTunnel: true });
   };
 });
 

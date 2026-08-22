@@ -39,6 +39,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
   const refresh = useMobileSession((s) => s.refreshSessions);
   const open = useMobileSession((s) => s.open);
   const startNew = useMobileSession((s) => s.startNew);
+  const requestRepair = useConnectionStore((s) => s.requestRepair);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -49,7 +50,10 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
       await refresh();
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // "not connected" is the socket's own wording and means nothing to a
+      // reader; the connection banner already says that in their language.
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(/not connected/i.test(msg) ? null : msg);
     }
   }, [refresh]);
 
@@ -110,6 +114,18 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
           />
         }
       >
+        {phase === "unreachable" && (
+          <View style={styles.unreachable}>
+            <Feather name="wifi-off" size={22} color={colors.attention} />
+            <Text style={styles.unreachableTitle}>{t("conn.unreachable")}</Text>
+            <Text style={styles.unreachableBody}>{t("conn.unreachable.body")}</Text>
+            <Pressable style={styles.repairBtn} onPress={() => requestRepair()}>
+              <Feather name="maximize" size={14} color="#fff" />
+              <Text style={styles.repairText}>{t("conn.rescan")}</Text>
+            </Pressable>
+          </View>
+        )}
+
         {projects.length === 0 && phase === "connected" && (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>{t("sessions.noProjects")}</Text>
@@ -118,7 +134,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
             </Text>
           </View>
         )}
-        {projects.length === 0 && phase !== "connected" && (
+        {projects.length === 0 && phase !== "connected" && phase !== "unreachable" && (
           <View style={styles.empty}>
             <ActivityIndicator color={colors.accent} />
           </View>
@@ -308,6 +324,27 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   blankText: { ...type.caption },
+  unreachable: {
+    alignItems: "center",
+    gap: space.sm,
+    marginTop: space.xl,
+    padding: space.xl,
+    backgroundColor: colors.attentionSoft,
+    borderRadius: radius.md,
+  },
+  unreachableTitle: { ...type.heading, marginTop: space.xs },
+  unreachableBody: { ...type.caption, color: colors.muted, textAlign: "center", lineHeight: 19 },
+  repairBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    marginTop: space.sm,
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+  },
+  repairText: { ...type.ui, color: "#fff" },
   empty: { alignItems: "center", paddingTop: space.xxxl, gap: space.sm },
   emptyTitle: { ...type.heading, color: colors.muted },
   emptyBody: { ...type.caption, textAlign: "center" },

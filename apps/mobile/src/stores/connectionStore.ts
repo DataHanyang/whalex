@@ -8,10 +8,19 @@ export type ConnectionPhase =
   | "disconnected"
   | "connecting"
   | "connected"
+  /**
+   * Tried long enough that something is actually wrong — usually the desktop
+   * is asleep, or its address changed while the phone was away from the home
+   * network. Retries continue underneath; the phase exists so the UI can stop
+   * pretending and say what to do.
+   */
+  | "unreachable"
   /** The desktop refused our token — the pairing was revoked; re-scan the QR. */
   | "pairingRequired";
 
 const BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
+/** Attempts before the UI admits it isn't going to work on its own. */
+const GIVE_UP_AFTER = 4;
 
 interface ConnectionState {
   phase: ConnectionPhase;
@@ -28,6 +37,8 @@ interface ConnectionState {
   disconnect(): void;
   /** Called by App on foreground/network-change to retry immediately. */
   kick(): void;
+  /** Send the user back to the QR screen without dropping the stored token. */
+  requestRepair(): void;
 }
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -123,6 +134,15 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       void get().connect(computer);
     }
   },
+
+  requestRepair() {
+    generation++;
+    if (retryTimer) clearTimeout(retryTimer);
+    get().client?.close();
+    // Re-scanning a known computer refreshes its address and keeps the token,
+    // so this is a recovery path rather than starting over.
+    set({ phase: "pairingRequired", client: null, attempt: 0 });
+  },
 }));
 
 function scheduleRetry(
@@ -134,7 +154,10 @@ function scheduleRetry(
   const delay =
     (BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)] ?? 30000) +
     Math.floor(Math.random() * 500);
-  set({ phase: "connecting", attempt: attempt + 1 });
+  set({
+    phase: attempt + 1 >= GIVE_UP_AFTER ? "unreachable" : "connecting",
+    attempt: attempt + 1,
+  });
   retryTimer = setTimeout(() => {
     if (gen !== generation) return;
     const computer = get().computer;

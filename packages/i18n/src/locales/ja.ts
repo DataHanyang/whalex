@@ -458,4 +458,7 @@ export const ja: Partial<Dict> = {
     "update.section": "アプリ",
     "update.current": "バージョン {{v}}",
     "update.upToDate": "最新です",
+    "conn.unreachable": "パソコンが見つかりません",
+    "conn.unreachable.body": "スリープ中か、離れている間にアドレスが変わった可能性があります。自宅のネットワークでアプリを開くか、コードを再スキャンしてください。",
+    "conn.rescan": "コードを再スキャン",
 };

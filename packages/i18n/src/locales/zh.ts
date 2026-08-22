@@ -457,4 +457,7 @@ export const zh: Partial<Dict> = {
     "update.section": "应用",
     "update.current": "版本 {{v}}",
     "update.upToDate": "已是最新",
+    "conn.unreachable": "找不到你的电脑",
+    "conn.unreachable.body": "电脑可能已休眠，或地址在你离开时发生了变化。请在家庭网络下打开应用，或重新扫描二维码。",
+    "conn.rescan": "重新扫码",
 };

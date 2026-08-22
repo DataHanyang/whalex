@@ -458,4 +458,7 @@ export const th: Partial<Dict> = {
     "update.section": "แอป",
     "update.current": "เวอร์ชัน {{v}}",
     "update.upToDate": "เป็นเวอร์ชันล่าสุด",
+    "conn.unreachable": "ไม่พบคอมพิวเตอร์ของคุณ",
+    "conn.unreachable.body": "เครื่องอาจหลับอยู่ หรือที่อยู่เปลี่ยนไปตอนคุณไม่อยู่ เปิดแอปในเครือข่ายที่บ้าน หรือสแกนรหัสอีกครั้ง",
+    "conn.rescan": "สแกนรหัสอีกครั้ง",
 };

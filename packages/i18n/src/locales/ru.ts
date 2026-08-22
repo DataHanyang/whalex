@@ -458,4 +458,7 @@ export const ru: Partial<Dict> = {
     "update.section": "Приложение",
     "update.current": "Версия {{v}}",
     "update.upToDate": "Актуальная версия",
+    "conn.unreachable": "Компьютер не найден",
+    "conn.unreachable.body": "Возможно, он спит или его адрес изменился, пока вас не было. Откройте приложение в домашней сети или отсканируйте код заново.",
+    "conn.rescan": "Отсканировать заново",
 };

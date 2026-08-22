@@ -471,4 +471,7 @@ export const en = {
     "update.section": "App",
     "update.current": "Version {{v}}",
     "update.upToDate": "Up to date",
+    "conn.unreachable": "Can't find your computer",
+    "conn.unreachable.body": "It may be asleep, or its address changed while you were away. Open the app on your home network, or scan the code again.",
+    "conn.rescan": "Scan the code again",
 } as const;

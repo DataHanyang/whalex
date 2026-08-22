@@ -457,4 +457,7 @@ export const zhTW: Partial<Dict> = {
     "update.section": "應用程式",
     "update.current": "版本 {{v}}",
     "update.upToDate": "已是最新",
+    "conn.unreachable": "找不到你的電腦",
+    "conn.unreachable.body": "電腦可能已休眠，或位址在你離開時變更了。請在家用網路下開啟應用程式，或重新掃描 QR 碼。",
+    "conn.rescan": "重新掃描",
 };

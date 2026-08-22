@@ -458,4 +458,7 @@ export const vi: Partial<Dict> = {
     "update.section": "Ứng dụng",
     "update.current": "Phiên bản {{v}}",
     "update.upToDate": "Đã mới nhất",
+    "conn.unreachable": "Không tìm thấy máy tính",
+    "conn.unreachable.body": "Máy có thể đang ngủ, hoặc địa chỉ đã đổi khi bạn đi vắng. Hãy mở ứng dụng trong mạng nhà, hoặc quét lại mã.",
+    "conn.rescan": "Quét lại mã",
 };

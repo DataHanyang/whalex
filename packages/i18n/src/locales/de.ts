@@ -458,4 +458,7 @@ export const de: Partial<Dict> = {
     "update.section": "App",
     "update.current": "Version {{v}}",
     "update.upToDate": "Aktuell",
+    "conn.unreachable": "Rechner nicht gefunden",
+    "conn.unreachable.body": "Er schläft vielleicht, oder seine Adresse hat sich geändert, während du weg warst. Öffne die App im Heimnetz oder scanne den Code erneut.",
+    "conn.rescan": "Code erneut scannen",
 };
