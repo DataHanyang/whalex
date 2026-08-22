@@ -82,10 +82,13 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
         </Pressable>
       </View>
 
+      {/* Android too: edge-to-edge (mandatory on recent SDKs) stops the OS
+          from resizing the window for the keyboard, so relying on
+          adjustResize left the composer buried under it. */}
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={insets.top}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
         <FlatList
           inverted

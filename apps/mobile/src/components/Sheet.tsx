@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, space } from "../theme";
 
 /**
@@ -34,6 +35,9 @@ export function Sheet({
   // does not reliably provide; measuring the window keeps the actions on
   // screen no matter how long the payload is.
   const { height } = useWindowDimensions();
+  // Modals render outside the shell, so the shell's bottom inset never
+  // reaches them — without this the last row sits behind the nav bar.
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -57,6 +61,7 @@ export function Sheet({
             styles.sheet,
             {
               maxHeight: Math.round(height * 0.86),
+              paddingBottom: space.xxl + insets.bottom,
               borderTopColor: accent,
               transform: [
                 { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [420, 0] }) },
@@ -80,7 +85,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     borderTopWidth: 2,
-    paddingBottom: space.xxl,
   },
   grabber: {
     alignSelf: "center",
