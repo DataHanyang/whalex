@@ -82,6 +82,14 @@ manifest.
 
 Neither app needs a device to review:
 
+The desktop imports `@whalex/i18n` from its **`dist/`**, not its source, so a
+string you just edited will not appear until that package is rebuilt. Any
+screenshot run that involves changed copy starts with both builds, in order:
+
+```bash
+pnpm --filter @whalex/i18n build && pnpm --filter @whalex/desktop build
+```
+
 ```bash
 node scripts/settings-shots.mjs            # desktop Settings tabs, throwaway profile
 cd apps/mobile && EXPO_PUBLIC_DEMO=1 pnpm exec expo start --web --port 8090
