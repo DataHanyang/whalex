@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import type { TranscriptItem } from "@whalex/shared";
 import { colors, space, type } from "../theme";
+import { plural, type Dict } from "../i18n";
 import { ToolCard } from "./ToolCard";
 
 type ToolItem = Extract<TranscriptItem, { kind: "tool" }>;
@@ -30,13 +31,13 @@ const CATEGORY: Record<string, "command" | "read" | "edit" | "search" | "fetch">
   web_fetch: "fetch",
 };
 
-const PHRASE: Record<string, [one: string, many: string]> = {
-  command: ["ran 1 command", "ran %n commands"],
-  read: ["read 1 file", "read %n files"],
-  edit: ["edited 1 file", "edited %n files"],
-  search: ["ran 1 search", "ran %n searches"],
-  fetch: ["fetched 1 page", "fetched %n pages"],
-  other: ["1 tool call", "%n tool calls"],
+const PHRASE: Record<string, [one: keyof Dict, many: keyof Dict]> = {
+  command: ["tool.ran_one", "tool.ran_other"],
+  read: ["tool.read_one", "tool.read_other"],
+  edit: ["tool.edited_one", "tool.edited_other"],
+  search: ["tool.searched_one", "tool.searched_other"],
+  fetch: ["tool.fetched_one", "tool.fetched_other"],
+  other: ["tool.calls_one", "tool.calls_other"],
 };
 
 /** "Ran 3 commands, read 1 file" — what happened, not which API was called. */
@@ -48,7 +49,7 @@ export function summarize(items: ToolItem[]): string {
   }
   const parts = [...counts.entries()].map(([key, n]) => {
     const [one, many] = PHRASE[key] ?? PHRASE.other!;
-    return n === 1 ? one : many.replace("%n", String(n));
+    return plural(one, many, n);
   });
   const text = parts.join(", ");
   return text.charAt(0).toUpperCase() + text.slice(1);

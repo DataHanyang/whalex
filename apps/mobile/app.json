@@ -46,7 +46,8 @@
             "usesCleartextTraffic": true
           }
         }
-      ]
+      ],
+      "expo-localization"
     ]
   }
 }

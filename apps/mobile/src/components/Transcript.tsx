@@ -2,6 +2,7 @@ import { memo, useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 import { Markdown } from "./Markdown";
 import { ToolGroup } from "./ToolGroup";
 import type { Row } from "./transcriptRows";
@@ -25,7 +26,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
           <View style={styles.userBubble}>
             <Text style={styles.userText}>{item.text}</Text>
           </View>
-          {item.delivery === "pending" && <Text style={styles.queued}>Queued</Text>}
+          {item.delivery === "pending" && <Text style={styles.queued}>{t("chat.queued")}</Text>}
         </View>
       );
 
@@ -38,7 +39,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
           {item.interrupted && (
             <View style={styles.interrupted}>
               <Feather name="slash" size={11} color={colors.faint} />
-              <Text style={styles.interruptedText}>Stopped</Text>
+              <Text style={styles.interruptedText}>{t("transcript.interrupted")}</Text>
             </View>
           )}
         </View>
@@ -51,7 +52,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <Feather name="check-square" size={13} color={colors.faint} />
-              <Text style={styles.cardTitle}>Plan</Text>
+              <Text style={styles.cardTitle}>{t("chat.plan")}</Text>
               <Text style={styles.cardMeta}>
                 {done}/{item.todos.length}
               </Text>
@@ -110,7 +111,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
               <Text style={styles.cardTitle}>{item.title}</Text>
               <Text style={styles.cardMeta}>{item.artifactKind}</Text>
             </View>
-            <Text style={styles.hint}>Open on desktop to view</Text>
+            <Text style={styles.hint}>{t("chat.openOnDesktop")}</Text>
           </View>
         </>
       );
@@ -145,7 +146,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
           <Text style={styles.dividerText}>
-            context compacted {item.beforePct}% → {item.afterPct}%
+            {t("transcript.compacted", { before: item.beforePct, after: item.afterPct })}
           </Text>
           <View style={styles.dividerLine} />
         </View>

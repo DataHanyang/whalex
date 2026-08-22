@@ -14,6 +14,7 @@ import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { QrPayloadSchema, type PairResponse, type QrPayload } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 import { getToken, saveComputer, type PairedComputer } from "../lib/computers";
 
 /**
@@ -52,16 +53,16 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
       contentContainerStyle={[styles.content, { paddingTop: insets.top + space.xxl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.kicker}>WhaleX</Text>
-      <Text style={styles.title}>Connect to your computer</Text>
+      <Text style={styles.kicker}>{t("pair.kicker")}</Text>
+      <Text style={styles.title}>{t("pair.title")}</Text>
       <Text style={styles.lead}>
-        Your desktop does the work. This app watches it, steers it, and approves what it asks for.
+        {t("pair.lead")}
       </Text>
 
       <View style={styles.steps}>
-        <Step n="1" text="Open WhaleX on your computer" />
-        <Step n="2" text="Settings → Remote → turn on mobile access" />
-        <Step n="3" text="Press Pair a device, then scan the code" />
+        <Step n="1" text={t("pair.step1")} />
+        <Step n="2" text={t("pair.step2")} />
+        <Step n="3" text={t("pair.step3")} />
       </View>
 
       {!manual && (
@@ -77,7 +78,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
               {busy && (
                 <View style={styles.scanBusy}>
                   <ActivityIndicator color={colors.accent} />
-                  <Text style={styles.scanBusyText}>Pairing…</Text>
+                  <Text style={styles.scanBusyText}>{t("pair.pairing")}</Text>
                 </View>
               )}
             </>
@@ -85,10 +86,10 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
             <View style={styles.permission}>
               <Feather name="camera-off" size={20} color={colors.faint} />
               <Text style={styles.permissionText}>
-                WhaleX needs the camera to read the pairing code.
+                {t("pair.cameraNeeded")}
               </Text>
               <Pressable style={styles.primary} onPress={() => void requestPermission()}>
-                <Text style={styles.primaryText}>Allow camera</Text>
+                <Text style={styles.primaryText}>{t("pair.allowCamera")}</Text>
               </Pressable>
             </View>
           )}
@@ -97,13 +98,13 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
 
       {manual && (
         <View style={styles.manual}>
-          <Text style={styles.manualLabel}>Pairing code</Text>
+          <Text style={styles.manualLabel}>{t("pair.codeLabel")}</Text>
           <TextInput
             style={styles.input}
             multiline
             autoCapitalize="none"
             autoCorrect={false}
-            placeholder="Paste the payload shown under the QR code"
+            placeholder={t("pair.codePlaceholder")}
             placeholderTextColor={colors.faint}
             value={manualText}
             onChangeText={setManualText}
@@ -116,7 +117,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
             {busy ? (
               <ActivityIndicator color={colors.bg} />
             ) : (
-              <Text style={styles.primaryText}>Pair</Text>
+              <Text style={styles.primaryText}>{t("pair.pair")}</Text>
             )}
           </Pressable>
         </View>
@@ -131,7 +132,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
 
       <Pressable onPress={() => setManual((m) => !m)} style={styles.switcher}>
         <Text style={styles.switcherText}>
-          {manual ? "Scan the code instead" : "Enter the code manually"}
+          {manual ? t("pair.scanInstead") : t("pair.manualInstead")}
         </Text>
       </Pressable>
     </ScrollView>
@@ -150,11 +151,11 @@ function Step({ n, text }: { n: string; text: string }) {
 /** Pairing fails for a handful of knowable reasons; say which one. */
 function explain(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (/JSON|Unexpected|invalid_/i.test(msg)) return "That code isn't a WhaleX pairing code.";
-  if (/no pairing window/i.test(msg)) return "The code expired. Press Pair a device again.";
-  if (/invalid pairing secret/i.test(msg)) return "That code was already used. Generate a new one.";
+  if (/JSON|Unexpected|invalid_/i.test(msg)) return t("pair.errNotWhalex");
+  if (/no pairing window/i.test(msg)) return t("pair.errExpired");
+  if (/invalid pairing secret/i.test(msg)) return t("pair.errUsed");
   if (/Network|fetch|failed/i.test(msg)) {
-    return "Couldn't reach the computer. Check it's awake and on the same network, or turn on internet access in Settings → Remote.";
+    return t("pair.errUnreachable");
   }
   return msg;
 }

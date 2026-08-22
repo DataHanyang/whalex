@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
+import { LANGUAGES, currentLanguage, setLanguage, t, useLanguage } from "../i18n";
 import { useMobileSession } from "../stores/sessionStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { Sheet } from "./Sheet";
@@ -13,11 +15,11 @@ type Mode = "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestri
  * that a permanent control strip would cost more than it returns, so the
  * settings that change how a turn behaves live one tap away instead.
  */
-const MODES: Array<{ id: Mode; label: string; hint: string }> = [
-  { id: "default", label: "Ask first", hint: "Approve each write and command" },
-  { id: "acceptEdits", label: "Auto-edit", hint: "File changes go through, commands still ask" },
-  { id: "bypassPermissions", label: "Auto-run", hint: "Nothing stops to ask you" },
-  { id: "plan", label: "Plan only", hint: "Research and propose, change nothing" },
+const MODES: Array<{ id: Mode; label: Parameters<typeof t>[0]; hint: Parameters<typeof t>[0] }> = [
+  { id: "default", label: "mode.default", hint: "mode.hint.default" },
+  { id: "acceptEdits", label: "mode.acceptEdits", hint: "mode.hint.acceptEdits" },
+  { id: "bypassPermissions", label: "mode.bypassPermissions", hint: "mode.hint.bypassPermissions" },
+  { id: "plan", label: "mode.plan", hint: "mode.hint.plan" },
 ];
 
 export function MenuSheet({
@@ -35,16 +37,23 @@ export function MenuSheet({
   const usage = useMobileSession((s) => s.usage);
   const startNew = useMobileSession((s) => s.startNew);
   const hello = useConnectionStore((s) => s.hello);
+  const language = useLanguage();
+  const [pickingLanguage, setPickingLanguage] = useState(false);
 
   const pick = (id: Mode): void => {
     void Haptics.selectionAsync();
     void setMode(id);
   };
 
+  const languageLabel =
+    language === "system"
+      ? t("menu.languageSystem")
+      : (LANGUAGES.find(([code]) => code === language)?.[1] ?? language);
+
   return (
     <Sheet visible={visible} onDismiss={onDismiss}>
       <ScrollView contentContainerStyle={styles.body}>
-        <Text style={styles.section}>How it should work</Text>
+        <Text style={styles.section}>{t("menu.howItWorks")}</Text>
         <View style={styles.group}>
           {MODES.map((m) => {
             const on = mode === m.id;
@@ -55,8 +64,10 @@ export function MenuSheet({
                 onPress={() => pick(m.id)}
               >
                 <View style={styles.modeText}>
-                  <Text style={[styles.modeLabel, on && { color: colors.accent }]}>{m.label}</Text>
-                  <Text style={styles.modeHint}>{m.hint}</Text>
+                  <Text style={[styles.modeLabel, on && { color: colors.accent }]}>
+                    {t(m.label)}
+                  </Text>
+                  <Text style={styles.modeHint}>{t(m.hint)}</Text>
                 </View>
                 {on && <Feather name="check" size={15} color={colors.accent} />}
               </Pressable>
@@ -64,11 +75,11 @@ export function MenuSheet({
           })}
         </View>
 
-        <Text style={styles.section}>Session</Text>
+        <Text style={styles.section}>{t("menu.session")}</Text>
         <View style={styles.group}>
           <Row
             icon="folder"
-            label="Switch project or session"
+            label={t("menu.switch")}
             value={cwd?.split(/[\\/]/).filter(Boolean).pop()}
             onPress={() => {
               onDismiss();
@@ -78,7 +89,7 @@ export function MenuSheet({
           {cwd && (
             <Row
               icon="plus"
-              label="New session here"
+              label={t("menu.newHere")}
               onPress={() => {
                 onDismiss();
                 void startNew(cwd);
@@ -87,15 +98,56 @@ export function MenuSheet({
           )}
         </View>
 
-        <Text style={styles.section}>Computer</Text>
+        <Text style={styles.section}>{t("menu.computer")}</Text>
         <View style={styles.group}>
-          <Row icon="monitor" label={hello?.name ?? "Connected"} value={hello?.serverVersion} />
+          <Row
+            icon="monitor"
+            label={hello?.name ?? t("conn.connected")}
+            value={hello?.serverVersion}
+          />
           {usage && (
             <Row
               icon="activity"
-              label="Context used"
+              label={t("menu.contextUsed")}
               value={`${usage.contextPct}% · $${usage.costUsd.toFixed(3)}`}
             />
+          )}
+          <Row
+            icon="globe"
+            label={t("menu.language")}
+            value={languageLabel}
+            onPress={() => setPickingLanguage((p) => !p)}
+          />
+          {pickingLanguage && (
+            <View style={styles.languages}>
+              <Pressable
+                style={styles.language}
+                onPress={() => {
+                  setLanguage("system");
+                  setPickingLanguage(false);
+                }}
+              >
+                <Text style={styles.languageText}>{t("menu.languageSystem")}</Text>
+                {currentLanguage() === "system" && (
+                  <Feather name="check" size={14} color={colors.accent} />
+                )}
+              </Pressable>
+              {LANGUAGES.map(([code, label]) => (
+                <Pressable
+                  key={code}
+                  style={styles.language}
+                  onPress={() => {
+                    setLanguage(code);
+                    setPickingLanguage(false);
+                  }}
+                >
+                  <Text style={styles.languageText}>{label}</Text>
+                  {currentLanguage() === code && (
+                    <Feather name="check" size={14} color={colors.accent} />
+                  )}
+                </Pressable>
+              ))}
+            </View>
           )}
         </View>
       </ScrollView>
@@ -173,5 +225,16 @@ const styles = StyleSheet.create({
   },
   rowPressed: { backgroundColor: colors.surface },
   rowLabel: { ...type.ui, flex: 1 },
+  languages: { backgroundColor: colors.bg },
+  language: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: space.xl + space.md,
+    paddingVertical: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  languageText: { ...type.body, fontSize: 14 },
   rowValue: { ...type.caption, maxWidth: 140, textAlign: "right" },
 });

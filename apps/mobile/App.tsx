@@ -12,6 +12,8 @@ import { IBMPlexSans_600SemiBold } from "@expo-google-fonts/ibm-plex-sans/600Sem
 import { IBMPlexMono_400Regular } from "@expo-google-fonts/ibm-plex-mono/400Regular";
 import { IBMPlexMono_500Medium } from "@expo-google-fonts/ibm-plex-mono/500Medium";
 import { colors, space, type } from "./src/theme";
+import type { AppLanguage } from "@whalex/shared";
+import { setLanguage, t } from "./src/i18n";
 import { listComputers, type PairedComputer } from "./src/lib/computers";
 import { useConnectionStore } from "./src/stores/connectionStore";
 import { PairScreen } from "./src/screens/PairScreen";
@@ -48,15 +50,21 @@ export default function App() {
 const DEMO = process.env.EXPO_PUBLIC_DEMO === "1";
 
 /** Scenario picker for the preview, so one bundle can show every screen. */
-function demoParams(): { screen: string | null; permission: boolean; menu: boolean } {
+function demoParams(): {
+  screen: string | null;
+  permission: boolean;
+  menu: boolean;
+  lang: string | null;
+} {
   if (typeof window === "undefined" || !window.location?.search) {
-    return { screen: null, permission: false, menu: false };
+    return { screen: null, permission: false, menu: false, lang: null };
   }
   const q = new URLSearchParams(window.location.search);
   return {
     screen: q.get("screen"),
     permission: q.get("permission") === "1",
     menu: q.get("menu") === "1",
+    lang: q.get("lang"),
   };
 }
 
@@ -70,6 +78,7 @@ function Shell() {
   useEffect(() => {
     if (DEMO) {
       const p = demoParams();
+      if (p.lang) setLanguage(p.lang as AppLanguage);
       void import("./src/demo").then((m) => m.seedDemo(p.permission));
       if (p.screen === "chat" || p.screen === "pair") setScreen(p.screen);
       return;
@@ -155,7 +164,7 @@ function ConnectionBanner() {
         },
       ]}
     >
-      <Text style={styles.bannerText}>Reconnecting to your computer…</Text>
+      <Text style={styles.bannerText}>{t("conn.banner")}</Text>
     </Animated.View>
   );
 }

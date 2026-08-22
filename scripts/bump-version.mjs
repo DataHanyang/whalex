@@ -14,6 +14,7 @@ const FILES = [
   "package.json",
   "packages/shared/package.json",
   "packages/client-core/package.json",
+  "packages/i18n/package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
   "apps/desktop/package.json",

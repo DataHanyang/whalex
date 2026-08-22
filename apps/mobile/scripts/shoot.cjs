@@ -26,13 +26,14 @@ const shots = [
   { name: "5-pair", env: { screen: "pair" } },
 ];
 
-async function capture(win, shot) {
+async function capture(win, shot, lang) {
   // The preview reads its scenario from the query string so a single bundle
   // can produce every screen without a rebuild per shot.
   const q = new URLSearchParams();
   if (shot.env.screen) q.set("screen", shot.env.screen);
   if (shot.env.permission) q.set("permission", "1");
   if (shot.env.menu) q.set("menu", "1");
+  if (lang) q.set("lang", lang);
   await win.loadURL(`${url}?${q.toString()}`);
   await new Promise((r) => setTimeout(r, 3500));
   const image = await win.webContents.capturePage();
@@ -51,7 +52,8 @@ app.whenReady().then(async () => {
   });
   win.setContentSize(WIDTH, HEIGHT);
   try {
-    for (const shot of shots) await capture(win, shot);
+    const lang = process.argv[4];
+    for (const shot of shots) await capture(win, shot, lang);
   } catch (err) {
     console.error("capture failed:", err);
     process.exitCode = 1;

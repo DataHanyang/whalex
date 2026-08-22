@@ -4,6 +4,7 @@ import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import type { PermissionRequest } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
+import { plural, t } from "../i18n";
 import { useMobileSession } from "../stores/sessionStore";
 import { CodeBlock } from "./CodeBlock";
 import { DiffView } from "./DiffView";
@@ -18,12 +19,15 @@ import { Sheet } from "./Sheet";
  * dismissable by tapping away: an unanswered request leaves an agent blocked.
  */
 
-const KIND: Record<string, { icon: keyof typeof Feather.glyphMap; label: string }> = {
-  execute: { icon: "terminal", label: "Run a command" },
-  edit: { icon: "edit-3", label: "Change a file" },
-  read: { icon: "file-text", label: "Read a file" },
-  fetch: { icon: "globe", label: "Fetch from the web" },
-  other: { icon: "shield", label: "Permission needed" },
+const KIND: Record<
+  string,
+  { icon: keyof typeof Feather.glyphMap; label: Parameters<typeof t>[0] }
+> = {
+  execute: { icon: "terminal", label: "perm.execute" },
+  edit: { icon: "edit-3", label: "perm.edit" },
+  read: { icon: "file-text", label: "perm.read" },
+  fetch: { icon: "globe", label: "perm.fetch" },
+  other: { icon: "shield", label: "perm.other" },
 };
 
 export function PermissionSheet() {
@@ -81,7 +85,7 @@ function Body({
           <Feather name={kind.icon} size={14} color={colors.attention} />
         </View>
         <View style={styles.headText}>
-          <Text style={styles.label}>{kind.label}</Text>
+          <Text style={styles.label}>{t(kind.label)}</Text>
           <Text style={styles.summary}>{request.summary}</Text>
         </View>
       </View>
@@ -107,28 +111,28 @@ function Body({
           onPress={() => onAnswer(false)}
           disabled={busy}
         >
-          <Text style={styles.denyText}>Deny</Text>
+          <Text style={styles.denyText}>{t("permission.deny")}</Text>
         </Pressable>
         <Pressable
           style={[styles.btn, styles.allow]}
           onPress={() => onAnswer(true)}
           disabled={busy}
         >
-          <Text style={styles.allowText}>Allow</Text>
+          <Text style={styles.allowText}>{t("permission.allowOnce")}</Text>
         </Pressable>
       </View>
 
       {request.suggestedRules.length > 0 && (
         <Pressable style={styles.always} onPress={() => onAnswer(true, true)} disabled={busy}>
           <Text style={styles.alwaysText}>
-            Always allow <Text style={styles.rule}>{request.suggestedRules[0]}</Text>
+            {t("permission.allowAlways")} <Text style={styles.rule}>{request.suggestedRules[0]}</Text>
           </Text>
         </Pressable>
       )}
 
       {queued > 0 && (
         <Text style={styles.queued}>
-          {queued} more {queued === 1 ? "request is" : "requests are"} waiting
+          {plural("perm.waiting_one", "perm.waiting_other", queued)}
         </Text>
       )}
     </>

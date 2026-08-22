@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 
 /**
  * Minimal token painter. A full grammar per language is far more weight than
@@ -104,7 +105,7 @@ export const CodeBlock = memo(function CodeBlock({
         <Text style={styles.lang}>{(language || "text").toUpperCase()}</Text>
         <Pressable onPress={() => void copy()} hitSlop={10}>
           <Text style={[styles.copy, copied && { color: colors.ok }]}>
-            {copied ? "Copied" : "Copy"}
+            {copied ? t("code.copied") : t("code.copy")}
           </Text>
         </Pressable>
       </View>
@@ -133,7 +134,7 @@ export const CodeBlock = memo(function CodeBlock({
         </ScrollView>
       )}
       {truncated && (
-        <Text style={styles.more}>{lines.length - 400} more lines — open on desktop</Text>
+        <Text style={styles.more}>{t("code.moreLines", { n: lines.length - 400 })}</Text>
       )}
     </View>
   );

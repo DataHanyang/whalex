@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import type { TranscriptItem } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 import { CodeBlock } from "./CodeBlock";
 import { DiffView } from "./DiffView";
 
@@ -20,28 +21,29 @@ function describe(toolName: string, args: Record<string, unknown> | undefined): 
 
   switch (toolName) {
     case "read_file":
-      return { icon: "file-text", verb: "Read", target: file(str("path")) };
+      return { icon: "file-text", verb: t("tool.verb.read"), target: file(str("path")) };
     case "write_file":
-      return { icon: "file-plus", verb: "Wrote", target: file(str("path")) };
+      return { icon: "file-plus", verb: t("tool.verb.wrote"), target: file(str("path")) };
     case "edit_file":
     case "apply_patch":
-      return { icon: "edit-3", verb: "Edited", target: file(str("path")) };
+      return { icon: "edit-3", verb: t("tool.verb.edited"), target: file(str("path")) };
     case "bash":
     case "shell":
     case "powershell":
-      return { icon: "terminal", verb: "Ran", target: str("command") };
+      return { icon: "terminal", verb: t("tool.verb.ran"), target: str("command") };
     case "glob":
-      return { icon: "folder", verb: "Listed", target: str("pattern") };
+      return { icon: "folder", verb: t("tool.verb.listed"), target: str("pattern") };
     case "grep":
     case "search":
-      return { icon: "search", verb: "Searched", target: str("pattern") || str("query") };
+      return { icon: "search", verb: t("tool.verb.searched"), target: str("pattern") || str("query") };
     case "web_fetch":
-      return { icon: "globe", verb: "Fetched", target: str("url") };
+      return { icon: "globe", verb: t("tool.verb.fetched"), target: str("url") };
     case "agent":
-      return { icon: "users", verb: "Delegated", target: str("description") || str("label") };
+      return { icon: "users", verb: t("tool.verb.delegated"), target: str("description") || str("label") };
     case "todo_write":
-      return { icon: "check-square", verb: "Updated plan", target: "" };
+      return { icon: "check-square", verb: t("tool.verb.plan"), target: "" };
     default:
+      // Unknown tools keep their own name — inventing a verb would mislead.
       return { icon: "box", verb: toolName.replace(/_/g, " "), target: str("path") || str("query") };
   }
 }
@@ -70,9 +72,9 @@ export const ToolCard = memo(function ToolCard({ item }: { item: ToolItem }) {
         )}
         <View style={styles.tail}>
           {running ? (
-            <Text style={[styles.state, { color: colors.accent }]}>running</Text>
+            <Text style={[styles.state, { color: colors.accent }]}>{t("tool.running")}</Text>
           ) : failed ? (
-            <Text style={[styles.state, { color: colors.danger }]}>failed</Text>
+            <Text style={[styles.state, { color: colors.danger }]}>{t("tool.failed")}</Text>
           ) : item.durationMs > 900 ? (
             <Text style={styles.state}>{(item.durationMs / 1000).toFixed(1)}s</Text>
           ) : null}

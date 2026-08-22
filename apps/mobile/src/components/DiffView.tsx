@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { colors, radius, space, type } from "../theme";
+import { plural, t } from "../i18n";
 
 /**
  * A unified diff sized for a phone. Approving a file write is the moment this
@@ -71,7 +72,7 @@ function trimContext(rows: Row[], pad = 3): Row[] {
   rows.forEach((r, i) => {
     if (keep.has(i)) {
       if (skipping > 0) {
-        out.push({ kind: "skip", text: `${skipping} unchanged ${skipping === 1 ? "line" : "lines"}` });
+        out.push({ kind: "skip", text: plural("diff.unchanged_one", "diff.unchanged_other", skipping) });
         skipping = 0;
       }
       out.push(r);
@@ -80,7 +81,7 @@ function trimContext(rows: Row[], pad = 3): Row[] {
     }
   });
   if (skipping > 0) {
-    out.push({ kind: "skip", text: `${skipping} unchanged ${skipping === 1 ? "line" : "lines"}` });
+    out.push({ kind: "skip", text: plural("diff.unchanged_one", "diff.unchanged_other", skipping) });
   }
   return out;
 }
@@ -145,7 +146,7 @@ export const DiffView = memo(function DiffView({
         </View>
       </ScrollView>
       {rows.length > maxRows && (
-        <Text style={styles.truncated}>{rows.length - maxRows} more lines not shown</Text>
+        <Text style={styles.truncated}>{t("diff.moreLines", { n: rows.length - maxRows })}</Text>
       )}
     </View>
   );

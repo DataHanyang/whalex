@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 import { useMobileSession } from "../stores/sessionStore";
 import { Sheet } from "./Sheet";
 
@@ -40,8 +41,8 @@ export function QuestionSheet() {
               <Feather name="help-circle" size={14} color={colors.accent} />
             </View>
             <View style={styles.headText}>
-              <Text style={styles.label}>Your call</Text>
-              <Text style={styles.question}>{q?.question ?? "The agent needs a decision"}</Text>
+              <Text style={styles.label}>{t("question.label")}</Text>
+              <Text style={styles.question}>{q?.question ?? t("question.fallback")}</Text>
             </View>
           </View>
 
@@ -63,7 +64,7 @@ export function QuestionSheet() {
             <View style={styles.otherRow}>
               <TextInput
                 style={styles.input}
-                placeholder="Something else…"
+                placeholder={t("question.other")}
                 placeholderTextColor={colors.faint}
                 value={other}
                 onChangeText={setOther}

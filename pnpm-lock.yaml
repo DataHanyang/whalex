@@ -111,6 +111,9 @@ importers:
       '@whalex/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@whalex/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@whalex/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -192,6 +195,9 @@ importers:
       '@whalex/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
+      '@whalex/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@whalex/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -213,6 +219,9 @@ importers:
       expo-haptics:
         specifier: ~57.0.1
         version: 57.0.1(expo@57.0.15)
+      expo-localization:
+        specifier: ~57.0.1
+        version: 57.0.1(expo@57.0.15)(react@19.2.3)
       expo-secure-store:
         specifier: ~57.0.1
         version: 57.0.1(expo@57.0.15)
@@ -319,6 +328,19 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)(terser@5.50.0)
+
+  packages/i18n:
+    dependencies:
+      '@whalex/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@24.13.3)(lightningcss@1.32.0)(terser@5.50.0)
 
   packages/shared:
     dependencies:
@@ -3336,6 +3358,12 @@ packages:
       expo: '*'
       react: '*'
 
+  expo-localization@57.0.1:
+    resolution: {integrity: sha512-8Ffl4UTbOsQeGT0v5fxMbyPHyPMPnhSPDFQJa8p9rjJrthFoAtNi+fL6Ssmrvf1/7dmPq1mVY52MEt0TMEfgjA==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+
   expo-modules-autolinking@57.0.10:
     resolution: {integrity: sha512-jNqLswMx8QHN8VXRgud+xT+9q+J9U63CEGlx+k4V/IE9Qyt9HrKbWp+pIDma0fOquta5HBfSfsShcI+NkEpTiA==}
     hasBin: true
@@ -5268,6 +5296,9 @@ packages:
   router@2.2.0:
     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
     engines: {node: '>= 18'}
+
+  rtl-detect@1.1.2:
+    resolution: {integrity: sha512-PGMBq03+TTG/p/cRB7HCLKJ1MgDIi07+QU1faSjiYRfmY5UsAttV9Hs08jDAHVwcOwmVLcSJkpwyfXszVjWfIQ==}
 
   rw@1.3.3:
     resolution: {integrity: sha512-PdhdWy89SiZogBLaw42zdeqtRJ//zFd2PgQavcICDUgJT5oW10QCRKbJ6bg4r0/UY2M6BWd5tkxuGFRvCkgfHQ==}
@@ -9782,6 +9813,12 @@ snapshots:
       expo: 57.0.15(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.12)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
       react: 19.2.3
 
+  expo-localization@57.0.1(expo@57.0.15)(react@19.2.3):
+    dependencies:
+      expo: 57.0.15(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(@expo/metro-runtime@57.0.12)(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.86.2(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3)
+      react: 19.2.3
+      rtl-detect: 1.1.2
+
   expo-modules-autolinking@57.0.10(typescript@6.0.3):
     dependencies:
       '@expo/require-utils': 57.0.4(typescript@6.0.3)
@@ -12189,6 +12226,8 @@ snapshots:
       path-to-regexp: 8.4.2
     transitivePeerDependencies:
       - supports-color
+
+  rtl-detect@1.1.2: {}
 
   rw@1.3.3: {}
 

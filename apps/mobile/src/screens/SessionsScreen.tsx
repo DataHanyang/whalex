@@ -13,16 +13,17 @@ import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import type { SessionMeta } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
+import { plural, t } from "../i18n";
 import { useConnectionStore } from "../stores/connectionStore";
 import { useMobileSession, type Project } from "../stores/sessionStore";
 
 /** "now", "12m", "3h", "Aug 4" — relative until relative stops helping. */
 function ago(ts: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (s < 60) return "now";
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h`;
-  if (s < 604800) return `${Math.floor(s / 86400)}d`;
+  if (s < 60) return t("time.now");
+  if (s < 3600) return t("time.minutes", { n: Math.floor(s / 60) });
+  if (s < 86400) return t("time.hours", { n: Math.floor(s / 3600) });
+  if (s < 604800) return t("time.days", { n: Math.floor(s / 86400) });
   return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
@@ -81,7 +82,7 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
               ]}
             />
             <Text style={styles.connText}>
-              {phase === "connected" ? "Connected" : "Reconnecting…"}
+              {phase === "connected" ? t("conn.connected") : t("conn.reconnecting")}
             </Text>
           </View>
         </View>
@@ -111,9 +112,9 @@ export function SessionsScreen({ onOpen }: { onOpen: () => void }) {
       >
         {projects.length === 0 && phase === "connected" && (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No projects yet</Text>
+            <Text style={styles.emptyTitle}>{t("sessions.noProjects")}</Text>
             <Text style={styles.emptyBody}>
-              Open a folder on the desktop and it will appear here.
+              {t("sessions.noProjectsBody")}
             </Text>
           </View>
         )}
@@ -184,7 +185,7 @@ function ProjectBlock({
       {!collapsed &&
         (project.sessions.length === 0 ? (
           <Pressable style={styles.blank} onPress={onNew}>
-            <Text style={styles.blankText}>No sessions — start one</Text>
+            <Text style={styles.blankText}>{t("sessions.startOne")}</Text>
           </Pressable>
         ) : (
           project.sessions.map((s) => (
@@ -196,11 +197,11 @@ function ProjectBlock({
             >
               <View style={styles.rowBody}>
                 <Text style={styles.rowTitle} numberOfLines={1}>
-                  {s.title || "Untitled session"}
+                  {s.title || t("sessions.untitled")}
                 </Text>
                 <Text style={styles.rowMeta}>
-                  {ago(s.updatedAt)} · {s.messageCount}{" "}
-                  {s.messageCount === 1 ? "message" : "messages"}
+                  {ago(s.updatedAt)} ·{" "}
+                  {plural("sessions.messages_one", "sessions.messages_other", s.messageCount)}
                 </Text>
               </View>
               {busy === s.sessionId ? (
@@ -208,7 +209,7 @@ function ProjectBlock({
               ) : s.running ? (
                 <View style={styles.pill}>
                   <View style={[styles.dot, { backgroundColor: colors.ok }]} />
-                  <Text style={styles.pillText}>Running</Text>
+                  <Text style={styles.pillText}>{t("sessions.running")}</Text>
                 </View>
               ) : null}
             </Pressable>

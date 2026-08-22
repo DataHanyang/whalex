@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Feather from "@expo/vector-icons/Feather";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 import { useMobileSession } from "../stores/sessionStore";
 import { useConnectionStore } from "../stores/connectionStore";
 import { TranscriptRow } from "../components/Transcript";
@@ -21,11 +22,11 @@ import { MenuSheet } from "../components/MenuSheet";
 import { PermissionSheet } from "../components/PermissionSheet";
 import { QuestionSheet } from "../components/QuestionSheet";
 
-const STATUS: Record<string, { label: string; color: string }> = {
-  thinking: { label: "Thinking", color: colors.live },
-  streaming: { label: "Writing", color: colors.live },
-  tool: { label: "Working", color: colors.attention },
-  idle: { label: "Ready", color: colors.faint },
+const STATUS: Record<string, { label: Parameters<typeof t>[0]; color: string }> = {
+  thinking: { label: "chat.thinking", color: colors.live },
+  streaming: { label: "chat.writing", color: colors.live },
+  tool: { label: "chat.working", color: colors.attention },
+  idle: { label: "chat.ready", color: colors.faint },
 };
 
 export function ChatScreen({ onBack }: { onBack: () => void }) {
@@ -44,7 +45,7 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
 
   // Inverted list: newest at the bottom without measuring or scrolling.
   const rows = useMemo(() => toRows(transcript).reverse(), [transcript]);
-  const folder = cwd?.split(/[\\/]/).filter(Boolean).pop() ?? "Session";
+  const folder = cwd?.split(/[\\/]/).filter(Boolean).pop() ?? t("chat.session");
   const state = STATUS[status] ?? STATUS.idle!;
   // The session's own title names the work; the folder names where it happens.
   const title =
@@ -69,9 +70,9 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
             {status !== "idle" && <Pulse color={state.color} />}
             <Text style={[styles.sub, status !== "idle" && { color: state.color }]}>
               {phase !== "connected"
-                ? "Reconnecting"
+                ? t("conn.reconnecting")
                 : status !== "idle"
-                  ? state.label
+                  ? t(state.label)
                   : folder}
             </Text>
           </View>
@@ -108,9 +109,9 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
 function Empty() {
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>Ready when you are</Text>
+      <Text style={styles.emptyTitle}>{t("chat.emptyTitle")}</Text>
       <Text style={styles.emptyBody}>
-        Describe what you want built, fixed or investigated.
+        {t("chat.emptyBody")}
       </Text>
     </View>
   );

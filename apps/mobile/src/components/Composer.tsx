@@ -3,15 +3,21 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
+import { t } from "../i18n";
 import { useMobileSession } from "../stores/sessionStore";
 
-const MODE_LABEL: Record<string, string> = {
-  default: "Ask first",
-  acceptEdits: "Auto-edit",
-  bypassPermissions: "Auto-run",
-  unrestricted: "Unrestricted",
-  plan: "Plan only",
-};
+/** Looked up per render, not cached, so switching language redraws the chip. */
+function modeLabel(mode: string): string {
+  const keys: Record<string, Parameters<typeof t>[0]> = {
+    default: "mode.default",
+    acceptEdits: "mode.acceptEdits",
+    bypassPermissions: "mode.bypassPermissions",
+    unrestricted: "mode.unrestricted",
+    plan: "mode.plan",
+  };
+  const key = keys[mode];
+  return key ? t(key) : mode;
+}
 
 /** deepseek-v4-pro → v4 pro. The provider prefix is noise on a phone. */
 function shortModel(id: string): string {
@@ -46,7 +52,7 @@ export function Composer({ onOpenMenu }: { onOpenMenu: () => void }) {
       <View style={styles.field}>
         <TextInput
           style={styles.input}
-          placeholder={running ? "Add to the running turn…" : "Ask WhaleX to build something"}
+          placeholder={running ? t("composer.placeholderRunning") : t("mobile.composer.placeholder")}
           placeholderTextColor={colors.faint}
           value={draft}
           onChangeText={setDraft}
@@ -63,7 +69,7 @@ export function Composer({ onOpenMenu }: { onOpenMenu: () => void }) {
 
           <Pressable style={styles.chip} onPress={onOpenMenu} hitSlop={6}>
             <Feather name="zap" size={11} color={colors.muted} />
-            <Text style={styles.chipText}>{MODE_LABEL[mode] ?? mode}</Text>
+            <Text style={styles.chipText}>{modeLabel(mode)}</Text>
           </Pressable>
 
           <View style={styles.spacer} />
