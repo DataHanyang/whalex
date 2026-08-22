@@ -76,7 +76,13 @@ They exist because the Windows username is non-ASCII, which breaks AGP's prefab
 step through `java.io.tmpdir`; the Gradle worker also needs the toolchain's own
 JDK. Anything that must survive a prebuild (e.g. `usesCleartextTraffic`) belongs
 in `app.json` under `expo-build-properties`, never hand-edited into the
-manifest.
+manifest — except `allowBackup`, which build-properties silently ignores; that
+one is a top-level field under `expo.android`.
+
+**Before `expo prebuild --clean`, stop the Gradle daemon** (`cd android &&
+./gradlew --stop`, or kill `java.exe`). The daemon from the previous build
+holds `classes.dex`, `--clean` then fails on EBUSY and leaves `android/`
+half-deleted, and the next fixup step dies on a missing `gradle.properties`.
 
 ## Seeing the UI
 
