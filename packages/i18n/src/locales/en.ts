@@ -468,4 +468,7 @@ export const en = {
     "diff.moreLines": "{{n}} more lines not shown",
     "diff.unchanged_one": "1 unchanged line",
     "diff.unchanged_other": "{{n}} unchanged lines",
+    "update.section": "App",
+    "update.current": "Version {{v}}",
+    "update.upToDate": "Up to date",
 } as const;

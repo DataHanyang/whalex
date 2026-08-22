@@ -455,4 +455,7 @@ export const id: Partial<Dict> = {
     "diff.moreLines": "{{n}} baris lagi tidak ditampilkan",
     "diff.unchanged_one": "1 baris tidak berubah",
     "diff.unchanged_other": "{{n}} baris tidak berubah",
+    "update.section": "Aplikasi",
+    "update.current": "Versi {{v}}",
+    "update.upToDate": "Sudah terbaru",
 };

@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
 import { LANGUAGES, currentLanguage, setLanguage, t, useLanguage } from "../i18n";
 import { useMobileSession } from "../stores/sessionStore";
 import { useConnectionStore } from "../stores/connectionStore";
+import { checkForUpdate, currentVersion, type UpdateInfo } from "../lib/appUpdate";
 import { Sheet } from "./Sheet";
 
 type Mode = "default" | "acceptEdits" | "bypassPermissions" | "plan" | "unrestricted";
@@ -39,6 +40,23 @@ export function MenuSheet({
   const hello = useConnectionStore((s) => s.hello);
   const language = useLanguage();
   const [pickingLanguage, setPickingLanguage] = useState(false);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  // Checked when the menu opens rather than at launch: an update banner is
+  // not what you want to meet while an approval is waiting on you.
+  useEffect(() => {
+    if (!visible) return;
+    let live = true;
+    setChecking(true);
+    void checkForUpdate()
+      .then((found) => live && setUpdate(found))
+      .catch(() => undefined)
+      .finally(() => live && setChecking(false));
+    return () => {
+      live = false;
+    };
+  }, [visible]);
 
   const pick = (id: Mode): void => {
     void Haptics.selectionAsync();
@@ -150,6 +168,32 @@ export function MenuSheet({
             </View>
           )}
         </View>
+
+        <Text style={styles.section}>{t("update.section")}</Text>
+        <View style={styles.group}>
+          {update ? (
+            <Pressable
+              style={({ pressed }) => [styles.row, styles.rowUpdate, pressed && styles.rowPressed]}
+              onPress={() => void Linking.openURL(update.url)}
+            >
+              <Feather name="download" size={15} color={colors.accent} />
+              <Text style={[styles.rowLabel, { color: colors.accent }]}>
+                {t("update.available", { version: update.version })}
+              </Text>
+              <Feather name="chevron-right" size={15} color={colors.accent} />
+            </Pressable>
+          ) : (
+            <View style={styles.row}>
+              <Feather name="smartphone" size={15} color={colors.muted} />
+              <Text style={styles.rowLabel}>{t("update.current", { v: currentVersion })}</Text>
+              {checking ? (
+                <ActivityIndicator size="small" color={colors.faint} />
+              ) : (
+                <Text style={styles.rowValue}>{t("update.upToDate")}</Text>
+              )}
+            </View>
+          )}
+        </View>
       </ScrollView>
     </Sheet>
   );
@@ -224,6 +268,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   rowPressed: { backgroundColor: colors.surface },
+  rowUpdate: { backgroundColor: colors.accentSoft },
   rowLabel: { ...type.ui, flex: 1 },
   languages: { backgroundColor: colors.bg },
   language: {

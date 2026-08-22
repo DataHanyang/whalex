@@ -454,4 +454,7 @@ export const zh: Partial<Dict> = {
     "diff.moreLines": "另有 {{n}} 行未显示",
     "diff.unchanged_one": "1 行未改动",
     "diff.unchanged_other": "{{n}} 行未改动",
+    "update.section": "应用",
+    "update.current": "版本 {{v}}",
+    "update.upToDate": "已是最新",
 };

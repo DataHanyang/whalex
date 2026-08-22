@@ -455,4 +455,7 @@ export const th: Partial<Dict> = {
     "diff.moreLines": "อีก {{n}} บรรทัดไม่ได้แสดง",
     "diff.unchanged_one": "1 บรรทัดไม่เปลี่ยน",
     "diff.unchanged_other": "{{n}} บรรทัดไม่เปลี่ยน",
+    "update.section": "แอป",
+    "update.current": "เวอร์ชัน {{v}}",
+    "update.upToDate": "เป็นเวอร์ชันล่าสุด",
 };

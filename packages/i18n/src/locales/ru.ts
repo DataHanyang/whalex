@@ -455,4 +455,7 @@ export const ru: Partial<Dict> = {
     "diff.moreLines": "ещё строк не показано: {{n}}",
     "diff.unchanged_one": "1 строка без изменений",
     "diff.unchanged_other": "строк без изменений: {{n}}",
+    "update.section": "Приложение",
+    "update.current": "Версия {{v}}",
+    "update.upToDate": "Актуальная версия",
 };

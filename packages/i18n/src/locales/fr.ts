@@ -455,4 +455,7 @@ export const fr: Partial<Dict> = {
     "diff.moreLines": "{{n}} lignes non affichées",
     "diff.unchanged_one": "1 ligne inchangée",
     "diff.unchanged_other": "{{n}} lignes inchangées",
+    "update.section": "Application",
+    "update.current": "Version {{v}}",
+    "update.upToDate": "À jour",
 };

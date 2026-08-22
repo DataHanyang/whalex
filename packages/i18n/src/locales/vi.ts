@@ -455,4 +455,7 @@ export const vi: Partial<Dict> = {
     "diff.moreLines": "còn {{n}} dòng chưa hiển thị",
     "diff.unchanged_one": "1 dòng không đổi",
     "diff.unchanged_other": "{{n}} dòng không đổi",
+    "update.section": "Ứng dụng",
+    "update.current": "Phiên bản {{v}}",
+    "update.upToDate": "Đã mới nhất",
 };

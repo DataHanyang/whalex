@@ -455,4 +455,7 @@ export const ja: Partial<Dict> = {
     "diff.moreLines": "他 {{n}} 行は非表示",
     "diff.unchanged_one": "変更なし 1 行",
     "diff.unchanged_other": "変更なし {{n}} 行",
+    "update.section": "アプリ",
+    "update.current": "バージョン {{v}}",
+    "update.upToDate": "最新です",
 };

@@ -455,4 +455,7 @@ export const de: Partial<Dict> = {
     "diff.moreLines": "{{n}} weitere Zeilen ausgeblendet",
     "diff.unchanged_one": "1 unveränderte Zeile",
     "diff.unchanged_other": "{{n}} unveränderte Zeilen",
+    "update.section": "App",
+    "update.current": "Version {{v}}",
+    "update.upToDate": "Aktuell",
 };

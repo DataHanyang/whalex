@@ -455,4 +455,7 @@ export const ko: Partial<Dict> = {
     "diff.moreLines": "{{n}}줄은 표시하지 않음",
     "diff.unchanged_one": "변경 없는 줄 1개",
     "diff.unchanged_other": "변경 없는 줄 {{n}}개",
+    "update.section": "앱",
+    "update.current": "버전 {{v}}",
+    "update.upToDate": "최신 버전",
 };
