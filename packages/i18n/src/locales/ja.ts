@@ -363,6 +363,7 @@ export const ja: Partial<Dict> = {
     "settings.remote.advanced": "詳細 — 自分で接続をホストする場合のみ",
     "settings.remote.publicUrl.hint": "自分のドメインでブリッジを公開している場合以外は空のままにしてください。入力すると内蔵トンネルはオフになります。",
     "settings.remote.pair.regenerate": "新しいコードを生成",
+    "settings.remote.pair.code": "スキャンできない場合 — 手入力用コードを表示",
     // Mobile app
     "conn.connected": "接続済み",
     "conn.reconnecting": "再接続中…",
@@ -392,6 +393,7 @@ export const ja: Partial<Dict> = {
     "pair.errNotWhalex": "WhaleX のペアリングコードではありません。",
     "pair.errExpired": "コードの有効期限が切れました。もう一度ペアリングを押してください。",
     "pair.errUsed": "このコードは使用済みです。新しく発行してください。",
+    "pair.errSecureStore": "スマホのセキュアストレージがペアリングキーの保存を拒否しました。スマホを再起動してもう一度ペアリングしてください。それでも失敗する場合はアプリを再インストールしてください。",
     "pair.errUnreachable":
     "パソコンに接続できませんでした。電源が入っていて同じネットワークにあるか確認するか、設定 → リモートでインターネット接続を有効にしてください。",
     "sessions.noProjects": "プロジェクトがありません",

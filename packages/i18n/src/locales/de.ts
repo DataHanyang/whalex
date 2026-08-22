@@ -363,6 +363,7 @@ export const de: Partial<Dict> = {
     "settings.remote.advanced": "Erweitert — nur wenn du die Verbindung selbst hostest",
     "settings.remote.publicUrl.hint": "Leer lassen, außer du stellst die Bridge über deine eigene Domain bereit. Ein Eintrag schaltet den eingebauten Tunnel ab.",
     "settings.remote.pair.regenerate": "Neuen Code erzeugen",
+    "settings.remote.pair.code": "Scannen klappt nicht? Code zum Eintippen anzeigen",
     // Mobile app
     "conn.connected": "Verbunden",
     "conn.reconnecting": "Verbindung wird wiederhergestellt…",
@@ -392,6 +393,7 @@ export const de: Partial<Dict> = {
     "pair.errNotWhalex": "Das ist kein WhaleX-Kopplungscode.",
     "pair.errExpired": "Der Code ist abgelaufen. Tippe erneut auf „Gerät koppeln“.",
     "pair.errUsed": "Dieser Code wurde bereits verwendet. Erzeuge einen neuen.",
+    "pair.errSecureStore": "Der sichere Speicher deines Handys hat den Kopplungsschlüssel abgelehnt. Starte das Handy neu und kopple erneut; wenn es weiter fehlschlägt, installiere die App neu.",
     "pair.errUnreachable":
     "Der Rechner ist nicht erreichbar. Prüfe, ob er läuft und im selben Netzwerk ist, oder schalte den Internetzugriff unter Einstellungen → Fernzugriff ein.",
     "sessions.noProjects": "Noch keine Projekte",

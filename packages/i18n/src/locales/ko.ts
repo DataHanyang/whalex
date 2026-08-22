@@ -363,6 +363,7 @@ export const ko: Partial<Dict> = {
     "settings.remote.advanced": "고급 — 직접 연결을 호스팅할 때만",
     "settings.remote.publicUrl.hint": "직접 도메인으로 브리지를 서비스하는 경우가 아니면 비워 두세요. 값을 넣으면 내장 터널이 꺼집니다.",
     "settings.remote.pair.regenerate": "새 코드 만들기",
+    "settings.remote.pair.code": "스캔이 안 되면 — 직접 입력용 코드 보기",
     // Mobile app
     "conn.connected": "연결됨",
     "conn.reconnecting": "다시 연결하는 중…",
@@ -392,6 +393,7 @@ export const ko: Partial<Dict> = {
     "pair.errNotWhalex": "WhaleX 페어링 코드가 아닙니다.",
     "pair.errExpired": "코드가 만료됐습니다. 기기 페어링을 다시 누르세요.",
     "pair.errUsed": "이미 사용한 코드입니다. 새로 만들어 주세요.",
+    "pair.errSecureStore": "폰의 보안 저장소가 페어링 키 저장을 거부했습니다. 폰을 재시작한 뒤 다시 페어링해 보세요. 계속 실패하면 앱을 재설치하세요.",
     "pair.errUnreachable":
     "컴퓨터에 연결하지 못했습니다. 컴퓨터가 켜져 있고 같은 네트워크인지 확인하거나, 설정 → 원격에서 외부 접속을 켜세요.",
     "sessions.noProjects": "아직 프로젝트가 없습니다",

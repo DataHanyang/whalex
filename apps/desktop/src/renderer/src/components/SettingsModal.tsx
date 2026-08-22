@@ -1292,8 +1292,11 @@ function RemoteTab() {
   const settings = useAppStore((s) => s.settings)!;
   const update = useAppStore((s) => s.updateSettings);
   const [status, setStatus] = useState<RemoteStatus | null>(null);
-  const [qr, setQr] = useState<{ dataUrl: string; expiresAt: number } | null>(null);
+  const [qr, setQr] = useState<{ dataUrl: string; expiresAt: number; payload: string } | null>(
+    null,
+  );
   const [pairError, setPairError] = useState<string | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
   const bridge = settings.remoteBridge;
 
@@ -1333,7 +1336,8 @@ function RemoteTab() {
         errorCorrectionLevel: "H",
         color: { dark: "#0B1220", light: "#FFFFFF" },
       });
-      setQr({ dataUrl, expiresAt: res.expiresAt });
+      setCodeCopied(false);
+      setQr({ dataUrl, expiresAt: res.expiresAt, payload: res.qrPayload });
     } catch (err) {
       setPairError(err instanceof Error ? err.message : String(err));
     }
@@ -1474,6 +1478,31 @@ function RemoteTab() {
           >
             {t("settings.remote.pair.regenerate")}
           </button>
+          {/* The phone's manual entry needs this text — the camera path
+              doesn't, so it stays folded under the code. */}
+          <details className="mt-2 w-full max-w-md">
+            <summary className="cursor-pointer list-none text-center text-[11.5px] text-faint hover:text-muted">
+              {t("settings.remote.pair.code")}
+            </summary>
+            <div className="mt-2 rounded-md border border-border bg-surface-2 p-2">
+              <textarea
+                readOnly
+                value={qr.payload}
+                rows={4}
+                onFocus={(e) => e.currentTarget.select()}
+                className="w-full resize-none bg-transparent font-mono text-[10.5px] leading-relaxed text-muted outline-none"
+              />
+              <button
+                onClick={() => {
+                  void navigator.clipboard.writeText(qr.payload);
+                  setCodeCopied(true);
+                }}
+                className="mt-1 rounded border border-border px-2 py-1 text-[11px] hover:bg-surface"
+              >
+                {codeCopied ? t("code.copied") : t("code.copy")}
+              </button>
+            </div>
+          </details>
         </div>
       ) : (
         <button

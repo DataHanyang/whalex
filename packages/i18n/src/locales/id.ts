@@ -363,6 +363,7 @@ export const id: Partial<Dict> = {
     "settings.remote.advanced": "Lanjutan — hanya jika Anda meng-host koneksinya sendiri",
     "settings.remote.publicUrl.hint": "Biarkan kosong kecuali Anda menyajikan bridge lewat domain sendiri. Mengisinya akan mematikan terowongan bawaan.",
     "settings.remote.pair.regenerate": "Buat kode baru",
+    "settings.remote.pair.code": "Tidak bisa memindai? Tampilkan kode untuk diketik",
     // Mobile app
     "conn.connected": "Terhubung",
     "conn.reconnecting": "Menyambung ulang…",
@@ -392,6 +393,7 @@ export const id: Partial<Dict> = {
     "pair.errNotWhalex": "Itu bukan kode pemasangan WhaleX.",
     "pair.errExpired": "Kode kedaluwarsa. Tekan Pasangkan perangkat lagi.",
     "pair.errUsed": "Kode itu sudah dipakai. Buat yang baru.",
+    "pair.errSecureStore": "Penyimpanan aman ponsel menolak menyimpan kunci pemasangan. Nyalakan ulang ponsel lalu pasangkan lagi; jika terus gagal, pasang ulang aplikasi.",
     "pair.errUnreachable":
     "Tidak bisa menjangkau komputer. Pastikan menyala dan di jaringan yang sama, atau aktifkan akses internet di Pengaturan → Jarak Jauh.",
     "sessions.noProjects": "Belum ada proyek",

@@ -44,11 +44,31 @@ export async function saveComputer(computer: PairedComputer, token?: string): Pr
   const list = await listComputers();
   const next = [...list.filter((c) => c.computerId !== computer.computerId), computer];
   await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(next));
-  if (token) await SecureStore.setItemAsync(tokenKey(computer.computerId), token);
+  if (token) {
+    const key = tokenKey(computer.computerId);
+    // Clear any blob a previous install left behind: a backup-restored entry
+    // was encrypted with a keystore key that no longer exists, and writing
+    // over it does not always recover.
+    await SecureStore.deleteItemAsync(key).catch(() => undefined);
+    await SecureStore.setItemAsync(key, token);
+    // Read it straight back. A keystore that silently loses writes turns
+    // every later connect into "no stored token" with nothing on screen to
+    // say why — better to fail the pairing loudly, right here.
+    const check = await SecureStore.getItemAsync(key).catch(() => null);
+    if (check !== token) throw new Error("secure-store: token did not persist");
+  }
 }
 
 export async function getToken(computerId: string): Promise<string | null> {
-  return SecureStore.getItemAsync(tokenKey(computerId));
+  try {
+    return await SecureStore.getItemAsync(tokenKey(computerId));
+  } catch {
+    // Undecryptable entry (typically restored from a backup made by another
+    // install). Delete it so the next pairing starts clean instead of
+    // tripping over the same corpse forever.
+    await SecureStore.deleteItemAsync(tokenKey(computerId)).catch(() => undefined);
+    return null;
+  }
 }
 
 export async function removeComputer(computerId: string): Promise<void> {

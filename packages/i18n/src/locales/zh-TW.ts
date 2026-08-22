@@ -363,6 +363,7 @@ export const zhTW: Partial<Dict> = {
     "settings.remote.advanced": "進階 — 僅當你自行架設連線時",
     "settings.remote.publicUrl.hint": "除非你用自己的網域對外提供該橋接服務，否則請留空。填寫後會關閉內建通道。",
     "settings.remote.pair.regenerate": "產生新代碼",
+    "settings.remote.pair.code": "無法掃碼？顯示可手動輸入的代碼",
     // Mobile app
     "conn.connected": "已連線",
     "conn.reconnecting": "正在重新連線…",
@@ -391,6 +392,7 @@ export const zhTW: Partial<Dict> = {
     "pair.errNotWhalex": "這不是 WhaleX 的配對碼。",
     "pair.errExpired": "配對碼已過期，請重新按下「配對裝置」。",
     "pair.errUsed": "該配對碼已使用過，請重新產生。",
+    "pair.errSecureStore": "手機的安全儲存拒絕保存配對金鑰。請重新啟動手機後再配對一次；若仍失敗，請重新安裝應用程式。",
     "pair.errUnreachable":
     "無法連線到電腦。請確認電腦已開機且在同一網路，或在設定 → 遠端中開啟網際網路存取。",
     "sessions.noProjects": "還沒有專案",

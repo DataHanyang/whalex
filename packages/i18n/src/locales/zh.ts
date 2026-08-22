@@ -363,6 +363,7 @@ export const zh: Partial<Dict> = {
     "settings.remote.advanced": "高级 — 仅当你自行托管连接时",
     "settings.remote.publicUrl.hint": "除非你用自己的域名对外提供该桥接服务，否则请留空。填写后将关闭内置隧道。",
     "settings.remote.pair.regenerate": "生成新代码",
+    "settings.remote.pair.code": "无法扫码？显示可手动输入的代码",
     // Mobile app
     "conn.connected": "已连接",
     "conn.reconnecting": "正在重新连接…",
@@ -391,6 +392,7 @@ export const zh: Partial<Dict> = {
     "pair.errNotWhalex": "这不是 WhaleX 的配对码。",
     "pair.errExpired": "配对码已过期，请重新点击「配对设备」。",
     "pair.errUsed": "该配对码已被使用，请重新生成。",
+    "pair.errSecureStore": "手机的安全存储拒绝保存配对密钥。请重启手机后重新配对；若仍失败，请重装应用。",
     "pair.errUnreachable":
     "无法连接到电脑。请确认电脑已开机且在同一网络，或在设置 → 远程中开启互联网访问。",
     "sessions.noProjects": "还没有项目",

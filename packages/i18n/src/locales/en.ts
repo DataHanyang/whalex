@@ -365,6 +365,7 @@ export const en = {
     "settings.remote.advanced": "Advanced — only if you host the connection yourself",
     "settings.remote.publicUrl.hint": "Leave empty unless you front the bridge with your own domain. Setting it turns off the built-in tunnel.",
     "settings.remote.pair.regenerate": "Generate a new code",
+    "settings.remote.pair.code": "Can't scan? Show the code to type instead",
     // Mobile app
     // Connection
   "conn.connected": "Connected",
@@ -396,6 +397,7 @@ export const en = {
     "pair.errNotWhalex": "That code isn't a WhaleX pairing code.",
     "pair.errExpired": "The code expired. Press Pair a device again.",
     "pair.errUsed": "That code was already used. Generate a new one.",
+    "pair.errSecureStore": "Your phone's secure storage rejected the pairing key. Restart the phone and pair again; if it keeps failing, reinstall the app.",
     "pair.errUnreachable":
     "Couldn't reach the computer. Check it's awake and on the same network, or turn on internet access in Settings → Remote.",
     // Projects and sessions

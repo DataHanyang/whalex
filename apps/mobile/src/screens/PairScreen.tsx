@@ -267,6 +267,7 @@ function Step({ n, text }: { n: string; text: string }) {
 /** Pairing fails for a handful of knowable reasons; say which one. */
 function explain(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
+  if (/secure-store/i.test(msg)) return t("pair.errSecureStore");
   if (/JSON|Unexpected|invalid_/i.test(msg)) return t("pair.errNotWhalex");
   if (/no pairing window/i.test(msg)) return t("pair.errExpired");
   if (/invalid pairing secret/i.test(msg)) return t("pair.errUsed");
@@ -292,11 +293,10 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
     await saveComputer(computer, qr.token);
     return computer;
   }
-  // Known computer → keep the existing token, just refresh addresses.
-  if (await getToken(qr.computerId)) {
-    await saveComputer(computer);
-    return computer;
-  }
+  // Always redeem the secret when there is one. Skipping this for a known
+  // computer kept a stored token that might be revoked or unreadable — and
+  // the phone scanning again is usually exactly the one trying to recover
+  // from that. A fresh QR means the desktop is offering a fresh token; take it.
   // Public tunnel first (real TLS, works from anywhere), then LAN addrs.
   const scheme = computer.insecure ? "http" : "https";
   const endpoints = [
@@ -305,6 +305,7 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
   ];
   let lastErr = "no reachable address";
   for (const endpoint of endpoints) {
+    let deviceToken: string;
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -313,11 +314,22 @@ async function pair(qr: QrPayload): Promise<PairedComputer> {
       });
       const body = (await res.json()) as PairResponse & { error?: string };
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
-      await saveComputer(computer, body.deviceToken);
-      return computer;
+      deviceToken = body.deviceToken;
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err);
+      continue;
     }
+    // Outside the try: the redeem spent the single-use secret, so a save
+    // failure must surface as itself, not dissolve into a retry that will
+    // only be told "invalid secret".
+    await saveComputer(computer, deviceToken);
+    return computer;
+  }
+  // Redeem failed (window expired, secret spent). If a working token is on
+  // file this scan still refreshes the addresses; otherwise report why.
+  if (await getToken(qr.computerId)) {
+    await saveComputer(computer);
+    return computer;
   }
   throw new Error(lastErr);
 }

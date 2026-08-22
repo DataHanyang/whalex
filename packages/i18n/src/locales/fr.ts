@@ -363,6 +363,7 @@ export const fr: Partial<Dict> = {
     "settings.remote.advanced": "Avancé — uniquement si vous hébergez la connexion",
     "settings.remote.publicUrl.hint": "Laissez vide, sauf si vous exposez le pont via votre propre domaine. Le renseigner désactive le tunnel intégré.",
     "settings.remote.pair.regenerate": "Générer un nouveau code",
+    "settings.remote.pair.code": "Impossible de scanner ? Afficher le code à saisir",
     // Mobile app
     "conn.connected": "Connecté",
     "conn.reconnecting": "Reconnexion…",
@@ -392,6 +393,7 @@ export const fr: Partial<Dict> = {
     "pair.errNotWhalex": "Ce code n'est pas un code d'appairage WhaleX.",
     "pair.errExpired": "Le code a expiré. Appuyez à nouveau sur Appairer un appareil.",
     "pair.errUsed": "Ce code a déjà servi. Générez-en un nouveau.",
+    "pair.errSecureStore": "Le stockage sécurisé de votre téléphone a refusé la clé d'appairage. Redémarrez le téléphone et réessayez ; si l'échec persiste, réinstallez l'application.",
     "pair.errUnreachable":
     "Impossible de joindre l'ordinateur. Vérifiez qu'il est allumé et sur le même réseau, ou activez l'accès internet dans Réglages → À distance.",
     "sessions.noProjects": "Aucun projet",

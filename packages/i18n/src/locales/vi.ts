@@ -363,6 +363,7 @@ export const vi: Partial<Dict> = {
     "settings.remote.advanced": "Nâng cao — chỉ khi bạn tự lo kết nối",
     "settings.remote.publicUrl.hint": "Để trống trừ khi bạn tự phục vụ cầu nối qua tên miền riêng. Điền vào sẽ tắt đường hầm tích hợp.",
     "settings.remote.pair.regenerate": "Tạo mã mới",
+    "settings.remote.pair.code": "Không quét được? Hiện mã để nhập tay",
     // Mobile app
     "conn.connected": "Đã kết nối",
     "conn.reconnecting": "Đang kết nối lại…",
@@ -392,6 +393,7 @@ export const vi: Partial<Dict> = {
     "pair.errNotWhalex": "Đây không phải mã ghép đôi của WhaleX.",
     "pair.errExpired": "Mã đã hết hạn. Hãy nhấn Ghép đôi thiết bị lần nữa.",
     "pair.errUsed": "Mã này đã được dùng. Hãy tạo mã mới.",
+    "pair.errSecureStore": "Bộ nhớ bảo mật của điện thoại từ chối lưu khóa ghép nối. Hãy khởi động lại điện thoại và ghép nối lại; nếu vẫn lỗi, hãy cài lại ứng dụng.",
     "pair.errUnreachable":
     "Không kết nối được tới máy tính. Kiểm tra máy đang bật và cùng mạng, hoặc bật truy cập internet trong Cài đặt → Từ xa.",
     "sessions.noProjects": "Chưa có dự án nào",
