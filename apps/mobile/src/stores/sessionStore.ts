@@ -463,7 +463,16 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
 
     async abort() {
       const id = get().activeSessionId;
-      if (id) await client().invoke("session:abort", { sessionId: id });
+      if (!id) return;
+      try {
+        await client().invoke("session:abort", { sessionId: id });
+      } catch {
+        // The most common reason a Stop tap goes nowhere on a phone: the
+        // socket died quietly (LTE handover, sleep) and the invoke never
+        // left. Kick the connection so the reconnect banner appears and the
+        // retry has a live socket — silence here read as "stop is broken".
+        useConnectionStore.getState().kick();
+      }
     },
 
     async respondPermission(id, allow, always = false) {

@@ -420,6 +420,15 @@ export class AgentLoop {
         });
         yield { type: "usage", usage: this.context.snapshot() };
 
+        // An abort can race the stream's own end: the fetch sometimes closes
+        // cleanly instead of throwing AbortError, and the turn then read as a
+        // natural "stop" — no interrupted marker, and any queued tool calls
+        // would have kept executing after the user pressed Stop.
+        if (this.controller?.signal.aborted) {
+          yield { type: "done", stopReason: "aborted" };
+          return;
+        }
+
         if (turn.toolCalls.length === 0) {
           // Hitting the output cap mid-tool-call leaves the arguments JSON
           // truncated, so the assembler yields no usable calls and the turn

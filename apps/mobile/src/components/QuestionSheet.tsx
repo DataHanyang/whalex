@@ -81,7 +81,7 @@ export function QuestionSheet() {
             </View>
             <View style={styles.headText}>
               <Text style={styles.label}>
-                {t("question.label")}
+                {t("question.title")}
                 {total > 1 ? `  ·  ${step + 1}/${total}` : ""}
               </Text>
               <Text style={styles.question}>{q.question}</Text>

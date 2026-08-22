@@ -132,7 +132,7 @@ export function Composer({
       <View style={styles.field}>
         <TextInput
           style={styles.input}
-          placeholder={running ? t("composer.placeholderRunning") : t("mobile.composer.placeholder")}
+          placeholder={t("mobile.composer.placeholder")}
           placeholderTextColor={colors.faint}
           value={draft}
           onChangeText={setDraft}
@@ -155,10 +155,10 @@ export function Composer({
 
           <View style={styles.spacer} />
 
-          {/* Stop must survive typing: it used to vanish behind the send
-              button at the first character, leaving no way to abort. While a
-              run is live both buttons stand — stop the run, or steer it. */}
-          {running && (
+          {/* One button, desktop-shaped: Stop while a run is live and the
+              field is empty; the moment you type, it becomes Send so the
+              text steers the run. */}
+          {running && !ready ? (
             <Pressable
               style={[styles.action, styles.stop]}
               onPress={() => {
@@ -169,8 +169,7 @@ export function Composer({
             >
               <Feather name="square" size={13} color={colors.danger} />
             </Pressable>
-          )}
-          {(!running || ready) && (
+          ) : (
             <Pressable
               style={[styles.action, ready ? styles.send : styles.sendOff]}
               onPress={submit}
