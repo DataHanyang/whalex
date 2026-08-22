@@ -76,9 +76,15 @@ export class RoutineManager {
         }
         return now - last >= sched.minutes * 60_000;
       case "daily":
-        return dueAt(todayAt(sched.time, now), last, now);
       case "weekly":
-        if (new Date(now).getDay() !== sched.weekday) return false;
+        // First sighting starts the clock, as with intervals: a routine saved
+        // at 14:00 for 09:00 is meant for tomorrow morning, not for right now.
+        // Stamping `now` still lets one saved before today's slot fire today.
+        if (!last) {
+          this.patch(routine.id, { lastRunAt: now });
+          return false;
+        }
+        if (sched.kind === "weekly" && new Date(now).getDay() !== sched.weekday) return false;
         return dueAt(todayAt(sched.time, now), last, now);
       case "once":
         return !last && now >= sched.at;
