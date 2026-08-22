@@ -453,12 +453,27 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
         }
       }
 
-      await client().invoke("session:send", {
-        sessionId: activeSessionId,
-        text: finalText,
-        model,
-        messageId,
-      });
+      try {
+        await client().invoke("session:send", {
+          sessionId: activeSessionId,
+          text: finalText,
+          model,
+          messageId,
+        });
+      } catch {
+        // Same quiet-dead-socket story as abort: the bubble was drawn but the
+        // message never left, and "Unread" forever looked like the agent
+        // ignoring you. Kick the connection so the reconnect banner shows;
+        // the still-pending bubble can be long-pressed and re-sent.
+        useConnectionStore.getState().kick();
+        set((s) => ({
+          transcript: s.transcript.map((tr) =>
+            tr.kind === "user" && tr.id === messageId
+              ? { ...tr, delivery: "pending" as const }
+              : tr,
+          ),
+        }));
+      }
     },
 
     async abort() {
