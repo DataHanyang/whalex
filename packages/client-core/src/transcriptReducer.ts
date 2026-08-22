@@ -222,6 +222,17 @@ export function foldEnvelope(
       state = { ...s, superCode: ev.on };
       signals.push({ type: "supercode", on: ev.on });
       break;
+
+    case "control-changed":
+      // Pure signal: mode/model/goal live in the host stores, not here.
+      signals.push({
+        type: "control",
+        ...(ev.mode !== undefined ? { mode: ev.mode } : {}),
+        ...(ev.model !== undefined ? { model: ev.model } : {}),
+        ...(ev.goalMode !== undefined ? { goalMode: ev.goalMode } : {}),
+      });
+      break;
+
     case "browser-navigated": {
       const tabs = ev.tabs ?? (ev.url ? [{ id: "tab1", url: ev.url, title: ev.title }] : []);
       const activeTabId = ev.activeTabId ?? tabs.at(-1)?.id ?? null;

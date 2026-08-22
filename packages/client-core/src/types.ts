@@ -52,6 +52,8 @@ export interface ClientSessionState {
 export type FoldSignal =
   | { type: "artifact-added"; artifactId: string }
   | { type: "supercode"; on: boolean }
+  /** Mode/model/goal changed by some attached client — mirror the chips. */
+  | { type: "control"; mode?: string; model?: string; goalMode?: boolean }
   | {
       type: "browser-navigated";
       tabs: Array<{ id: string; url: string; title: string }>;

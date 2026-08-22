@@ -439,6 +439,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         case "turn-finished":
           void get().refreshSessions();
           break;
+        case "control": {
+          // A phone (or another window) changed the session's chips — mirror
+          // the values without re-invoking the setters, which would echo the
+          // same event back around.
+          const patch: Record<string, unknown> = {};
+          if (sig.mode !== undefined) patch.permissionMode = sig.mode;
+          if (sig.model !== undefined) patch.model = sig.model;
+          if (sig.goalMode !== undefined) patch.goalMode = sig.goalMode;
+          set(patch);
+          break;
+        }
       }
     }
   },

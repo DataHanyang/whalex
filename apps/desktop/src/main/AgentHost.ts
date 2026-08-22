@@ -458,7 +458,11 @@ export class AgentHost {
   }
 
   setModel(sessionId: string, model: string): void {
-    this.sessions.get(sessionId)?.loop.setModel(resolveModelInfo(model));
+    const hosted = this.sessions.get(sessionId);
+    if (!hosted) return;
+    hosted.loop.setModel(resolveModelInfo(model));
+    // Every other attached client's model chip follows the change live.
+    this.emitDirect(sessionId, { type: "control-changed", model });
   }
 
   /** Push updated tuning (effort/temperature) into every live session. */
@@ -493,7 +497,9 @@ export class AgentHost {
 
   setGoalMode(sessionId: string, on: boolean): void {
     const hosted = this.sessions.get(sessionId);
-    if (hosted) hosted.goalMode = on;
+    if (!hosted) return;
+    hosted.goalMode = on;
+    this.emitDirect(sessionId, { type: "control-changed", goalMode: on });
   }
 
   setMode(sessionId: string, mode: import("@whalex/shared").PermissionMode): void {
@@ -501,6 +507,7 @@ export class AgentHost {
     if (hosted) {
       hosted.modeOverride = mode;
       hosted.engine.setRules({ ...this.settings.get().permissions, mode });
+      this.emitDirect(sessionId, { type: "control-changed", mode });
     }
   }
 

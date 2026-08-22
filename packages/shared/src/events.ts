@@ -135,6 +135,17 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("supercode"), on: z.boolean() }),
   /** LLM-generated session title, pushed as soon as it's ready. */
   z.object({ type: z.literal("session-title"), title: z.string() }),
+  /**
+   * A session control changed — mode, model, or goal — from ANY attached
+   * client. Broadcast so every other client's chips update live instead of
+   * lying until the next snapshot.
+   */
+  z.object({
+    type: z.literal("control-changed"),
+    mode: z.enum(["default", "acceptEdits", "bypassPermissions", "plan", "unrestricted"]).optional(),
+    model: z.string().optional(),
+    goalMode: z.boolean().optional(),
+  }),
   z.object({ type: z.literal("permission-request"), request: PermissionRequestSchema }),
   z.object({ type: z.literal("question-request"), request: UserQuestionSchema }),
   z.object({

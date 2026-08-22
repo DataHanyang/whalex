@@ -186,6 +186,16 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
           // Mirror the desktop: SuperCode owns the model while it runs.
           if (sig.on) set({ model: "deepseek-v4-pro" });
           break;
+        case "control":
+          // Another client changed the chips — follow, don't lie.
+          set({
+            ...(sig.mode !== undefined
+              ? { permissionMode: sig.mode as MobileSessionState["permissionMode"] }
+              : {}),
+            ...(sig.model !== undefined ? { model: sig.model } : {}),
+            ...(sig.goalMode !== undefined ? { goalMode: sig.goalMode } : {}),
+          });
+          break;
         default:
           break;
       }

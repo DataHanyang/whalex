@@ -549,7 +549,9 @@ export class RemoteBridge {
       const res = await Promise.resolve(
         (this.handlers[channel] as (r: unknown) => unknown)(req),
       );
-      this.send(ws, { type: "result", id, ok: true, payload: res ?? undefined });
+      // Preserve null: channels like artifact:read answer `null` for "not
+      // found", and coercing it away broke the contract their schemas state.
+      this.send(ws, { type: "result", id, ok: true, payload: res === undefined ? undefined : res });
     } catch (err) {
       fail(err instanceof Error ? err.message : String(err));
     }
