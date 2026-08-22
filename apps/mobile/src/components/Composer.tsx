@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
@@ -33,10 +33,12 @@ export function Composer({
   onOpenWork,
   onOpenModel,
   onOpenMode,
+  onOpenRewind,
 }: {
   onOpenWork: () => void;
   onOpenModel: () => void;
   onOpenMode: () => void;
+  onOpenRewind?: () => void;
 }) {
   const status = useMobileSession((s) => s.status);
   const mode = useMobileSession((s) => s.permissionMode);
@@ -46,6 +48,12 @@ export function Composer({
   const attachments = useMobileSession((s) => s.attachments);
   const removeAttachment = useMobileSession((s) => s.removeAttachment);
   const draftSeed = useMobileSession((s) => s.draftSeed);
+  const commands = useMobileSession((s) => s.commands);
+  const cwd = useMobileSession((s) => s.cwd);
+  const superCode = useMobileSession((s) => s.superCode);
+  const setSuperCode = useMobileSession((s) => s.setSuperCode);
+  const startNew = useMobileSession((s) => s.startNew);
+  const runSessionCommand = useMobileSession((s) => s.runSessionCommand);
   const setDraftSeed = useMobileSession((s) => s.setDraftSeed);
   const todos = useMobileSession((s) => s.todos);
   const [draft, setDraft] = useState("");
@@ -64,13 +72,57 @@ export function Composer({
   const activeTodo = todos.find((td) => td.status === "in_progress") ?? todos[0];
   const doneCount = todos.filter((td) => td.status === "completed").length;
 
+  /** The built-ins a phone can honour; the rest travel as a message. */
+  const runBuiltin = async (name: string): Promise<boolean> => {
+    if (name === "clear") {
+      if (cwd) await startNew(cwd);
+      return true;
+    }
+    if (name === "supercode") {
+      await setSuperCode(!superCode);
+      return true;
+    }
+    if (name === "rewind") {
+      onOpenRewind?.();
+      return true;
+    }
+    if (name === "compact") {
+      const res = await runSessionCommand("compact");
+      if (!res.handled && res.message) Alert.alert(res.message);
+      return true;
+    }
+    return false;
+  };
+
   const submit = (): void => {
     if (!ready) return;
     const text = draft.trim();
+    // A lone slash command runs directly instead of being sent, same as the
+    // desktop composer.
+    const slash = /^\/(\w[\w-]*)\s*$/.exec(text);
+    if (slash && attachments.length === 0) {
+      const cmd = commands.find((c) => c.name === slash[1]);
+      if (cmd?.source === "builtin") {
+        setDraft("");
+        void runBuiltin(cmd.name).then((handled) => {
+          if (!handled) void send(text);
+        });
+        return;
+      }
+    }
     setDraft("");
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     void send(text);
   };
+
+  // Suggestions while the draft is a slash prefix — tap to complete.
+  const slashPrefix = /^\/([\w-]*)$/.exec(draft);
+  const suggestions = slashPrefix
+    ? commands
+        .filter((c) => c.name.startsWith(slashPrefix[1] ?? "") )
+        .filter((c) => !["settings", "mcp", "skills", "help"].includes(c.name))
+        .slice(0, 8)
+    : [];
 
   return (
     <View style={styles.wrap}>
@@ -109,6 +161,25 @@ export function Composer({
             </View>
           ))}
         </View>
+      )}
+      {suggestions.length > 0 && (
+        <ScrollView
+          horizontal
+          keyboardShouldPersistTaps="always"
+          showsHorizontalScrollIndicator={false}
+          style={styles.attachRow}
+        >
+          {suggestions.map((c) => (
+            <Pressable key={c.name} style={styles.cmdChip} onPress={() => setDraft(`/${c.name}`)}>
+              <Text style={styles.cmdName}>/{c.name}</Text>
+              {!!c.description && (
+                <Text style={styles.cmdDesc} numberOfLines={1}>
+                  {c.description}
+                </Text>
+              )}
+            </Pressable>
+          ))}
+        </ScrollView>
       )}
       {attachments.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachRow}>
@@ -217,6 +288,21 @@ const styles = StyleSheet.create({
   todoText: { ...type.caption, color: colors.text, flexShrink: 1 },
   todoDone: { color: colors.faint, textDecorationLine: "line-through" },
   attachRow: { marginBottom: space.sm, flexGrow: 0 },
+  cmdChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: colors.surface2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + 2,
+    marginRight: space.sm,
+    maxWidth: 260,
+  },
+  cmdName: { ...type.monoSmall, color: colors.accent },
+  cmdDesc: { ...type.caption, fontSize: 11, flexShrink: 1 },
   attachChip: {
     flexDirection: "row",
     alignItems: "center",

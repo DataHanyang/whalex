@@ -36,14 +36,14 @@ export function PermissionSheet() {
   const request = pending[0];
   const [busy, setBusy] = useState(false);
 
-  const answer = async (allow: boolean, always = false): Promise<void> => {
+  const answer = async (allow: boolean, always = false, rule?: string): Promise<void> => {
     if (!request || busy) return;
     setBusy(true);
     void Haptics.notificationAsync(
       allow ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
     );
     try {
-      await respond(request.id, allow, always);
+      await respond(request.id, allow, always, rule);
     } finally {
       setBusy(false);
     }
@@ -56,7 +56,7 @@ export function PermissionSheet() {
           request={request}
           queued={pending.length - 1}
           busy={busy}
-          onAnswer={(allow, always) => void answer(allow, always)}
+          onAnswer={(allow, always, rule) => void answer(allow, always, rule)}
         />
       )}
     </Sheet>
@@ -72,7 +72,7 @@ function Body({
   request: PermissionRequest;
   queued: number;
   busy: boolean;
-  onAnswer: (allow: boolean, always?: boolean) => void;
+  onAnswer: (allow: boolean, always?: boolean, rule?: string) => void;
 }) {
   const kind = KIND[request.kind] ?? KIND.other!;
   const args = request.args as Record<string, unknown> | undefined;
@@ -123,11 +123,7 @@ function Body({
       </View>
 
       {request.suggestedRules.length > 0 && (
-        <Pressable style={styles.always} onPress={() => onAnswer(true, true)} disabled={busy}>
-          <Text style={styles.alwaysText}>
-            {t("permission.allowAlways")} <Text style={styles.rule}>{request.suggestedRules[0]}</Text>
-          </Text>
-        </Pressable>
+        <AlwaysAllow rules={request.suggestedRules} busy={busy} onAnswer={onAnswer} />
       )}
 
       {queued > 0 && (
@@ -139,7 +135,67 @@ function Body({
   );
 }
 
+/**
+ * "Always allow" persists one of the tool's suggested rules. With a single
+ * suggestion it is one tap, like before; with several, tapping unfolds the
+ * list so the scope is chosen, not assumed — the desktop's rule dropdown.
+ */
+function AlwaysAllow({
+  rules,
+  busy,
+  onAnswer,
+}: {
+  rules: string[];
+  busy: boolean;
+  onAnswer: (allow: boolean, always?: boolean, rule?: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (rules.length === 1 || !open) {
+    return (
+      <Pressable
+        style={styles.always}
+        onPress={() => (rules.length === 1 ? onAnswer(true, true, rules[0]) : setOpen(true))}
+        disabled={busy}
+      >
+        <Text style={styles.alwaysText}>
+          {t("permission.allowAlways")} <Text style={styles.rule}>{rules[0]}</Text>
+          {rules.length > 1 ? <Text style={styles.rule}>  ▾</Text> : null}
+        </Text>
+      </Pressable>
+    );
+  }
+  return (
+    <View style={styles.ruleList}>
+      {rules.map((rule) => (
+        <Pressable
+          key={rule}
+          style={styles.ruleRow}
+          onPress={() => onAnswer(true, true, rule)}
+          disabled={busy}
+        >
+          <Text style={styles.rule}>{rule}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  ruleList: {
+    marginHorizontal: space.xl,
+    marginTop: space.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+  },
+  ruleRow: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface2,
+  },
   head: {
     flexDirection: "row",
     gap: space.md,

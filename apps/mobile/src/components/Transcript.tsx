@@ -1,11 +1,12 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { Alert, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
 import { ImageCards, InlineImage } from "./InlineImage";
 import { useMobileSession } from "../stores/sessionStore";
+import { useConnectionStore } from "../stores/connectionStore";
 import { Markdown } from "./Markdown";
 import { ToolGroup } from "./ToolGroup";
 import type { Row } from "./transcriptRows";
@@ -153,8 +154,8 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
       );
 
     case "artifact":
-      // Images render right here, small, tap for full screen. Everything
-      // else (html, plans, spreadsheets) still lives on the desktop.
+      // Images render inline; plans, markdown and code open in a viewer.
+      // Only rich kinds (html, spreadsheets, slides) stay desktop-side.
       if (item.artifactKind === "image") {
         return (
           <View style={styles.imageWrap}>
@@ -162,18 +163,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
           </View>
         );
       }
-      return (
-        <>
-          <View style={styles.card}>
-            <View style={styles.cardHead}>
-              <Feather name="layout" size={13} color={colors.accent} />
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardMeta}>{item.artifactKind}</Text>
-            </View>
-            <Text style={styles.hint}>{t("chat.openOnDesktop")}</Text>
-          </View>
-        </>
-      );
+      return <ArtifactCard item={item} />;
 
     case "subagent":
       return (
@@ -189,16 +179,7 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
       );
 
     case "workflow":
-      return (
-        <>
-          <View style={styles.thin}>
-            <Feather name="git-branch" size={12} color={colors.faint} />
-            <Text style={styles.thinText} numberOfLines={1}>
-              {item.name}
-            </Text>
-          </View>
-        </>
-      );
+      return <WorkflowCard workflowId={item.workflowId} name={item.name} />;
 
     case "compaction":
       return (
@@ -215,6 +196,150 @@ export const TranscriptRow = memo(function TranscriptRow({ item }: { item: Row }
       return null;
   }
 });
+
+/** Which artifact kinds the phone can render as text. */
+const READABLE = new Set(["plan", "markdown", "code", "mermaid", "svg"]);
+
+/**
+ * An artifact in the flow. Plans, markdown and code open right here in a
+ * full-height sheet - a phone stuck on "open on desktop" could approve a
+ * plan it had never read. Rich kinds (html, spreadsheets) stay desktop-side.
+ */
+function ArtifactCard({ item }: { item: Extract<Row, { kind: "artifact" }> }) {
+  const [open, setOpen] = useState(false);
+  const [content, setContent] = useState<string | null>(null);
+  const readable = READABLE.has(item.artifactKind);
+
+  useEffect(() => {
+    if (!open || content !== null) return;
+    const client = useConnectionStore.getState().client;
+    if (!client) return;
+    let live = true;
+    client
+      .invoke("artifact:read", { artifactId: item.artifactId })
+      .then((a) => live && setContent(a?.content ?? ""))
+      .catch(() => live && setContent(""));
+    return () => {
+      live = false;
+    };
+  }, [open, content, item.artifactId]);
+
+  const language = item.artifactKind === "code" ? "" : item.artifactKind;
+  const body =
+    content === null
+      ? null
+      : item.artifactKind === "plan" || item.artifactKind === "markdown"
+        ? content
+        : "```" + language + "\n" + content + "\n```";
+
+  return (
+    <>
+      <Pressable
+        style={styles.card}
+        onPress={readable ? () => setOpen(true) : undefined}
+        disabled={!readable}
+      >
+        <View style={styles.cardHead}>
+          <Feather name="layout" size={13} color={colors.accent} />
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardMeta}>{item.artifactKind}</Text>
+        </View>
+        <Text style={styles.hint}>
+          {readable ? t("transcript.openPreview") : t("chat.openOnDesktop")}
+        </Text>
+      </Pressable>
+      <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
+        <View style={styles.viewer}>
+          <View style={styles.viewerBar}>
+            <Text style={styles.viewerTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            <Pressable onPress={() => setOpen(false)} hitSlop={10}>
+              <Feather name="x" size={20} color={colors.muted} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.viewerBody}>
+            {body === null ? (
+              <ActivityIndicator color={colors.accent} style={{ marginTop: space.xxl }} />
+            ) : (
+              <Markdown text={body} />
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+/**
+ * A SuperCode run, with the desktop panel's essentials: state, per-agent
+ * progress, tokens and cost, and the tail of the log - folded behind a tap.
+ */
+function WorkflowCard({ workflowId, name }: { workflowId: string; name: string }) {
+  const wf = useMobileSession((s) => s.workflows[workflowId]);
+  const [open, setOpen] = useState(false);
+  if (!wf) {
+    return (
+      <View style={styles.thin}>
+        <Feather name="git-branch" size={12} color={colors.faint} />
+        <Text style={styles.thinText} numberOfLines={1}>
+          {name}
+        </Text>
+      </View>
+    );
+  }
+  const done = wf.agents.filter((a) => a.state === "done").length;
+  const stateColor =
+    wf.state === "error" || wf.state === "aborted"
+      ? colors.danger
+      : wf.state === "done"
+        ? colors.ok
+        : colors.accent;
+  return (
+    <Pressable style={styles.card} onPress={() => setOpen((v) => !v)}>
+      <View style={styles.cardHead}>
+        <Feather name="git-branch" size={13} color={stateColor} />
+        <Text style={styles.cardTitle} numberOfLines={1}>
+          {wf.name}
+        </Text>
+        <Text style={[styles.cardMeta, { color: stateColor }]}>{wf.state}</Text>
+      </View>
+      <Text style={styles.hint}>
+        {done}/{wf.agents.length} agents - {Math.round(wf.totalTokens / 1000)}k tok - $
+        {wf.costUsd.toFixed(3)}
+      </Text>
+      {open && (
+        <View style={styles.wfBody}>
+          {wf.agents.map((a) => (
+            <View key={a.id} style={styles.wfAgent}>
+              <Feather
+                name={
+                  a.state === "done" ? "check-circle" : a.state === "error" ? "x-circle" : "loader"
+                }
+                size={11}
+                color={
+                  a.state === "done"
+                    ? colors.ok
+                    : a.state === "error"
+                      ? colors.danger
+                      : colors.accent
+                }
+              />
+              <Text style={styles.wfAgentText} numberOfLines={1}>
+                {a.label}
+              </Text>
+            </View>
+          ))}
+          {wf.log.slice(-3).map((line, i) => (
+            <Text key={i} style={styles.wfLog} numberOfLines={1}>
+              {line}
+            </Text>
+          ))}
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 /**
  * Thinking text. While it is the only output it previews inline; once prose
@@ -302,6 +427,22 @@ const styles = StyleSheet.create({
   },
   errorCard: { borderColor: colors.dangerSoft, backgroundColor: colors.dangerSoft },
   imageWrap: { marginVertical: space.xs },
+  viewer: { flex: 1, backgroundColor: colors.bg, paddingTop: 54 },
+  viewerBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  viewerTitle: { ...type.heading, flex: 1 },
+  viewerBody: { padding: space.lg, paddingBottom: 60 },
+  wfBody: { gap: 4, marginTop: space.xs },
+  wfAgent: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  wfAgentText: { ...type.caption, color: colors.text, flexShrink: 1 },
+  wfLog: { ...type.monoSmall, fontSize: 10.5, color: colors.faint },
   cardHead: { flexDirection: "row", alignItems: "center", gap: space.sm },
   cardTitle: { ...type.label, color: colors.muted, flex: 1 },
   cardMeta: { ...type.monoSmall, color: colors.faint },

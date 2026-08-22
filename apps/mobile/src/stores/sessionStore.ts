@@ -80,7 +80,10 @@ interface MobileSessionState extends ClientSessionState {
   closeSession(): void;
   send(text: string): Promise<void>;
   abort(): Promise<void>;
-  respondPermission(id: string, allow: boolean, always?: boolean): Promise<void>;
+  respondPermission(id: string, allow: boolean, always?: boolean, rule?: string): Promise<void>;
+  /** Slash commands the desktop offers for this cwd; loaded on open. */
+  commands: import("@whalex/shared").SlashCommand[];
+  runSessionCommand(command: string): Promise<{ handled: boolean; message?: string }>;
   answerQuestion(id: string, answer: string): Promise<void>;
 }
 
@@ -201,6 +204,7 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
     goalMode: false,
     effort: "medium",
     attachments: [],
+    commands: [],
     sentImages: {},
     pendingBySession: {},
     draftSeed: null,
@@ -381,6 +385,11 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
           turnStartedAt: null,
           lastTurnMs: null,
         });
+        // The slash suggestions mirror what the desktop offers here.
+        void c
+          .invoke("commands:list", { cwd: res.cwd })
+          .then((commands) => set({ commands }))
+          .catch(() => undefined);
         const pending = buffer;
         buffer = null;
         for (const env of pending) {
@@ -476,6 +485,12 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       }
     },
 
+    async runSessionCommand(command) {
+      const id = get().activeSessionId;
+      if (!id) return { handled: false };
+      return client().invoke("session:command", { sessionId: id, command });
+    },
+
     async abort() {
       const id = get().activeSessionId;
       if (!id) return;
@@ -490,10 +505,11 @@ export const useMobileSession = create<MobileSessionState>((set, get) => {
       }
     },
 
-    async respondPermission(id, allow, always = false) {
-      // "Always" persists the tool's own suggested rule, so the desktop stops
-      // asking for this shape of call rather than for this one call.
-      const rule = get().pendingPermissions.find((p) => p.id === id)?.suggestedRules[0];
+    async respondPermission(id, allow, always = false, chosenRule) {
+      // "Always" persists a suggested rule — the caller may pick which one,
+      // like the desktop's rule dropdown; the first is the default.
+      const rule =
+        chosenRule ?? get().pendingPermissions.find((p) => p.id === id)?.suggestedRules[0];
       set((s) => ({ pendingPermissions: s.pendingPermissions.filter((p) => p.id !== id) }));
       await client().invoke("permission:respond", {
         id,

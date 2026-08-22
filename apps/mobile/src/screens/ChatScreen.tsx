@@ -131,6 +131,7 @@ export function ChatScreen({ onBack }: { onBack: () => void }) {
           onOpenWork={() => setPicker("work")}
           onOpenModel={() => setPicker("model")}
           onOpenMode={() => setPicker("mode")}
+          onOpenRewind={() => setRewindOpen(true)}
         />
       </KeyboardAvoidingView>
 
