@@ -1,4 +1,6 @@
-import Constants from "expo-constants";
+// app.json is the single source of the version, and Metro inlines it — no
+// native module needed to read a string that is fixed at build time.
+import appConfig from "../../app.json";
 
 /**
  * Update check for a sideloaded build.
@@ -12,7 +14,7 @@ import Constants from "expo-constants";
 const RELEASES = "https://api.github.com/repos/leejoong/whalex/releases?per_page=10";
 const APK = /^whalex-mobile-(\d+\.\d+\.\d+)\.apk$/i;
 
-export const currentVersion: string = Constants.expoConfig?.version ?? "0.0.0";
+export const currentVersion: string = appConfig.expo.version;
 
 export interface UpdateInfo {
   version: string;
