@@ -25,6 +25,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "allowBackup": false,
       "versionCode": 7
     },
     "web": {
@@ -44,8 +45,7 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true,
-            "allowBackup": false
+            "usesCleartextTraffic": true
           }
         }
       ],
