@@ -15,6 +15,7 @@ import { QrPayloadSchema, type PairResponse, type QrPayload } from "@whalex/shar
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
 import { getToken, listComputers, saveComputer, type PairedComputer } from "../lib/computers";
+import { useConnectionStore } from "../stores/connectionStore";
 
 /**
  * First run. The whole setup is one scan, so the screen's job is to make the
@@ -29,6 +30,9 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
   const [manualText, setManualText] = useState("");
   const [addressText, setAddressText] = useState("");
   const [known, setKnown] = useState<PairedComputer[]>([]);
+  // Why the app landed back here. Losing this made connection failures look
+  // like the camera simply reopening on its own.
+  const connError = useConnectionStore((s) => s.lastError);
 
   // A phone that has paired before is usually here for the other reason: the
   // computer's address moved, not that it needs a new pairing.
@@ -186,6 +190,12 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
         <View style={styles.error}>
           <Feather name="alert-triangle" size={13} color={colors.danger} />
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+      {!error && connError && (
+        <View style={styles.error}>
+          <Feather name="alert-triangle" size={13} color={colors.danger} />
+          <Text style={styles.errorText}>{connError}</Text>
         </View>
       )}
 

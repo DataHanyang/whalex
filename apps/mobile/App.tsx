@@ -150,10 +150,14 @@ function Shell() {
 /** Waiting on the first handshake — the app has nothing to show until then. */
 function Connecting() {
   const computer = useConnectionStore((s) => s.computer);
+  const lastError = useConnectionStore((s) => s.lastError);
   return (
     <View style={styles.connecting}>
       <ActivityIndicator color={colors.accent} />
       <Text style={styles.connectingText}>{computer?.name ?? ""}</Text>
+      {/* The raw failure, verbatim: retries are silent otherwise, and a
+          connection that never lands looks identical to one still starting. */}
+      {lastError && <Text style={styles.connectingError}>{lastError}</Text>}
     </View>
   );
 }
@@ -187,4 +191,10 @@ const styles = StyleSheet.create({
   bannerText: { ...type.caption, color: colors.attention, fontSize: 11.5 },
   connecting: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md },
   connectingText: { ...type.caption, color: colors.muted },
+  connectingError: {
+    ...type.caption,
+    color: colors.danger,
+    textAlign: "center",
+    paddingHorizontal: space.xl,
+  },
 });
