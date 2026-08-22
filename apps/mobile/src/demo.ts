@@ -1,6 +1,7 @@
 import type { PermissionRequest, SessionMeta, TranscriptItem } from "@whalex/shared";
 import { useMobileSession, type Project } from "./stores/sessionStore";
 import { useConnectionStore } from "./stores/connectionStore";
+import { saveComputer } from "./lib/computers";
 
 /**
  * Seeds the stores with a representative session so the UI can be reviewed
@@ -176,6 +177,18 @@ const PROJECTS: Project[] = [
 ];
 
 export function seedDemo(withPermission = false): void {
+  // A paired computer on record, so the pair screen shows what it looks like
+  // to someone who already has one — including the repair path for a changed
+  // address, which is hidden until there is something to repair.
+  void saveComputer({
+    computerId: "demo",
+    name: "studio-pc",
+    addrs: [{ ip: "192.168.0.14", port: 48632 }],
+    fp: "",
+    lanInfoOnly: true,
+    publicUrl: "https://quiet-harbor-1042.trycloudflare.com",
+    pairedAt: now - 86_400_000,
+  });
   useConnectionStore.setState({
     phase: "connected",
     hello: {

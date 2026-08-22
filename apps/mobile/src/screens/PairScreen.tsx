@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,7 +14,7 @@ import * as Haptics from "expo-haptics";
 import { QrPayloadSchema, type PairResponse, type QrPayload } from "@whalex/shared";
 import { colors, radius, space, type } from "../theme";
 import { t } from "../i18n";
-import { getToken, saveComputer, type PairedComputer } from "../lib/computers";
+import { getToken, listComputers, saveComputer, type PairedComputer } from "../lib/computers";
 
 /**
  * First run. The whole setup is one scan, so the screen's job is to make the
@@ -25,8 +25,34 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
   const [permission, requestPermission] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [manual, setManual] = useState(false);
+  const [mode, setMode] = useState<"scan" | "code" | "address">("scan");
   const [manualText, setManualText] = useState("");
+  const [addressText, setAddressText] = useState("");
+  const [known, setKnown] = useState<PairedComputer[]>([]);
+
+  // A phone that has paired before is usually here for the other reason: the
+  // computer's address moved, not that it needs a new pairing.
+  useEffect(() => {
+    void listComputers().then(setKnown);
+  }, []);
+
+  const handleAddress = async (): Promise<void> => {
+    const computer = known[0];
+    if (!computer || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const url = normalizeUrl(addressText);
+      const moved = await relocate(computer, url);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onPaired(moved);
+    } catch (err) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handlePayload = async (raw: string): Promise<void> => {
     if (busy) return;
@@ -63,7 +89,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
         <Step n="3" text={t("pair.step3")} />
       </View>
 
-      {!manual && (
+      {mode === "scan" && (
         <View style={styles.scanner}>
           {permission?.granted ? (
             <>
@@ -94,7 +120,7 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
         </View>
       )}
 
-      {manual && (
+      {mode === "code" && (
         <View style={styles.manual}>
           <Text style={styles.manualLabel}>{t("pair.codeLabel")}</Text>
           <TextInput
@@ -121,6 +147,41 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
         </View>
       )}
 
+      {mode === "address" && (
+        <View style={styles.manual}>
+          <Text style={styles.manualLabel}>{t("pair.address.label")}</Text>
+          {known[0] ? (
+            <>
+              <Text style={styles.addressFor}>{known[0].name}</Text>
+              <TextInput
+                style={styles.addressInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                placeholder="https://….trycloudflare.com"
+                placeholderTextColor={colors.faint}
+                value={addressText}
+                onChangeText={setAddressText}
+              />
+              <Text style={styles.addressHint}>{t("pair.address.hint")}</Text>
+              <Pressable
+                style={[styles.primary, !addressText.trim() && styles.primaryOff]}
+                onPress={() => void handleAddress()}
+                disabled={busy || !addressText.trim()}
+              >
+                {busy ? (
+                  <ActivityIndicator color={colors.bg} />
+                ) : (
+                  <Text style={styles.primaryText}>{t("pair.address.save")}</Text>
+                )}
+              </Pressable>
+            </>
+          ) : (
+            <Text style={styles.addressHint}>{t("pair.address.none")}</Text>
+          )}
+        </View>
+      )}
+
       {error && (
         <View style={styles.error}>
           <Feather name="alert-triangle" size={13} color={colors.danger} />
@@ -128,13 +189,70 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
         </View>
       )}
 
-      <Pressable onPress={() => setManual((m) => !m)} style={styles.switcher}>
+      <Pressable
+        onPress={() => {
+          setError(null);
+          // The label promises code entry everywhere except in code mode,
+          // where it promises the scanner — deliver whichever it said.
+          setMode((m) => (m === "code" ? "scan" : "code"));
+        }}
+        style={styles.switcher}
+      >
         <Text style={styles.switcherText}>
-          {manual ? t("pair.scanInstead") : t("pair.manualInstead")}
+          {mode === "code" ? t("pair.scanInstead") : t("pair.manualInstead")}
         </Text>
       </Pressable>
+
+      {known.length > 0 && (
+        <Pressable
+          onPress={() => {
+            setError(null);
+            setMode((m) => (m === "address" ? "scan" : "address"));
+          }}
+          style={styles.switcher}
+        >
+          <Text style={styles.switcherText}>
+            {mode === "address" ? t("pair.scanInstead") : t("pair.addressInstead")}
+          </Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
+}
+
+/** Accepts what a person would paste: bare host, trailing slash, http://. */
+function normalizeUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  return withScheme;
+}
+
+/**
+ * Point an existing pairing at a new address. The device token is untouched —
+ * only where to dial changed — so this is a repair, not a re-pairing. `/info`
+ * has to answer with the same computerId first: a typo that happens to reach
+ * someone else's bridge must not overwrite a working pairing.
+ */
+async function relocate(computer: PairedComputer, url: string): Promise<PairedComputer> {
+  let body: { computerId?: string; name?: string };
+  // AbortController by hand: Hermes has no AbortSignal.timeout static.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 10_000);
+  try {
+    const res = await fetch(`${url}/info`, { signal: ctl.signal });
+    if (!res.ok) throw new Error(String(res.status));
+    body = (await res.json()) as { computerId?: string; name?: string };
+  } catch {
+    throw new Error(t("pair.address.errUnreachable"));
+  } finally {
+    clearTimeout(timer);
+  }
+  if (body.computerId !== computer.computerId) {
+    throw new Error(t("pair.address.errMismatch"));
+  }
+  const moved: PairedComputer = { ...computer, publicUrl: url, name: body.name ?? computer.name };
+  await saveComputer(moved);
+  return moved;
 }
 
 function Step({ n, text }: { n: string; text: string }) {
@@ -274,6 +392,19 @@ const styles = StyleSheet.create({
     padding: space.md,
     textAlignVertical: "top",
   },
+
+  addressFor: { ...type.caption, color: colors.muted },
+  addressInput: {
+    ...type.mono,
+    fontSize: 13,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+  },
+  addressHint: { ...type.caption, color: colors.muted, lineHeight: 18, marginBottom: space.xs },
 
   primary: {
     backgroundColor: colors.accent,
