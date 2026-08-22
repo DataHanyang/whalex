@@ -19,3 +19,5 @@ apps/mobile/*.apk
 
 # cloudflared is fetched at package time, not committed
 apps/desktop/resources/cloudflared/
+
+apps/desktop/docs/shots/

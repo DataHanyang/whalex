@@ -52,10 +52,30 @@ const TABS: Array<{ id: SettingsTab; labelKey: string; icon: typeof Settings2 }>
   { id: "updates", labelKey: "settings.tab.updates", icon: RefreshCw },
 ];
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A settings line: label (with optional explanation beneath) on the left, the
+ * control on the right.
+ *
+ * The explanation belongs under the label, not beside the control. Sitting it
+ * next to a `shrink-0` control let a long sentence push the row wider than the
+ * panel — the label collapsed to one word per line and the sentence itself got
+ * clipped, which is exactly what happened to the sleep and tunnel rows.
+ */
+function Row({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border py-3">
-      <span className="text-[13px]">{label}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px]">{label}</div>
+        {hint && <div className="mt-1 text-[11.5px] leading-relaxed text-faint">{hint}</div>}
+      </div>
       <div className="shrink-0">{children}</div>
     </div>
   );
@@ -104,15 +124,12 @@ function GeneralTab() {
           onChange={(v) => void update({ autoCompact: v })}
         />
       </Row>
-      <Row label={t("settings.preventSleep")}>
-        <label className="flex items-center gap-2 text-[11.5px] text-faint">
-          <ToggleSwitch
+      <Row label={t("settings.preventSleep")} hint={t("settings.preventSleep.hint")}>
+        <ToggleSwitch
             checked={settings.preventSleepWhileRunning}
             label={t("settings.preventSleep")}
             onChange={(v) => void update({ preventSleepWhileRunning: v })}
           />
-          {t("settings.preventSleep.hint")}
-        </label>
       </Row>
       <Row label={t("settings.privacy.redact")}>
         <ToggleSwitch
@@ -121,15 +138,12 @@ function GeneralTab() {
           onChange={(v) => void update({ redactSecrets: v })}
         />
       </Row>
-      <Row label={t("settings.uncensored")}>
-        <label className="flex items-center gap-2 text-[11.5px] text-faint">
-          <ToggleSwitch
+      <Row label={t("settings.uncensored")} hint={t("settings.uncensored.hint")}>
+        <ToggleSwitch
             checked={settings.uncensoredMode}
             label={t("settings.uncensored")}
             onChange={(v) => void update({ uncensoredMode: v })}
           />
-          {t("settings.uncensored.hint")}
-        </label>
       </Row>
       {(
         [
@@ -1328,25 +1342,19 @@ function RemoteTab() {
 
   return (
     <div>
-      <Row label={t("settings.remote.enable")}>
-        <label className="flex items-center gap-2 text-[11.5px] text-faint">
-          <ToggleSwitch
+      <Row label={t("settings.remote.enable")} hint={t("settings.remote.enable.hint")}>
+        <ToggleSwitch
             checked={bridge.enabled}
             label={t("settings.remote.enable")}
             onChange={(v) => void setEnabled(v)}
           />
-          {t("settings.remote.enable.hint")}
-        </label>
       </Row>
-      <Row label={t("settings.remote.tunnel")}>
-        <label className="flex max-w-[320px] items-center gap-2 text-[11.5px] text-faint">
-          <ToggleSwitch
+      <Row label={t("settings.remote.tunnel")} hint={t("settings.remote.tunnel.hint")}>
+        <ToggleSwitch
             checked={bridge.tunnel}
             label={t("settings.remote.tunnel")}
             onChange={(v) => void update({ remoteBridge: { ...bridge, tunnel: v } }).then(refresh)}
           />
-          {t("settings.remote.tunnel.hint")}
-        </label>
       </Row>
       {bridge.tunnel && status && (
         <Row label={t("settings.remote.tunnel.status")}>
@@ -1372,15 +1380,12 @@ function RemoteTab() {
         <summary className="cursor-pointer list-none py-2 text-[12px] text-faint hover:text-muted">
           {t("settings.remote.advanced")}
         </summary>
-      <Row label={t("settings.remote.insecure")}>
-        <label className="flex max-w-[320px] items-center gap-2 text-[11.5px] text-danger">
-          <ToggleSwitch
+      <Row label={t("settings.remote.insecure")} hint={t("settings.remote.insecure.hint")}>
+        <ToggleSwitch
             checked={bridge.insecure}
             label={t("settings.remote.insecure")}
             onChange={(v) => void update({ remoteBridge: { ...bridge, insecure: v } }).then(refresh)}
           />
-          {t("settings.remote.insecure.hint")}
-        </label>
       </Row>
       <Row label={t("settings.remote.port")}>
         <input
