@@ -375,8 +375,6 @@ export const ko: Partial<Dict> = {
     "conn.banner": "컴퓨터에 다시 연결하는 중…",
     "pair.kicker": "WhaleX",
     "pair.title": "내 컴퓨터에 연결",
-    "pair.lead":
-    "작업은 데스크탑이 합니다. 이 앱은 그 과정을 지켜보고, 방향을 잡고, 요청을 승인합니다.",
     "pair.step1": "컴퓨터에서 WhaleX를 엽니다",
     "pair.step2": "설정 → 원격 → 모바일 접속 허용을 켭니다",
     "pair.step3": "기기 페어링을 누르고 QR을 스캔합니다",
@@ -390,7 +388,7 @@ export const ko: Partial<Dict> = {
     "pair.manualInstead": "코드 직접 입력하기",
     "pair.addressInstead": "저장된 컴퓨터의 주소 바꾸기",
     "pair.address.label": "새 주소",
-    "pair.address.hint": "컴퓨터를 다시 켜면 주소가 바뀔 수 있습니다. 그 컴퓨터에서 WhaleX → 설정 → 원격을 열어 '폰 접속 주소'를 복사해 붙여넣으세요. 페어링은 그대로 유지됩니다.",
+    "pair.address.hint": "데스크탑 → 설정 → 원격의 '폰 접속 주소'를 붙여넣으세요.",
     "pair.address.save": "주소 업데이트",
     "pair.address.none": "아직 페어링된 컴퓨터가 없습니다 — 먼저 코드를 스캔하세요.",
     "pair.address.errUnreachable": "그 주소에서 응답이 없습니다.",

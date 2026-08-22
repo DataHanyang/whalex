@@ -375,8 +375,6 @@ export const vi: Partial<Dict> = {
     "conn.banner": "Đang kết nối lại với máy tính của bạn…",
     "pair.kicker": "WhaleX",
     "pair.title": "Kết nối với máy tính của bạn",
-    "pair.lead":
-    "Máy tính làm việc. Ứng dụng này theo dõi, điều hướng và phê duyệt những gì nó yêu cầu.",
     "pair.step1": "Mở WhaleX trên máy tính",
     "pair.step2": "Cài đặt → Từ xa → bật truy cập từ điện thoại",
     "pair.step3": "Nhấn Ghép đôi thiết bị rồi quét mã",
@@ -390,7 +388,7 @@ export const vi: Partial<Dict> = {
     "pair.manualInstead": "Nhập mã thủ công",
     "pair.addressInstead": "Cập nhật địa chỉ máy tính đã lưu",
     "pair.address.label": "Địa chỉ mới",
-    "pair.address.hint": "Khởi động lại máy tính có thể làm đổi địa chỉ. Hãy mở WhaleX trên máy đó → Cài đặt → Từ xa và sao chép địa chỉ dành cho điện thoại. Việc ghép nối vẫn giữ nguyên.",
+    "pair.address.hint": "Dán địa chỉ từ Desktop -> Cài đặt -> Từ xa.",
     "pair.address.save": "Cập nhật địa chỉ",
     "pair.address.none": "Chưa có máy tính nào được ghép nối — hãy quét mã trước.",
     "pair.address.errUnreachable": "Không có phản hồi từ địa chỉ đó.",

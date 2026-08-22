@@ -375,8 +375,6 @@ export const id: Partial<Dict> = {
     "conn.banner": "Menyambung ulang ke komputer Anda…",
     "pair.kicker": "WhaleX",
     "pair.title": "Hubungkan ke komputer Anda",
-    "pair.lead":
-    "Pekerjaan dilakukan di desktop. Aplikasi ini mengawasi, mengarahkan, dan menyetujui yang diminta.",
     "pair.step1": "Buka WhaleX di komputer",
     "pair.step2": "Pengaturan → Jarak Jauh → aktifkan akses seluler",
     "pair.step3": "Tekan Pasangkan perangkat, lalu pindai kodenya",
@@ -390,7 +388,7 @@ export const id: Partial<Dict> = {
     "pair.manualInstead": "Masukkan kode manual",
     "pair.addressInstead": "Perbarui alamat komputer tersimpan",
     "pair.address.label": "Alamat baru",
-    "pair.address.hint": "Menyalakan ulang komputer bisa mengubah alamatnya. Buka WhaleX di sana → Pengaturan → Jarak jauh, lalu salin alamat untuk ponsel. Pemasangan tetap seperti semula.",
+    "pair.address.hint": "Tempel alamat dari Desktop -> Pengaturan -> Jarak jauh.",
     "pair.address.save": "Perbarui alamat",
     "pair.address.none": "Belum ada komputer terpasang — pindai kode dulu.",
     "pair.address.errUnreachable": "Tidak ada respons dari alamat itu.",

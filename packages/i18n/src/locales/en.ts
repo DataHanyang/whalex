@@ -379,8 +379,6 @@ export const en = {
     // Pairing
   "pair.kicker": "WhaleX",
     "pair.title": "Connect to your computer",
-    "pair.lead":
-    "Your desktop does the work. This app watches it, steers it, and approves what it asks for.",
     "pair.step1": "Open WhaleX on your computer",
     "pair.step2": "Settings → Remote → turn on mobile access",
     "pair.step3": "Press Pair a device, then scan the code",
@@ -394,7 +392,7 @@ export const en = {
     "pair.manualInstead": "Enter the code manually",
     "pair.addressInstead": "Update a saved computer's address",
     "pair.address.label": "New address",
-    "pair.address.hint": "Restarting the computer can change its address. Open WhaleX there → Settings → Remote and copy the address shown for your phone. Your pairing stays as it is.",
+    "pair.address.hint": "Paste the address from Desktop -> Settings -> Remote.",
     "pair.address.save": "Update address",
     "pair.address.none": "No paired computer yet — scan a code first.",
     "pair.address.errUnreachable": "Nothing answered at that address.",

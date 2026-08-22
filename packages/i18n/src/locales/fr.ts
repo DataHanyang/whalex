@@ -375,8 +375,6 @@ export const fr: Partial<Dict> = {
     "conn.banner": "Reconnexion à votre ordinateur…",
     "pair.kicker": "WhaleX",
     "pair.title": "Connectez-vous à votre ordinateur",
-    "pair.lead":
-    "Le travail se fait sur le bureau. Cette app le suit, l'oriente et approuve ce qu'il demande.",
     "pair.step1": "Ouvrez WhaleX sur votre ordinateur",
     "pair.step2": "Réglages → À distance → activez l'accès mobile",
     "pair.step3": "Appuyez sur Appairer un appareil, puis scannez le code",
@@ -390,7 +388,7 @@ export const fr: Partial<Dict> = {
     "pair.manualInstead": "Saisir le code manuellement",
     "pair.addressInstead": "Modifier l'adresse d'un ordinateur enregistré",
     "pair.address.label": "Nouvelle adresse",
-    "pair.address.hint": "Redémarrer l'ordinateur peut changer son adresse. Ouvrez-y WhaleX → Réglages → À distance et copiez l'adresse indiquée pour votre téléphone. L'appairage reste valide.",
+    "pair.address.hint": "Collez l'adresse depuis Bureau -> Reglages -> A distance.",
     "pair.address.save": "Mettre à jour l'adresse",
     "pair.address.none": "Aucun ordinateur appairé — scannez d'abord un code.",
     "pair.address.errUnreachable": "Aucune réponse à cette adresse.",

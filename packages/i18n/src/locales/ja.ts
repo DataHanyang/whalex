@@ -375,8 +375,6 @@ export const ja: Partial<Dict> = {
     "conn.banner": "パソコンに再接続しています…",
     "pair.kicker": "WhaleX",
     "pair.title": "パソコンに接続",
-    "pair.lead":
-    "作業はデスクトップが行います。このアプリはそれを見守り、方向づけ、求められた操作を承認します。",
     "pair.step1": "パソコンで WhaleX を開く",
     "pair.step2": "設定 → リモート → モバイル接続を有効にする",
     "pair.step3": "デバイスをペアリングを押し、コードをスキャン",
@@ -390,7 +388,7 @@ export const ja: Partial<Dict> = {
     "pair.manualInstead": "コードを手入力する",
     "pair.addressInstead": "保存済みのパソコンのアドレスを変更",
     "pair.address.label": "新しいアドレス",
-    "pair.address.hint": "パソコンを再起動するとアドレスが変わることがあります。そのパソコンで WhaleX → 設定 → リモート を開き、スマホ用アドレスをコピーして貼り付けてください。ペアリングはそのまま保たれます。",
+    "pair.address.hint": "デスクトップ → 設定 → リモート のアドレスを貼り付けてください。",
     "pair.address.save": "アドレスを更新",
     "pair.address.none": "ペアリング済みのパソコンがありません — 先にコードをスキャンしてください。",
     "pair.address.errUnreachable": "そのアドレスから応答がありません。",

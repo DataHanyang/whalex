@@ -63,7 +63,14 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
     setBusy(true);
     setError(null);
     try {
-      const qr = QrPayloadSchema.parse(JSON.parse(raw));
+      // Codes often arrive through a messenger, which "helpfully" curls the
+      // quotes and pads with whitespace — undo that before parsing.
+      const cleaned = raw
+        .replace(/[“”″]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/ /g, " ")
+        .trim();
+      const qr = QrPayloadSchema.parse(JSON.parse(cleaned));
       const computer = await pair(qr);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onPaired(computer);
@@ -83,9 +90,6 @@ export function PairScreen({ onPaired }: { onPaired: (computer: PairedComputer) 
     >
       <Text style={styles.kicker}>{t("pair.kicker")}</Text>
       <Text style={styles.title}>{t("pair.title")}</Text>
-      <Text style={styles.lead}>
-        {t("pair.lead")}
-      </Text>
 
       <View style={styles.steps}>
         <Step n="1" text={t("pair.step1")} />
@@ -355,7 +359,6 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   title: { ...type.display },
-  lead: { ...type.body, color: colors.muted, marginTop: space.md },
 
   steps: { marginTop: space.xxl, gap: space.md },
   step: { flexDirection: "row", alignItems: "center", gap: space.md },

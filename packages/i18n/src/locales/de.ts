@@ -375,8 +375,6 @@ export const de: Partial<Dict> = {
     "conn.banner": "Verbindung zum Rechner wird wiederhergestellt…",
     "pair.kicker": "WhaleX",
     "pair.title": "Mit deinem Rechner verbinden",
-    "pair.lead":
-    "Die Arbeit macht der Desktop. Diese App sieht zu, lenkt sie und genehmigt, worum sie bittet.",
     "pair.step1": "WhaleX auf dem Rechner öffnen",
     "pair.step2": "Einstellungen → Fernzugriff → mobilen Zugriff einschalten",
     "pair.step3": "Auf „Gerät koppeln“ tippen und den Code scannen",
@@ -390,7 +388,7 @@ export const de: Partial<Dict> = {
     "pair.manualInstead": "Code manuell eingeben",
     "pair.addressInstead": "Adresse eines gespeicherten Computers ändern",
     "pair.address.label": "Neue Adresse",
-    "pair.address.hint": "Ein Neustart kann die Adresse des Computers ändern. Öffne dort WhaleX → Einstellungen → Fernzugriff und kopiere die Adresse für dein Handy. Die Kopplung bleibt bestehen.",
+    "pair.address.hint": "Adresse aus Desktop -> Einstellungen -> Fernzugriff einfuegen.",
     "pair.address.save": "Adresse aktualisieren",
     "pair.address.none": "Noch kein gekoppelter Computer – scanne zuerst einen Code.",
     "pair.address.errUnreachable": "Unter dieser Adresse antwortet nichts.",
