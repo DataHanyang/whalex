@@ -346,12 +346,26 @@ void app.whenReady().then(() => {
     host.disposeAll();
     await Promise.race([preview.stopAll(), new Promise((r) => setTimeout(r, 3000))]);
   };
+  /**
+   * A quick-tunnel address lives and dies with cloudflared, so killing it on
+   * quit hands every paired phone a dead address the moment the desktop is
+   * closed — and a phone that is away from home has no way to learn the new
+   * one. Leaving it up keeps the address stable across quit/relaunch.
+   *
+   * Only when someone actually depends on it: no paired device (or mobile
+   * access off) means nothing to preserve, and no reason to leave a process
+   * behind.
+   */
+  const tunnelWorthKeeping = (): boolean => {
+    const cfg = settings.get().remoteBridge;
+    return cfg.enabled && cfg.devices.length > 0;
+  };
   app.on("before-quit", (e) => {
     quitting = true;
     if (cleanupDone) return;
     cleanupDone = true;
     e.preventDefault();
-    void shutdownCleanup().finally(() => app.quit());
+    void shutdownCleanup({ keepTunnel: tunnelWorthKeeping() }).finally(() => app.quit());
   });
   // The updater runs the same cleanup BEFORE handing off to the installer;
   // with cleanupDone already set, its app.quit() sails through un-prevented
