@@ -150,8 +150,12 @@ const styles = StyleSheet.create({
   sub: { ...type.caption, fontSize: 11.5 },
   list: { paddingHorizontal: space.lg, paddingVertical: space.lg },
   empty: {
-    // The list is inverted, so its empty state has to be too.
-    transform: [{ scaleY: -1 }],
+    // The list is inverted, so its empty state must counter with the exact
+    // transform VirtualizedList uses per platform: Android inverts with
+    // scale:-1 (a 180° turn), everything else with scaleY:-1. Countering
+    // Android's turn with a vertical-only flip leaves a horizontal mirror —
+    // on a real phone the title rendered right-to-left.
+    transform: Platform.OS === "android" ? [{ scale: -1 }] : [{ scaleY: -1 }],
     alignItems: "center",
     paddingTop: space.xxxl,
     gap: space.sm,

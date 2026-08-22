@@ -137,7 +137,14 @@ function Shell() {
   return (
     <View style={styles.root}>
       {banner && <ConnectionBanner />}
-      <View style={[styles.body, { paddingTop: banner ? 0 : insets.top }]}>
+      {/* Android draws edge-to-edge, so the gesture bar sat on top of the
+          composer and the last list rows; the shell owns both insets. */}
+      <View
+        style={[
+          styles.body,
+          { paddingTop: banner ? 0 : insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
         {screen === "pair" && <PairScreen onPaired={onPaired} />}
         {screen === "connecting" && <Connecting />}
         {screen === "sessions" && <SessionsScreen onOpen={() => setScreen("chat")} />}
